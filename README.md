@@ -1,10 +1,41 @@
-state_space_model
-==============================
+# State Space Dynamic Modeling
 
-State space model is a project to try and model the dynamics of cell culture and then predict and optimize bioreactor trends.
+The purpose of this project is to try and utlize the state space equations to model the dynamics of cell culture.
 
-Project Organization
-------------
+The main reasons for starting this project are:
+- Optimizing process development parameters (ex: feeding, pH, Temperature)
+- Prediciting future cell dynamics based on previous data
+- Generating process knowledge for future experimentation
+
+-------
+
+## Table of Contents
+
+- [State Space Dynamic Modeling](#state-space-dynamic-modeling)
+  - [Table of Contents](#table-of-contents)
+  - [Model Development History](#model-development-history)
+    - [Model 1: AR22-075 Process Model](#model-1-ar22-075-process-model)
+  - [Project Organization](#project-organization)
+
+-----
+## Model Development History
+
+### Model 1: AR22-075 Process Model
+- Description: This was the first model developed. The goal was to optimize the feeding strategy for PVRIG process 2 development. The model was designed to optimize the feeding strategy by maximizing the titer. Multiple iterations that are not documented were developed prior to this first model.
+- Deployment Date: 18Oct22
+- Links: 
+  - [Model Parameters](../state-space-model/docs/)
+  - [Code]()
+  - [Figures]()
+
+
+
+
+
+
+------
+## Project Organization
+
 
     ├── LICENSE
     ├── Makefile           <- Makefile with commands like `make data` or `make train`
