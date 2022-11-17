@@ -17,8 +17,8 @@ class ModelData:
         return pd.read_csv(self.file_path)
 
     def interpolation(self):
-        df = self.load_data()
-        grouped = df.groupby("Batch", group_keys=False)
+        df_interpolate = self.load_data()
+        grouped = df_interpolate.groupby("Batch", group_keys=False)
         grouped.apply(lambda group: group.interpolate(method = 'linear'))
         return grouped.apply(lambda group: group.interpolate(method = 'backfill', \
         limit_direction='backward',limit=2))
@@ -32,7 +32,7 @@ class ModelData:
     #     for w in SPLINES:
     #         df_batch[w] = spl_dict[w](x)
 
-    def train_test_split(self, group: str, test_size = 0.20, n_splits = 2, random_state = 1):
+    def train_test_split(self, group: str, test_size = 0.10, n_splits = 2, random_state = 1):
         data = self.interpolation()
         splitter = GroupShuffleSplit(test_size=test_size, n_splits=n_splits, random_state=random_state)
         split = splitter.split(data, groups=data[ group])

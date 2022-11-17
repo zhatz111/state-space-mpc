@@ -7,7 +7,6 @@ The main reasons for starting this project are:
 - Prediciting future cell dynamics based on previous data
 - Generating process knowledge for future experimentation
 
--------
 
 ## Table of Contents
 
@@ -17,23 +16,19 @@ The main reasons for starting this project are:
     - [Model 1: AR22-075 Process Model](#model-1-ar22-075-process-model)
   - [Project Organization](#project-organization)
 
------
+
 ## Model Development History
 
 ### Model 1: AR22-075 Process Model
 - Description: This was the first model developed. The goal was to optimize the feeding strategy for PVRIG process 2 development. The model was designed to optimize the feeding strategy by maximizing the titer. Multiple iterations that are not documented were developed prior to this first model.
 - Deployment Date: 18Oct22
 - Links: 
-  - [Model Parameters](../state-space-model/docs/)
-  - [Code]()
-  - [Figures]()
+  - [Model Parameters](../state-space-model/docs/Models/Model%201/Model-Parameters.md)
+  - [Code](../state-space-model/docs/Models/Model%201/Code)
+  - [Figures](../state-space-model/docs/Models/Model%201/Figures)
 
 
 
-
-
-
-------
 ## Project Organization
 
 
