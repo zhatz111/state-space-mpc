@@ -23,9 +23,9 @@ The main reasons for starting this project are:
 - Description: This was the first model developed. The goal was to optimize the feeding strategy for PVRIG process 2 development. The model was designed to optimize the feeding strategy by maximizing the titer. Multiple iterations that are not documented were developed prior to this first model.
 - Deployment Date: 18Oct22
 - Links: 
-  - [Model Parameters](https://mygithub.gsk.com/gsk-tech/state-space-model/blob/main/docs/Models/Model%201/Model-Parameters.md)
-  - [Code](https://mygithub.gsk.com/gsk-tech/state-space-model/tree/main/docs/Models/Model%201/Code)
-  - [Figures](https://mygithub.gsk.com/gsk-tech/state-space-model/tree/main/docs/Models/Model%201/Figures)
+  - [Model Parameters](https://mygithub.gsk.com/gsk-tech/state-space-model/blob/main/models/Model%201/Model-Parameters.md)
+  - [Code](https://mygithub.gsk.com/gsk-tech/state-space-model/tree/main/models/Model%201/Code)
+  - [Figures](https://mygithub.gsk.com/gsk-tech/state-space-model/tree/main/models/Model%201/Figures)
 
 
 
