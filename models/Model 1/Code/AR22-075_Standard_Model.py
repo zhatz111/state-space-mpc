@@ -166,7 +166,7 @@ else:
 # THIS IS THE START OF THE BULK OF THE SCRIPT, NO MORE INPUTS NEEDED AFTER THIS POINT
 # Read the excel file that contains the data to model and discard any batches that may be outliers
 print("Reading Data File...")
-df = pd.read_csv("./data/raw/AR22-001-Model-Data.csv")
+df = pd.read_csv("./models/Model 1/data/Model_1_Data_AR22-001.csv")
 df = df[~df["Batch"].str.contains("|".join(DISCARD))]
 
 # Build a dictionary for each batch in the data file and interpolate any null values for
