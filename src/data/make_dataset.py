@@ -17,7 +17,7 @@ class ModelData:
         self.discard = discard
 
     def interpolation(self):
-        if len(self.discard) > 0:
+        if (len(self.discard) > 0) or (self.discard is None):
             self.df = self.df[~self.df[self.group].str.contains("|".join(self.discard))]
         grouped = self.df.groupby(self.group, group_keys=False)
         grouped.apply(lambda group: group.interpolate(method = 'linear'))

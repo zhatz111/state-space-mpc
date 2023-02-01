@@ -10,10 +10,12 @@ from sklearn.linear_model import LinearRegression
 
 class ModelTraining:
 
-    def __init__(self, train_data: pd.DataFrame, test_data: pd.DataFrame, states: list, inputs: list, num_days: int):
+    def __init__(self, train_data: pd.DataFrame, test_data: pd.DataFrame, a_matrix, b_matrix, states: list, inputs: list, num_days: int):
 
         self.train_data = train_data
         self.test_data = test_data
+        self.a_matrix = a_matrix
+        self.b_matrix = b_matrix
         self.states = states
         self.inputs = inputs
         self.num_days = num_days
@@ -24,7 +26,7 @@ class ModelTraining:
 
     def first_pass_training(self):
 
-        x = np.array(self.train_data[self.train_data["Day"] < 12].filter(items=self.states))
+        x = np.array(self.train_data[self.train_data["Day"] < (self.num_days - 1)].filter(items=self.states))
         y = np.array(self.train_data[self.train_data["Day"] > 0].filter(items=self.states))
         regression_matrix = np.zeros([self.state_len, self.total])
         for j in range(self.state_len):
@@ -32,22 +34,22 @@ class ModelTraining:
             regression_matrix[j, :] = reg.coef_
         return regression_matrix
 
-    def train_model(self, save_path, a_matrix, b_matrix, first_train=True, iterations=10):
+    def train_model(self, save_path, first_train=True, iterations=10):
 
         if first_train:
             initial_matrix = self.first_pass_training()
-            A_Matrix = initial_matrix[:self.state_len, :self.state_len]
-            B_Matrix = initial_matrix[:self.state_len, self.state_len:]
+            self.a_matrix = initial_matrix[:self.state_len, :self.state_len]
+            self.b_matrix = initial_matrix[:self.state_len, self.state_len:]
             C_Matrix = np.identity(self.state_len)
             D_Matrix = np.zeros([self.state_len, self.input_len])
         else:
-            A_Matrix = a_matrix
-            B_Matrix = b_matrix
+            self.a_matrix = self.a_matrix
+            self.b_matrix = self.b_matrix
             C_Matrix = np.identity(self.state_len)
             D_Matrix = np.zeros([self.state_len, self.input_len])
 
-        a_sim = A_Matrix.reshape(-1, 1)
-        b_sim = B_Matrix.reshape(-1, 1)
+        a_sim = self.a_matrix.reshape(-1, 1)
+        b_sim = self.b_matrix.reshape(-1, 1)
         combined_mat = np.vstack([a_sim, b_sim])
 
         def objective_func(mat, info):
@@ -101,13 +103,12 @@ class ModelTraining:
         opt_matrix = res.x
 
         # This returns the matrix in the correct shape for use later on in the evaluation
-        A_Matrix = opt_matrix[: (self.state_len**2)].reshape(self.state_len, self.state_len)
-        B_Matrix = opt_matrix[(self.state_len**2) :].reshape(self.state_len, self.input_len)
-        np.savetxt(fr"{save_path}\A_Matrix.csv", A_Matrix, delimiter=',')
-        np.savetxt(fr"{save_path}\B_Matrix.csv", B_Matrix, delimiter=',')
-        return A_Matrix, B_Matrix
+        self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(self.state_len, self.state_len)
+        self.b_matrix = opt_matrix[(self.state_len**2) :].reshape(self.state_len, self.input_len)
+        np.savetxt(fr"{save_path}\A_Matrix.csv", self.a_matrix, delimiter=',')
+        np.savetxt(fr"{save_path}\B_Matrix.csv", self.b_matrix, delimiter=',')
 
-    def test_model(self, a_matrix, b_matrix, test_label: str):
+    def test_model(self, test_label: str):
 
         C_Matrix = np.identity(self.state_len)
         D_Matrix = np.zeros([self.state_len, self.input_len])
@@ -119,7 +120,7 @@ class ModelTraining:
         for name, group in test_grouped:
             test_x0 = np.array(group.filter(self.states).iloc[0])
             test_u = np.array(group.filter(self.inputs))
-            bioreactor = signal.StateSpace(a_matrix, b_matrix, C_Matrix, D_Matrix, dt=1)
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix, dt=1)
             _, test_yout, _ = signal.dlsim(bioreactor, test_u, self.time, test_x0)
             raw_data = np.hstack((test_yout,test_u))
             test_model_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
@@ -131,23 +132,39 @@ class ModelTraining:
             plt.title(name)
             plt.show()
 
-    def data_plots(self):
-        pass
+    def evaluate(self, test_label: str):
+        df_eval = pd.concat([self.train_data, self.test_data], ignore_index=True)
+        C_Matrix = np.identity(self.state_len)
+        D_Matrix = np.zeros([self.state_len, self.input_len])
+        columns = self.states + self.inputs
+
+        eval_dict = {}
+        eval_grouped = df_eval.groupby("Batch")
+        for name, group in eval_grouped:
+            test_x0 = np.array(group.filter(self.states).iloc[0])
+            test_u = np.array(group.filter(self.inputs))
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix, dt=1)
+            _, eval_yout, _ = signal.dlsim(bioreactor, test_u, self.time, test_x0)
+            raw_data = np.hstack((eval_yout,test_u))
+            eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+
+            plt.figure(figsize=(10,5))
+            plt.plot(self.time, eval_dict[name][test_label],"ro-", label="Simulated")
+            plt.plot(self.time, group[test_label],"bo-", label="Actual")
+            plt.legend()
+            plt.title(name)
+            plt.show()
 
     def get_matrices(self):
         pass
 
-    def train_test_model(self, save_path, a_matrix, b_matrix, test_label: str, first_train=True, iterations=10):
+    def train_test_model(self, save_path, test_label: str, first_train=True, iterations=10):
 
-        A_Matrix, B_Matrix = self.train_model(
+        self.train_model(
             save_path=save_path,
-            a_matrix=a_matrix,
-            b_matrix=b_matrix,
             first_train=first_train,
             iterations=iterations,
         )
         self.test_model(
-            A_Matrix=A_Matrix,
-            B_Matrix=B_Matrix,
             test_label=test_label,
         )
