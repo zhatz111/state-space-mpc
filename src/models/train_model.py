@@ -26,7 +26,7 @@ class ModelTraining:
 
     def first_pass_training(self):
 
-        x = np.array(self.train_data[self.train_data["Day"] < (self.num_days - 1)].filter(items=self.states))
+        x = np.array(self.train_data[self.train_data["Day"] < (self.num_days - 1)].filter(items=self.states+self.inputs))
         y = np.array(self.train_data[self.train_data["Day"] > 0].filter(items=self.states))
         regression_matrix = np.zeros([self.state_len, self.total])
         for j in range(self.state_len):
@@ -40,6 +40,7 @@ class ModelTraining:
             initial_matrix = self.first_pass_training()
             self.a_matrix = initial_matrix[:self.state_len, :self.state_len]
             self.b_matrix = initial_matrix[:self.state_len, self.state_len:]
+            print(self.a_matrix)
             C_Matrix = np.identity(self.state_len)
             D_Matrix = np.zeros([self.state_len, self.input_len])
         else:
@@ -77,8 +78,8 @@ class ModelTraining:
 
                 a_matrix = mat[:(self.state_len**2)].reshape(self.state_len, self.state_len)
                 b_matrix = mat[(self.state_len**2):].reshape(self.state_len, self.input_len)
-                state = signal.StateSpace(a_matrix, b_matrix, C_Matrix, D_Matrix, dt=1)
-                _, of_yout, _ = signal.dlsim(state, of_u, self.time, of_x0)
+                state = signal.StateSpace(a_matrix, b_matrix, C_Matrix, D_Matrix)
+                _, of_yout, _ = signal.lsim(state, of_u, self.time, of_x0)
 
                 if iter_counter == 0:
                     y_sim_all = of_yout
@@ -120,8 +121,8 @@ class ModelTraining:
         for name, group in test_grouped:
             test_x0 = np.array(group.filter(self.states).iloc[0])
             test_u = np.array(group.filter(self.inputs))
-            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix, dt=1)
-            _, test_yout, _ = signal.dlsim(bioreactor, test_u, self.time, test_x0)
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
+            _, test_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
             raw_data = np.hstack((test_yout,test_u))
             test_model_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
 
@@ -143,7 +144,7 @@ class ModelTraining:
         for name, group in eval_grouped:
             test_x0 = np.array(group.filter(self.states).iloc[0])
             test_u = np.array(group.filter(self.inputs))
-            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix, dt=1)
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix,dt=1)
             _, eval_yout, _ = signal.dlsim(bioreactor, test_u, self.time, test_x0)
             raw_data = np.hstack((eval_yout,test_u))
             eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)

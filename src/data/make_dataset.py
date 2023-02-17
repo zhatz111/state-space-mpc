@@ -39,6 +39,7 @@ class ModelData:
 
             smooth_data.append(group)
         smooth_data = pd.concat(smooth_data)
+        smooth_data.to_clipboard()
         return smooth_data
 
     def train_test_split(self, spline_list: list, test_size = 0.10, n_splits = 2, random_state = 1):
