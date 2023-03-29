@@ -75,7 +75,7 @@ ERROR_REDUCTION = False
 OPTIMIZED_ARRAYS = True
 INITIAL_REGRESSION = False
 ALL_INPUT_OPTIMIZATION = True
-BATCH = "AR22-001-003"
+BATCH = "AR22-001-011"
 PLOT_LIST = ["VCC", "Lact", "Gluc", "IGG"]
 TEST_BATCHES = ["AR22-001-019", "AR22-001-003"]
 
@@ -816,6 +816,10 @@ else:
         df_train[df_train["Batch"] == BATCH].sort_values("Day").iloc[:, :NUMBER_STATES]
     )
 
+df_configure = df_plot.copy()
+df_configure[["Daily Feed Normal (mL)","Daily Glucose Normal (mL)"]] = 0
+df_export_data = scaler.inverse_transform(df_configure)
+df_export_data = pd.DataFrame(df_export_data, columns=features)
 
 # These plots are to compare the optimal strategy to the other batches strategies
 fig_opt, axs = plt.subplots(ncols=3, nrows=3, figsize=(15, 6), sharex=True)
@@ -968,7 +972,8 @@ plt.legend(
 feed_percent = (np.sum(Daily_Feed) / average_vol)*100
 print(feed_percent)
 
-df_rescaled_opt["CSFR"].to_clipboard()
+# df_rescaled_opt["CSFR"].to_clipboard()
+df_export_data.to_clipboard()
 
 fig_test.tight_layout()
 fig_opt.tight_layout()

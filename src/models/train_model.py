@@ -1,16 +1,18 @@
 
-import joblib
+import math
 import numpy as np
 import pandas as pd
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+from sklearn.metrics import r2_score
+from sklearn.metrics import matthews_corrcoef
 from sklearn.linear_model import LinearRegression
 
 class ModelTraining:
 
-    def __init__(self, train_data: pd.DataFrame, test_data: pd.DataFrame, a_matrix, b_matrix, states: list, inputs: list, num_days: int):
+    def __init__(self, train_data: pd.DataFrame, test_data: pd.DataFrame, a_matrix, b_matrix, states: list, inputs: list, num_days: int, scaler_dict: dict):
 
         self.train_data = train_data
         self.test_data = test_data
@@ -19,6 +21,7 @@ class ModelTraining:
         self.states = states
         self.inputs = inputs
         self.num_days = num_days
+        self.scaler_dict = scaler_dict
         self.state_len = len(states)
         self.input_len = len(inputs)
         self.time = np.arange(0, self.num_days, 1)
@@ -40,7 +43,6 @@ class ModelTraining:
             initial_matrix = self.first_pass_training()
             self.a_matrix = initial_matrix[:self.state_len, :self.state_len]
             self.b_matrix = initial_matrix[:self.state_len, self.state_len:]
-            print(self.a_matrix)
             C_Matrix = np.identity(self.state_len)
             D_Matrix = np.zeros([self.state_len, self.input_len])
         else:
@@ -92,6 +94,8 @@ class ModelTraining:
                 print("")
                 print("Iteration: ", info["Nfeval"])
                 print("Error: ", ((y_actual_all - y_sim_all) ** 2).sum())
+                # for count, i in enumerate(self.states):
+                #     print(f"{i} RMSE: ", np.sqrt(((y_actual_all[:,count] - y_sim_all[:,count]) ** 2).sum()/len(y_actual_all)))
             info["Nfeval"] += 1
             return ((y_actual_all - y_sim_all) ** 2).sum()
 
@@ -116,6 +120,7 @@ class ModelTraining:
         columns = self.states + self.inputs
 
         # y_out_test = np.zeros([self.num_days, self.state_len])
+        eval_dict = {}
         test_model_dict = {}
         test_grouped = self.test_data.groupby("Batch")
         for name, group in test_grouped:
@@ -124,40 +129,185 @@ class ModelTraining:
             bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
             _, test_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
             raw_data = np.hstack((test_yout,test_u))
-            test_model_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            test_model_dict[name] = group
 
-            plt.figure(figsize=(10,5))
-            plt.plot(self.time, test_model_dict[name][test_label],"ro-", label="Simulated")
-            plt.plot(self.time, group[test_label],"bo-", label="Actual")
-            plt.legend()
-            plt.title(name)
-            plt.show()
+        scaler_value = self.scaler_dict[test_label][0]
+        min_value = self.scaler_dict[test_label][1]
+        cols = 2
+        rows = math.floor(len(eval_dict) / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(10,10),squeeze=False)
+        dict_keys = [k for k in eval_dict.keys()]
+        count = 0
+        for i in range(rows):
+            for j in range(cols):
+                key = dict_keys[count]
+                axes[i][j].plot(self.time, (eval_dict[key][test_label]-min_value)/scaler_value,"ro-", label="Simulated",markersize=3.5)
+                axes[i][j].plot(self.time, (test_model_dict[key][test_label]-min_value)/scaler_value,"bo-", label="Actual",markersize=3.5)
+                axes[i][j].set_title(key)
+                count += 1
+        plt.legend(loc="best")
+        fig.tight_layout()
 
-    def evaluate(self, test_label: str):
+        SMALL_SIZE = 3
+        MEDIUM_SIZE = 5
+        BIGGER_SIZE = 12
+
+        plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+        plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+        plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=SMALL_SIZE)
+        plt.show()
+
+    def evaluate(self, test_label: str, ylim=None):
+        df_eval = pd.concat([self.train_data, self.test_data], ignore_index=True)
+        C_Matrix = np.identity(self.state_len)
+        D_Matrix = np.zeros([self.state_len, self.input_len])
+        columns = self.states + self.inputs
+        
+        eval_dict = {}
+        train_test_dict = {}
+        eval_grouped = df_eval.groupby("Batch")
+        for name, group in eval_grouped:
+            test_x0 = np.array(group.filter(self.states).iloc[0])
+            test_u = np.array(group.filter(self.inputs))
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
+            _, eval_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
+            raw_data = np.hstack((eval_yout,test_u))
+            eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            train_test_dict[name] = group
+        scaler_value = self.scaler_dict[test_label][0]
+        min_value = self.scaler_dict[test_label][1]
+        cols = 4
+        rows = math.floor(len(eval_dict) / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(10,10),squeeze=False)
+        dict_keys = [k for k in eval_dict.keys()]
+        count = 0
+        for i in range(rows):
+            for j in range(cols):
+                key = dict_keys[count]
+                axes[i][j].plot(self.time, (eval_dict[key][test_label]-min_value)/scaler_value,"ro-", label="Simulated",markersize=3.5)
+                axes[i][j].plot(self.time, (train_test_dict[key][test_label]-min_value)/scaler_value,"bo-", label="Actual",markersize=3.5)
+                axes[i][j].set_title(key)
+                if ylim != None:
+                    axes[i][j].set_ylim(0, ylim)
+                count += 1
+        plt.legend(loc="best")
+        fig.tight_layout()
+
+        SMALL_SIZE = 3
+        MEDIUM_SIZE = 5
+        BIGGER_SIZE = 12
+
+        plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+        plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+        plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=SMALL_SIZE)
+        plt.show()
+
+    def get_rmse_table(self):
         df_eval = pd.concat([self.train_data, self.test_data], ignore_index=True)
         C_Matrix = np.identity(self.state_len)
         D_Matrix = np.zeros([self.state_len, self.input_len])
         columns = self.states + self.inputs
 
         eval_dict = {}
+        train_test_dict = {}
         eval_grouped = df_eval.groupby("Batch")
         for name, group in eval_grouped:
             test_x0 = np.array(group.filter(self.states).iloc[0])
             test_u = np.array(group.filter(self.inputs))
-            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix,dt=1)
-            _, eval_yout, _ = signal.dlsim(bioreactor, test_u, self.time, test_x0)
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
+            _, eval_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
             raw_data = np.hstack((eval_yout,test_u))
             eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            train_test_dict[name] = group
 
-            plt.figure(figsize=(10,5))
-            plt.plot(self.time, eval_dict[name][test_label],"ro-", label="Simulated")
-            plt.plot(self.time, group[test_label],"bo-", label="Actual")
-            plt.legend()
-            plt.title(name)
-            plt.show()
+        rmse_dict = {}
+        for batch, _ in train_test_dict.items():
+            state_rmse = []
+            for state in self.states:
+                scaler_value = self.scaler_dict[state][0]
+                min_value = self.scaler_dict[state][1]
+                rmse = np.sqrt(((np.array((train_test_dict[batch][state]-min_value)/scaler_value) - \
+                np.array((eval_dict[batch][state]-min_value)/scaler_value))**2).sum()/len(train_test_dict[batch][state]))
+                state_rmse.append(rmse)
 
-    def get_matrices(self):
-        pass
+            rmse_dict[batch] = state_rmse
+        df_rmse = pd.DataFrame.from_dict(rmse_dict, orient="index").reset_index()
+        df_rmse.columns = ["Batch"] + self.states
+        return df_rmse
+    
+    def get_r2_table(self):
+        df_eval = pd.concat([self.train_data, self.test_data], ignore_index=True)
+        C_Matrix = np.identity(self.state_len)
+        D_Matrix = np.zeros([self.state_len, self.input_len])
+        columns = self.states + self.inputs
+
+        eval_dict = {}
+        train_test_dict = {}
+        eval_grouped = df_eval.groupby("Batch")
+        for name, group in eval_grouped:
+            test_x0 = np.array(group.filter(self.states).iloc[0])
+            test_u = np.array(group.filter(self.inputs))
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
+            _, eval_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
+            raw_data = np.hstack((eval_yout,test_u))
+            eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            train_test_dict[name] = group
+
+        r2_dict = {}
+        for batch, _ in train_test_dict.items():
+            state_r2 = []
+            for state in self.states:
+                scaler_value = self.scaler_dict[state][0]
+                min_value = self.scaler_dict[state][1]
+                y_pred = np.array((train_test_dict[batch][state]-min_value)/scaler_value)
+                y_true = np.array((eval_dict[batch][state]-min_value)/scaler_value)
+                r2 = r2_score(y_true,y_pred)
+                state_r2.append(r2)
+
+            r2_dict[batch] = state_r2
+        df_r2 = pd.DataFrame.from_dict(r2_dict, orient="index").reset_index()
+        df_r2.columns = ["Batch"] + self.states
+        return df_r2
+    
+    def get_corrcoef_table(self):
+        df_eval = pd.concat([self.train_data, self.test_data], ignore_index=True)
+        C_Matrix = np.identity(self.state_len)
+        D_Matrix = np.zeros([self.state_len, self.input_len])
+        columns = self.states + self.inputs
+
+        eval_dict = {}
+        train_test_dict = {}
+        eval_grouped = df_eval.groupby("Batch")
+        for name, group in eval_grouped:
+            test_x0 = np.array(group.filter(self.states).iloc[0])
+            test_u = np.array(group.filter(self.inputs))
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
+            _, eval_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
+            raw_data = np.hstack((eval_yout,test_u))
+            eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            train_test_dict[name] = group
+
+        corr_dict = {}
+        for batch, _ in train_test_dict.items():
+            state_corr = []
+            for state in self.states:
+                scaler_value = self.scaler_dict[state][0]
+                min_value = self.scaler_dict[state][1]
+                y_pred = np.array((train_test_dict[batch][state]-min_value)/scaler_value)
+                y_true = np.array((eval_dict[batch][state]-min_value)/scaler_value)
+                
+                corr = (np.corrcoef(np.vstack([y_pred,y_true])))**2
+                state_corr.append(corr[0,1])
+
+            corr_dict[batch] = state_corr
+        df_corr = pd.DataFrame.from_dict(corr_dict, orient="index").reset_index()
+        df_corr.columns = ["Batch"] + self.states
+        return df_corr
 
     def train_test_model(self, save_path, test_label: str, first_train=True, iterations=10):
 
