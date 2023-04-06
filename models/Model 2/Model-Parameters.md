@@ -47,10 +47,10 @@ $$
 $$
 
 ### Train, Test, Split Parameters:
-    - Package: Scipy.model_selection.GroupShuffleSplit
-    - test_size: 0.15 (Percentage of data used in the test set)
-    - n_splits: 2 (Number of re-shuffling & splitting iterations)
-    - random_state: 1 (Controls the randomness of the training and testing indices produced. Pass an int for reproducible output across multiple function calls.)
+- Package: Scipy.model_selection.GroupShuffleSplit
+- test_size: 0.15 (Percentage of data used in the test set)
+- n_splits: 2 (Number of re-shuffling & splitting iterations)
+- random_state: 1 (Controls the randomness of the training and testing indices produced. Pass an int for reproducible output across multiple function calls.)
 
 ## **Model Training Parameters**
 
