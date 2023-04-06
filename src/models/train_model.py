@@ -244,7 +244,7 @@ class ModelTraining:
             rmse_dict[batch] = state_rmse
 
         avg_rmse = []
-        for key, value in rmse_dict.items():
+        for _, value in rmse_dict.items():
             new_rmse = (value**2)*self.num_days-1
             avg_rmse.append(new_rmse)
         
