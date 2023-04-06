@@ -39,7 +39,7 @@ column_inclusion = [
 ]
 
 # scaler_train = MinMaxScaler()
-scaler_train = joblib.load("/models/Model 2/scaler_train.scale")
+scaler_train = joblib.load("./models/Model 2/data/scaler_train_AR23-014.scale")
 
 data = pd.read_csv(r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\raw\AR23-014-Model-Data.csv")
 
@@ -66,7 +66,7 @@ train_data, test_data = dataframe.clean(
 )
 
 # Save the Scaler for both the training and test sets to rescale in the future
-dataframe.save_scaler("./models/Model 2/scaler_train_AR23-014", scaler=scaler_train)
+# dataframe.save_scaler("./models/Model 2/scaler_train_AR23-014", scaler=scaler_train)
 
 # A_Matrix = np.loadtxt(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR22-001-Kalman-Filter\A_Matrix.csv", delimiter=',')
 # B_Matrix = np.loadtxt(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR22-001-Kalman-Filter\B_Matrix.csv", delimiter=',')
@@ -82,7 +82,6 @@ for count, name in enumerate(scaler_train.get_feature_names_out()):
     scaler_dict[name] = [scaler_train.scale_[count], scaler_train.min_[count]]
 
 df_Scaler = pd.DataFrame.from_dict(scaler_dict, orient="index").reset_index()
-print(df_Scaler.round(decimals=8).to_markdown(index=False))
 
 # Dictionary of constraints for the constraints needed in the optimized fucntion
 constraint_dict = {
@@ -101,8 +100,6 @@ volume = 200
 
 # Setpoints are: Daily Feed %, pH setpoint, temp start, temp end, temp shift day
 setpoints = np.array([[3.6],[7.15],[36.5],[31.],[5.]])
-
-print(pd.DataFrame(glucose_input).to_markdown())
 
 first_model_train = ModelTraining(
     train_data,
@@ -130,10 +127,15 @@ model_optimize = ModelOptimizer(
     scaler_dict=scaler_dict
 )
 
-model_optimize.glucose = glucose_input
-model_optimize.optimize()
-model_optimize.plot_inputs()
-model_optimize.plot_states()
+# UNCOMMENT THIS CODE TO RUN OPTIMIZATION
+
+# model_optimize.glucose = glucose_input
+# model_optimize.optimize()
+# model_optimize.plot_inputs()
+# model_optimize.plot_states()
+
+
+# UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
 #     r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\models\Model 2\data",
@@ -147,12 +149,5 @@ first_model_train.evaluate(
     # ylim=5500,
 )
 
-rmse = first_model_train.get_rmse_table()
-print(rmse)
-
 r2 = first_model_train.get_r2_table()
 print(r2)
-
-# corr = first_model_train.get_corrcoef_table()
-# corr.to_clipboard()
-# print(corr)

@@ -38,12 +38,6 @@ class ModelOptimizer:
         # Change the start of this function according to what your input array will be
         x0 = np.zeros([self.days, self.input_len])
         # Construct feed day matrix column
-        # for day in np.arange(3,12,1):
-        #     if day < 7:
-        #         x0[day,0] = ((input_array[0]/100)*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     else:
-        #         x0[day,0] = ((input_array[5]/100)*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        
         for day in [3,5,7,10,12]:
             x0[day,0] = ((input_array[0]/100)*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
 
@@ -56,7 +50,6 @@ class ModelOptimizer:
         shift_day = int(input_array[4])
         x0[:shift_day,3] = (input_array[2]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
         x0[shift_day:,3] = (input_array[3]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-
 
         c_matrix = np.identity(self.state_len)
         d_matrix = np.zeros([self.state_len, self.input_len])
@@ -122,7 +115,7 @@ class ModelOptimizer:
             options={"maxiter": self.max_iters},
         )
         self.result = res.x.ravel()
-        print(self.result.ravel())
+        print("Optimal Matrix:",self.result.ravel())
         return
 
     def plot_history(self):
@@ -153,13 +146,13 @@ class ModelOptimizer:
                 except:
                     pass
         plt.legend(loc="best")
+        fig.suptitle(f"Optimal Setpoints: {self.result.ravel()}")
         fig.tight_layout()
         plt.show()
     
     def plot_states(self):
         y_out, u_sim = self.optimizer_function(self.result.ravel())
         data = self.inverse_scale(y_out, u_sim).filter(items=self.states)
-        print(data)
         state_dict = {}
         for column in data.columns:
             state_dict[column] = data[column]
