@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import scipy.stats
 import pandas as pd
 from scipy import signal
 from scipy import optimize
@@ -50,6 +51,7 @@ class ModelOptimizer:
         x0[:,1] = self.glucose.ravel()
         # construct pH setpoint column
         x0[:,2] = (input_array[1]*self.scaler_dict["pH_Setpoint"][0])+self.scaler_dict["pH_Setpoint"][1]
+        x0[:,2] = (7.15*self.scaler_dict["pH_Setpoint"][0])+self.scaler_dict["pH_Setpoint"][1]
         # Construct temperature column
         shift_day = int(input_array[4])
         x0[:shift_day,3] = (input_array[2]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
@@ -87,7 +89,7 @@ class ModelOptimizer:
 
     def optimize(self):
         constraints = [
-            {"type": "ineq", "fun": self.minzero_constraint},
+            # {"type": "ineq", "fun": self.minzero_constraint},
             # {"type": "ineq", "fun": self.vcc_constraint},
             # {"type": "ineq", "fun": self.viability_constraint},
             # {"type": "ineq", "fun": self.ammonium_constraint},
@@ -103,11 +105,11 @@ class ModelOptimizer:
         # tuple_of_tuples = tuple(tuple_list)
 
         bounds = (
-            (2,3),
-            (6.85, 7.2),
-            (35, 37),
-            (30, 31),
-            (4,7),
+            (2,4),
+            (6.9, 7.2),
+            (36, 37),
+            (30, 32),
+            (4,6),
             # (2,4.5),
         )
 
@@ -115,7 +117,7 @@ class ModelOptimizer:
             fun=self.objective_function,
             x0=self.initial_input,
             constraints=constraints,
-            # method="L-BFGS-B",
+            method="SLSQP",
             bounds=bounds,
             options={"maxiter": self.max_iters},
         )
@@ -163,7 +165,7 @@ class ModelOptimizer:
             state_dict[column] = data[column]
         cols = 3
         rows = math.ceil(len(state_dict) / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(10,10), squeeze=False)
+        fig, axes = plt.subplots(rows, cols, figsize=(10,5), squeeze=False)
         dict_keys = [k for k in state_dict.keys()]
         count = 0
         for i in range(rows):
@@ -178,6 +180,18 @@ class ModelOptimizer:
         plt.legend(loc="best")
         fig.tight_layout()
         plt.show()
+
+    def mean_confidence_interval(self, confidence=0.95):
+        y_out, u_sim = self.optimizer_function(self.result.ravel())
+        data = self.inverse_scale(y_out, u_sim).filter(items=self.states)
+        confidence_list = []
+        for state in self.states:
+            a = 1.0 * np.array(data[state])
+            n = len(a)
+            m, se = np.mean(a), scipy.stats.sem(a)
+            h = se * scipy.stats.t.ppf((1 + confidence) / 2., n-1)
+            confidence_list.append((m, m-h, m+h))
+        return confidence_list
 
     # Place any constraints to the model here!!!
 

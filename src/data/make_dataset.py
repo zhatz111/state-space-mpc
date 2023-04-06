@@ -2,8 +2,8 @@
 # Import Data manipulation and Matrices Libraries
 import joblib
 import pandas as pd
+from scipy.signal import savgol_filter
 from scipy.interpolate import splrep, splev
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GroupShuffleSplit
 
 class ModelData:
@@ -26,24 +26,23 @@ class ModelData:
         return grouped.apply(lambda group: group.interpolate(method = 'linear', \
         limit_direction='backward',limit=2))
 
-    def spline_smoothing(self, spline_list: list):
-        df_spline = self.interpolation().groupby(self.group)
+    def spline_smoothing(self, smoothing_list: list, win_len = 5, poly_order = 2):
+        df_savgol = self.interpolation().groupby(self.group)
         smooth_data = []
-        splines = set(spline_list)
-        for _, group in df_spline:
-            for col in splines:
-                x = group["Day"].values
+        smooth = set(smoothing_list)
+        for _, group in df_savgol:
+            for col in smooth:
+                # x = group["Day"].values
                 y = group[col].values
-                spl = splrep(x,y)
-                smooth_y = splev(x, spl)
-                group[col] = smooth_y
+                sg_filter = savgol_filter(y, window_length=win_len, polyorder=poly_order)
+                group[col] = sg_filter
 
             smooth_data.append(group)
         smooth_data = pd.concat(smooth_data)
         return smooth_data
 
-    def train_test_split(self, spline_list: list, test_size = 0.10, n_splits = 2, random_state = 1):
-        df = self.spline_smoothing(spline_list)
+    def train_test_split(self, smoothing_list: list, test_size = 0.20, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2):
+        df = self.spline_smoothing(smoothing_list, win_len, poly_order)
         splitter = GroupShuffleSplit(test_size=test_size, n_splits=n_splits, random_state=random_state)
         split = splitter.split(df, groups=df[self.group])
         train_inds, test_inds = next(split)
@@ -66,12 +65,14 @@ class ModelData:
         scaler_name = file_name + ".scale"
         return joblib.dump(scaler, scaler_name)
 
-    def clean(self, column_inclusion, spline_list, test_size = 0.10, n_splits = 2, random_state = 1):
+    def clean(self, column_inclusion, smoothing_list, test_size = 0.10, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2):
         train, test = self.train_test_split(
-            spline_list=spline_list,
+            smoothing_list=smoothing_list,
             test_size=test_size,
             n_splits=n_splits,
             random_state=random_state,
+            win_len=win_len, 
+            poly_order=poly_order,
         )
         train = self.feature_scaling(
             data=train,

@@ -79,6 +79,9 @@ class ModelTraining:
                 of_y = np.array(group.filter(self.states))
 
                 a_matrix = mat[:(self.state_len**2)].reshape(self.state_len, self.state_len)
+                # added this in to weight the titer
+                a_matrix[:,self.state_len-1] = a_matrix[:,self.state_len-1]*1.1
+
                 b_matrix = mat[(self.state_len**2):].reshape(self.state_len, self.input_len)
                 state = signal.StateSpace(a_matrix, b_matrix, C_Matrix, D_Matrix)
                 _, of_yout, _ = signal.lsim(state, of_u, self.time, of_x0)
@@ -90,14 +93,17 @@ class ModelTraining:
                     y_sim_all = np.vstack([y_sim_all, of_yout])
                     y_actual_all = np.vstack([y_actual_all, of_y])
                 iter_counter += 1
+            if ((y_actual_all - y_sim_all) ** 2).sum() > np.finfo("d").max:
+                value = np.finfo("d").max
+            else:
+                value = ((y_actual_all - y_sim_all) ** 2).sum()
             if info["Nfeval"] % 100 == 0:
                 print("")
                 print("Iteration: ", info["Nfeval"])
-                print("Error: ", ((y_actual_all - y_sim_all) ** 2).sum())
-                # for count, i in enumerate(self.states):
-                #     print(f"{i} RMSE: ", np.sqrt(((y_actual_all[:,count] - y_sim_all[:,count]) ** 2).sum()/len(y_actual_all)))
+                print("Error: ", value)
+
             info["Nfeval"] += 1
-            return ((y_actual_all - y_sim_all) ** 2).sum()
+            return value
 
         res = optimize.minimize(
             objective_func,
@@ -231,11 +237,17 @@ class ModelTraining:
             for state in self.states:
                 scaler_value = self.scaler_dict[state][0]
                 min_value = self.scaler_dict[state][1]
-                rmse = np.sqrt(((np.array((train_test_dict[batch][state]-min_value)/scaler_value) - \
-                np.array((eval_dict[batch][state]-min_value)/scaler_value))**2).sum()/len(train_test_dict[batch][state]))
+                true = np.array((train_test_dict[batch][state]-min_value)/scaler_value)
+                pred = np.array((eval_dict[batch][state]-min_value)/scaler_value)
+                rmse = np.sqrt((true - pred)**2).sum()/len(train_test_dict[batch][state])
                 state_rmse.append(rmse)
-
             rmse_dict[batch] = state_rmse
+
+        avg_rmse = []
+        for key, value in rmse_dict.items():
+            new_rmse = (value**2)*self.num_days-1
+            avg_rmse.append(new_rmse)
+        
         df_rmse = pd.DataFrame.from_dict(rmse_dict, orient="index").reset_index()
         df_rmse.columns = ["Batch"] + self.states
         return df_rmse
