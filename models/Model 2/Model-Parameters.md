@@ -38,13 +38,11 @@ This is a summary of all the model parameters needed to model the data from AR23
 
 [AR23-014 Scaler File](https://mygithub.gsk.com/zah48132/state-space-model/blob/main/models/Model%202/scaler_train_AR23-014.scale)
 
-$$
-\begin{align*}
-    {\rm Scale} &= \max_{} - \min_{} \\
-    X_{\rm scale} &= \frac{X - \min_{}}{\rm Scale}\\
-    X_{\rm rescale} &= {X}\cdot{\rm Scale} + \min_{}\\
-\end{align*}
-$$
+$$\begin{align*}
+{\rm Scale} &= \max_{} - \min_{} \\
+X_{\rm scale} &= \frac{X - \min_{}}{\rm Scale}\\
+X_{\rm rescale} &= {X}\cdot{\rm Scale} + \min_{}\\
+\end{align*}$$
 
 ### Train, Test, Split Parameters:
 - Package: Scipy.model_selection.GroupShuffleSplit
