@@ -822,7 +822,7 @@ df_export_data = scaler.inverse_transform(df_configure)
 df_export_data = pd.DataFrame(df_export_data, columns=features)
 
 # These plots are to compare the optimal strategy to the other batches strategies
-fig_opt, axs = plt.subplots(ncols=3, nrows=3, figsize=(15, 6), sharex=True)
+fig_opt, axs = plt.subplots(ncols=3, nrows=3, figsize=(12, 8), sharex=True)
 fig_opt.patch.set_facecolor("xkcd:white")
 
 # gs = axs[1, 3].get_gridspec()
@@ -837,11 +837,11 @@ for ax, p in zip(axs[:, :].flatten(), STATES_INPUTS[:9]):
     ax.plot(
         df_rescaled_opt.index,
         df_rescaled_opt[p],
-        linewidth=OPTWIDTH,
+        linewidth=OPTWIDTH+1,
         marker="p",
         markerfacecolor="white",
-        markersize=MARKERSIZE,
-        markeredgewidth=OPTWIDTH,
+        markersize=MARKERSIZE+1,
+        markeredgewidth=OPTWIDTH+1,
         color="black",
     )
     for i in interpolated_df["level_0"].unique()[1::2]:

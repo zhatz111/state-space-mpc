@@ -1,5 +1,6 @@
 
 import math
+import random
 import numpy as np
 import pandas as pd
 from scipy import signal
@@ -9,6 +10,9 @@ import matplotlib as mpl
 from sklearn.metrics import r2_score
 from sklearn.metrics import matthews_corrcoef
 from sklearn.linear_model import LinearRegression
+
+import warnings
+warnings.filterwarnings("ignore")
 
 class ModelTraining:
 
@@ -108,16 +112,20 @@ class ModelTraining:
         res = optimize.minimize(
             objective_func,
             combined_mat,
+            method="SLSQP",
             args=({"Nfeval": 0},),
-            options={"maxiter": iterations},
+            options={"maxiter": iterations, 'disp': False},
         )
         opt_matrix = res.x
 
         # This returns the matrix in the correct shape for use later on in the evaluation
         self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(self.state_len, self.state_len)
         self.b_matrix = opt_matrix[(self.state_len**2) :].reshape(self.state_len, self.input_len)
-        np.savetxt(fr"{save_path}\A_Matrix.csv", self.a_matrix, delimiter=',')
-        np.savetxt(fr"{save_path}\B_Matrix.csv", self.b_matrix, delimiter=',')
+
+        pd.DataFrame(self.a_matrix).to_csv(fr"{save_path}\A_Matrix.csv",index=False,header=False)
+        pd.DataFrame(self.b_matrix).to_csv(fr"{save_path}\B_Matrix.csv",index=False,header=False)
+        # np.savetxt(, self.a_matrix, delimiter=',')
+        # np.savetxt(fr"{save_path}\B_Matrix.csv", self.b_matrix, delimiter=',')
 
     def test_model(self, test_label: str):
 
@@ -186,21 +194,47 @@ class ModelTraining:
         scaler_value = self.scaler_dict[test_label][0]
         min_value = self.scaler_dict[test_label][1]
         cols = 4
-        rows = math.floor(len(eval_dict) / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(10,10),squeeze=False)
+        if len(eval_dict) > 15:
+            rows = math.floor(15 / cols)
+        else:
+            rows = math.floor(len(eval_dict) / cols)
+        fig, axes = plt.subplots(rows, cols, figsize=(10,10),squeeze=False, sharex=True, sharey=True)
+        fig2, axes2 = plt.subplots(rows, cols, figsize=(10,10),squeeze=False, sharex=True, sharey=True)
         dict_keys = [k for k in eval_dict.keys()]
         count = 0
+        random.seed(10)
         for i in range(rows):
             for j in range(cols):
-                key = dict_keys[count]
+                key = dict_keys[random.randint(0,len(eval_dict)-1)]
                 axes[i][j].plot(self.time, (eval_dict[key][test_label]-min_value)/scaler_value,"ro-", label="Simulated",markersize=3.5)
                 axes[i][j].plot(self.time, (train_test_dict[key][test_label]-min_value)/scaler_value,"bo-", label="Actual",markersize=3.5)
                 axes[i][j].set_title(key)
                 if ylim != None:
                     axes[i][j].set_ylim(0, ylim)
                 count += 1
+
+        fig.supxlabel('Day')
+        fig.supylabel(f'{test_label}')
+
         plt.legend(loc="best")
         fig.tight_layout()
+
+        random.seed(10)
+        for i in range(rows):
+            for j in range(cols):
+                key = dict_keys[random.randint(0,len(eval_dict)-1)]
+                axes2[i][j].plot((train_test_dict[key][test_label]-min_value)/scaler_value, (eval_dict[key][test_label]-min_value)/scaler_value,"bo",markersize=4.5)
+                axes2[i][j].set_title(key)
+                pt = (0, 0)
+                axes2[i][j].axline(pt, slope=1, color='black')
+                axes2[i][j].set_ylim(0, ylim)
+                axes2[i][j].set_xlim(0, ylim)
+                count += 1
+        fig2.supxlabel('Measurement')
+        fig2.supylabel('Prediction')
+
+        plt.legend(loc="best")
+        fig2.tight_layout()
 
         SMALL_SIZE = 3
         MEDIUM_SIZE = 5

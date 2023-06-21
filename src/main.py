@@ -9,6 +9,10 @@ from src.data.make_dataset import ModelData
 from src.models.train_model import ModelTraining
 from src.models.optimize_model import ModelOptimizer
 
+#suppress warnings
+import warnings
+warnings.filterwarnings('ignore')
+
 STATES = [
     "VCC",
     "Lactate",
@@ -29,7 +33,13 @@ SMOOTHE_LIST = [
 ]
 
 DISCARD = [
-
+    # Discarding these batches because IGG r2 value was 0.55 for both ar23-029 batches, while
+    # all other batches were above 0.85, the ar23-014 batch is being discard because it has a negative
+    # r2 value for lactate
+    "AR23-014-007", # lactate r2 value is -0.09
+    "AR23-014-020", # lactate r2 value is negative
+    "AR23-029-023", # IGG r2 value is less than 0.6
+    "AR23-029-024", # IGG r2 value is less than 0.6
 ]
 
 column_inclusion = [
@@ -38,10 +48,10 @@ column_inclusion = [
     "Day",
 ]
 
-# scaler_train = MinMaxScaler()
-scaler_train = joblib.load("./models/Model 2/data/scaler_train_AR23-014.scale")
+scaler_train = MinMaxScaler()
+# scaler_train = joblib.load("./models/AR23-014_029/data/scaler_train_AR23-014_029.scale")
 
-data = pd.read_csv(r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\raw\AR23-014-Model-Data.csv")
+data = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\AR23-014_029-Model-Data.csv")
 
 dataframe = ModelData(
     df=data,
@@ -58,7 +68,7 @@ dataframe = ModelData(
 train_data, test_data = dataframe.clean(
     column_inclusion=column_inclusion,
     smoothing_list=SMOOTHE_LIST,
-    test_size = 0.15,
+    test_size = 0.20,
     n_splits = 2,
     random_state = 1,
     win_len=7,
@@ -66,15 +76,24 @@ train_data, test_data = dataframe.clean(
 )
 
 # Save the Scaler for both the training and test sets to rescale in the future
-# dataframe.save_scaler("./models/Model 2/scaler_train_AR23-014", scaler=scaler_train)
+# with open("./models/AR23-014_029/data/scaler_train_AR23-014_029", encoding="utf-8") as scaler:
+#     dataframe.save_scaler(scaler, scaler=scaler_train)
 
-# A_Matrix = np.loadtxt(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR22-001-Kalman-Filter\A_Matrix.csv", delimiter=',')
-# B_Matrix = np.loadtxt(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR22-001-Kalman-Filter\B_Matrix.csv", delimiter=',')
+# A_Matrix = pd.read_csv(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\A_Matrix.csv").values
+# B_Matrix = pd.read_csv(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\B_Matrix.csv").values
 
-A_Matrix = np.loadtxt("./models/Model 2/data/A_Matrix.csv", delimiter=',')
-B_Matrix = np.loadtxt("./models/Model 2/data/B_Matrix.csv", delimiter=',')
+# print(A_Matrix)
+# print(B_Matrix)
 
-# "C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\Model 1\A_Matrix.csv"
+
+with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\A_Matrix.csv", encoding="utf-8") as a_matrix:
+    A_Matrix = np.loadtxt(a_matrix, delimiter=',')
+
+with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\B_Matrix.csv", encoding="utf-8") as b_matrix:
+    B_Matrix = np.loadtxt(b_matrix, delimiter=',')
+
+# with open("./models/AR23-014_029/data/B_Matrix.csv", encoding="utf-8") as b_matrix:
+#     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
 
 # Number of days is always equal to the last day number + 1, so 12 day culture duration will equal 13 days
 scaler_dict = {}
@@ -86,20 +105,22 @@ df_Scaler = pd.DataFrame.from_dict(scaler_dict, orient="index").reset_index()
 # Dictionary of constraints for the constraints needed in the optimized fucntion
 constraint_dict = {
     "Ammonium": 15,
-    "Lactate": 3.0,
+    "Lactate": 0.2,
     "Glucose": 1.0,
     "IGG": 7000,
-    "VCC": 30,
+    "VCC": 15,
 }
 # input length x day length matrix for the inputs into your model optimizer
-glucose_input = np.array(test_data[test_data["Batch"]=="AR23-014-004"].filter(like="Daily_Glucose_Normalized"))
+glucose_input = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(like="Daily_Glucose_Normalized"))
+feed = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(like="Daily_Feed_Normalized"))
+feed_polynomial = np.poly1d(np.polyfit(np.arange(0,14),feed.ravel()[:-1],deg=3))
 
 # initial starting condition for your states in the model
-initial_condition = np.array(test_data[test_data["Batch"]=="AR23-014-004"].filter(STATES))[0,:]
+initial_condition = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(STATES))[0,:]
 volume = 200
 
 # Setpoints are: Daily Feed %, pH setpoint, temp start, temp end, temp shift day
-setpoints = np.array([[3.6],[7.15],[36.5],[31.],[5.]])
+setpoints = list(feed_polynomial.coef) + [7.05,36.5,31.,5.]
 
 first_model_train = ModelTraining(
     train_data,
@@ -133,21 +154,23 @@ model_optimize = ModelOptimizer(
 # model_optimize.optimize()
 # model_optimize.plot_inputs()
 # model_optimize.plot_states()
+# pd.DataFrame(model_optimize.result).to_clipboard()
 
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
-#     r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\models\Model 2\data",
-#     test_label="Lactate",
-#     iterations=100,
+#     r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029",
+#     test_label="IGG",
+#     iterations=50,
 #     first_train=False,
 # )
 
 first_model_train.evaluate(
     test_label="IGG",
-    # ylim=5500,
+    ylim=6500,
 )
 
-r2 = first_model_train.get_r2_table()
-print(r2)
+# r2 = first_model_train.get_r2_table()
+# pd.DataFrame(r2).to_clipboard()
+# print(r2)

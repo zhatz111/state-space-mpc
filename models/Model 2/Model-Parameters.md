@@ -40,8 +40,8 @@ This is a summary of all the model parameters needed to model the data from AR23
 
 $$\begin{align*}
 {\rm Scale} &= \max_{} - \min_{} \\
-X_{\rm scale} &= \frac{X - \min_{}}{\rm Scale}\\
-X_{\rm rescale} &= {X}\cdot{\rm Scale} + \min_{}\\
+X_{\rm scale} &= {X}\cdot{\rm Scale} + \min_{}\\
+X_{\rm rescale} &= \frac{X - \min_{}}{\rm Scale}\\
 \end{align*}$$
 
 ### Train, Test, Split Parameters:

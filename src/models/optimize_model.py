@@ -1,4 +1,5 @@
 import math
+import random
 import numpy as np
 import scipy.stats
 import pandas as pd
@@ -38,19 +39,22 @@ class ModelOptimizer:
         # Change the start of this function according to what your input array will be
         x0 = np.zeros([self.days, self.input_len])
         # Construct feed day matrix column
-        for day in [3,5,7,10,12]:
-            x0[day,0] = ((input_array[0]/100)*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
+        for day in range(0,14):
+            x0[day,0] = np.polyval(input_array[0:4],day)
+        # if 10 < self.iterations < 20:
+        #     print(x0[:,0])
+            # x0[day,0] = ((input_array[0]/100)*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
 
         # Construct glucose feed column
         x0[:,1] = self.glucose.ravel()
         # construct pH setpoint column
-        x0[:,2] = (input_array[1]*self.scaler_dict["pH_Setpoint"][0])+self.scaler_dict["pH_Setpoint"][1]
-        x0[:,2] = (7.15*self.scaler_dict["pH_Setpoint"][0])+self.scaler_dict["pH_Setpoint"][1]
+        x0[:,2] = (input_array[4]*self.scaler_dict["pH_Setpoint"][0])+self.scaler_dict["pH_Setpoint"][1]
         # Construct temperature column
-        shift_day = int(input_array[4])
-        x0[:shift_day,3] = (input_array[2]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-        x0[shift_day:,3] = (input_array[3]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-
+        shift_day = int(input_array[7])
+        x0[:shift_day,3] = (input_array[5]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
+        x0[shift_day:,3] = (input_array[6]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
+        # if self.iterations == 0:
+        #     print(x0)
         c_matrix = np.identity(self.state_len)
         d_matrix = np.zeros([self.state_len, self.input_len])
         u_sim = x0
@@ -82,13 +86,13 @@ class ModelOptimizer:
 
     def optimize(self):
         constraints = [
-            # {"type": "ineq", "fun": self.minzero_constraint},
-            # {"type": "ineq", "fun": self.vcc_constraint},
+            {"type": "ineq", "fun": self.minzero_constraint},
+            {"type": "ineq", "fun": self.vcc_constraint},
             # {"type": "ineq", "fun": self.viability_constraint},
             # {"type": "ineq", "fun": self.ammonium_constraint},
-            # {"type": "ineq", "fun": self.lactate_constraint},
-            # {"type": "ineq", "fun": self.glucose_constraint},
-            {"type": "ineq", "fun": self.titer_constraint},
+            {"type": "ineq", "fun": self.lactate_constraint},
+            {"type": "ineq", "fun": self.feed_constraint},
+            # {"type": "ineq", "fun": self.titer_constraint},
         ]
 
         # tuple_list = []
@@ -98,12 +102,18 @@ class ModelOptimizer:
         # tuple_of_tuples = tuple(tuple_list)
 
         bounds = (
-            (2,4),
+            # (-np.inf,np.inf),
+            # (-np.inf,np.inf),
+            # (-np.inf,np.inf),
+            # (-np.inf,np.inf),
+            (None,None),
+            (None,None),
+            (None,None),
+            (None,None),
             (6.9, 7.2),
             (36, 37),
-            (30, 32),
+            (30.5, 31.5),
             (4,6),
-            # (2,4.5),
         )
 
         res = optimize.minimize(
@@ -126,7 +136,7 @@ class ModelOptimizer:
         plt.show()
     
     def plot_inputs(self):
-        y_out, u_sim = self.optimizer_function(self.result.ravel())
+        y_out, u_sim = self.optimizer_function(self.result)
         data = self.inverse_scale(y_out, u_sim).filter(items=self.inputs)
         input_dict = {}
         for column in data.columns:
@@ -146,19 +156,19 @@ class ModelOptimizer:
                 except:
                     pass
         plt.legend(loc="best")
-        fig.suptitle(f"Optimal Setpoints: {self.result.ravel()}")
+        fig.suptitle(f"Optimal Setpoints: {self.result}")
         fig.tight_layout()
         plt.show()
     
     def plot_states(self):
-        y_out, u_sim = self.optimizer_function(self.result.ravel())
+        y_out, u_sim = self.optimizer_function(self.result)
         data = self.inverse_scale(y_out, u_sim).filter(items=self.states)
         state_dict = {}
         for column in data.columns:
             state_dict[column] = data[column]
         cols = 3
         rows = math.ceil(len(state_dict) / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(10,5), squeeze=False)
+        fig, axes = plt.subplots(rows, cols, figsize=(13,5), squeeze=False)
         dict_keys = [k for k in state_dict.keys()]
         count = 0
         for i in range(rows):
@@ -175,7 +185,7 @@ class ModelOptimizer:
         plt.show()
 
     def mean_confidence_interval(self, confidence=0.95):
-        y_out, u_sim = self.optimizer_function(self.result.ravel())
+        y_out, u_sim = self.optimizer_function(self.result)
         data = self.inverse_scale(y_out, u_sim).filter(items=self.states)
         confidence_list = []
         for state in self.states:
@@ -189,14 +199,14 @@ class ModelOptimizer:
     # Place any constraints to the model here!!!
 
     def minzero_constraint(self, input_array):  # Nothing can be less than 0
-        y_out_opt, _ = self.optimizer_function(input_array)
-        return min(y_out_opt.reshape(-1, 1))
-
-    def vcc_constraint(self, input_array):  # VCC cannot be greater than TCC
         y_out, u_sim = self.optimizer_function(input_array)
-        # tcc = np.array(self.inverse_scale(y_out, u_sim).filter(like="TCC"))
+        data = np.array(self.inverse_scale(y_out, u_sim))
+        return min(data.reshape(-1, 1))
+
+    def vcc_constraint(self, input_array):  # EOR VCC cannot be less than a value
+        y_out, u_sim = self.optimizer_function(input_array)
         vcc = np.array(self.inverse_scale(y_out, u_sim).filter(like="VCC"))
-        return self.constraint_dict["VCC"] - max(vcc)
+        return vcc[-1] - self.constraint_dict["VCC"]
 
     def viability_constraint(self, input_array):  # Viability Constraint
         y_out, u_sim = self.optimizer_function(input_array)
@@ -211,16 +221,16 @@ class ModelOptimizer:
 
     def lactate_constraint(self, input_array):  # Lactate Constraint
         y_out, u_sim = self.optimizer_function(input_array)
-        lac = max(np.array(self.inverse_scale(y_out, u_sim).filter(like="Lactate")))
-        return self.constraint_dict["Lactate"] - lac
-    
-    # def glucose_constraint(self, input_array):  # Glucose constraint
-    #     y_out, u_sim = self.optimizer_function(input_array)
-    #     gluc = np.array(self.inverse_scale(y_out, u_sim).filter(like="Glucose"))
-    #     return min(gluc) - self.constraint_dict["Glucose"]
+        lac = np.array(self.inverse_scale(y_out, u_sim).filter(like="Lactate"))
+        return self.constraint_dict["Lactate"] - np.mean(lac[9:])
     
     def titer_constraint(self, input_array):  # Titer Constraint
         y_out, u_sim = self.optimizer_function(input_array)
         igg = min(np.array(self.inverse_scale(y_out, u_sim).filter(like="IGG")))
         return  igg
+
+    def feed_constraint(self, input_array):  # Feed Constraint
+        y_out, u_sim = self.optimizer_function(input_array)
+        feed = max(np.array(self.inverse_scale(y_out, u_sim).filter(like="Daily_Feed_Normalized")))
+        return  0.1 - feed
 
