@@ -13,23 +13,36 @@ from src.models.optimize_model import ModelOptimizer
 import warnings
 warnings.filterwarnings('ignore')
 
+
+# Current model error (includes glucose input): 8.07
+# Current model error (excludes glucose input): 11.9
+
+folder_ext = "AR23-029_MR23-045"
+file_ext = "AR23-029_MR23_045-Model-Data"
+
 STATES = [
+    # "IVC",
     "VCC",
+    # "ILAC",
+    # "Osmo",
     "Lactate",
     "IGG",
 ]
 
 INPUTS = [
     "Daily_Feed_Normalized",
-    "Daily_Glucose_Normalized",
-    "pH_Setpoint",
+    "Post_Glucose_Conc",
     "Temperature",
+    # "Post_Gluose_Conc",
 ]
 
 SMOOTHE_LIST = [
     "VCC",
+    # "Osmo",
     "Lactate",
     "IGG",
+    # "IVC",
+    # "ILAC",
 ]
 
 DISCARD = [
@@ -38,8 +51,10 @@ DISCARD = [
     # r2 value for lactate
     "AR23-014-007", # lactate r2 value is -0.09
     "AR23-014-020", # lactate r2 value is negative
+    "AR23-029-015", # lactate r2 value is -0.091992
     "AR23-029-023", # IGG r2 value is less than 0.6
     "AR23-029-024", # IGG r2 value is less than 0.6
+    "MR23-035-724",
 ]
 
 column_inclusion = [
@@ -51,7 +66,7 @@ column_inclusion = [
 scaler_train = MinMaxScaler()
 # scaler_train = joblib.load("./models/AR23-014_029/data/scaler_train_AR23-014_029.scale")
 
-data = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\AR23-014_029-Model-Data.csv")
+data = pd.read_csv(fr"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\{file_ext}.csv")
 
 dataframe = ModelData(
     df=data,
@@ -72,7 +87,7 @@ train_data, test_data = dataframe.clean(
     n_splits = 2,
     random_state = 1,
     win_len=7,
-    poly_order=2,
+    poly_order=3,
 )
 
 # Save the Scaler for both the training and test sets to rescale in the future
@@ -85,42 +100,86 @@ train_data, test_data = dataframe.clean(
 # print(A_Matrix)
 # print(B_Matrix)
 
-
-with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\A_Matrix.csv", encoding="utf-8") as a_matrix:
+with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}\A_Matrix.csv", encoding="utf-8") as a_matrix:
     A_Matrix = np.loadtxt(a_matrix, delimiter=',')
 
-with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\B_Matrix.csv", encoding="utf-8") as b_matrix:
+with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}\B_Matrix.csv", encoding="utf-8") as b_matrix:
     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
 
-# with open("./models/AR23-014_029/data/B_Matrix.csv", encoding="utf-8") as b_matrix:
+# with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\Experimental_matrices\A_Matrix.csv", encoding="utf-8") as a_matrix:
+#     A_Matrix = np.loadtxt(a_matrix, delimiter=',')
+
+# with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\Experimental_matrices\B_Matrix.csv", encoding="utf-8") as b_matrix:
 #     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
+
 
 # Number of days is always equal to the last day number + 1, so 12 day culture duration will equal 13 days
 scaler_dict = {}
 for count, name in enumerate(scaler_train.get_feature_names_out()):
     scaler_dict[name] = [scaler_train.scale_[count], scaler_train.min_[count]]
 
+
+# UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
+
+# for key, value in scaler_dict.items():
+#     print(key)
+#     print("scale:","",round(value[0],6))
+#     print("min_:","",round(value[1],6))
+#     print()
+
 df_Scaler = pd.DataFrame.from_dict(scaler_dict, orient="index").reset_index()
 
 # Dictionary of constraints for the constraints needed in the optimized fucntion
 constraint_dict = {
+    "Volume": 150,
+    "Sample_vol": 1,
     "Ammonium": 15,
-    "Lactate": 0.2,
+    "Lactate": .5,
     "Glucose": 1.0,
     "IGG": 7000,
-    "VCC": 15,
+    "VCC": 30,
+    "IVC": 300,
+    "ILAC": 10,
+    "Max_feed_volume": 37,
 }
+
 # input length x day length matrix for the inputs into your model optimizer
-glucose_input = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(like="Daily_Glucose_Normalized"))
-feed = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(like="Daily_Feed_Normalized"))
-feed_polynomial = np.poly1d(np.polyfit(np.arange(0,14),feed.ravel()[:-1],deg=3))
+# glucose_input = np.array(test_data[test_data["Batch"]==test_data.sample()["Batch"].values[0]].filter(like="Daily_Glucose_Normalized"))
+# glucose_input = np.array(test_data.groupby("Day")["Daily_Glucose_Normalized"].mean())
+
+# feed = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(like="Daily_Feed_Normalized"))
+# feed_polynomial = np.poly1d(np.polyfit(np.arange(0,14),feed.ravel()[:-1],deg=3))
+
+# print((feed-scaler_dict["Daily_Feed_Normalized"][1])/scaler_dict["Daily_Feed_Normalized"][0])
 
 # initial starting condition for your states in the model
-initial_condition = np.array(test_data[test_data["Batch"]=="AR23-029-004"].filter(STATES))[0,:]
+initial_condition = np.array(test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES))[0,:]
 volume = 200
 
+# print(test_data["Batch"].values[0])
+# # initial_condition[0] = 0.980477
+# # initial_condition[0] = initial_condition[0]*2
+# print(initial_condition)
+
 # Setpoints are: Daily Feed %, pH setpoint, temp start, temp end, temp shift day
-setpoints = list(feed_polynomial.coef) + [7.05,36.5,31.,5.]
+# setpoints = list(feed_polynomial.coef) + [7.05,36.5,31.,5.]
+
+# post_glucose_setpoint = np.array(test_data[test_data["Batch"]==test_data.sample()["Batch"].values[0]].filter(like="Post_Glucose_Conc"))
+
+# feed_setpoint = [0.03]*14
+# post_glucose_setpoint = [0]*15
+feed_setpoint = test_data[test_data["Batch"]=="MR23-045-718"]["Daily_Feed_Normalized"].tolist()[:14]
+post_glucose_setpoint = test_data[test_data["Batch"]=="MR23-045-718"]["Post_Glucose_Conc"].tolist()
+
+# post_glucose_setpoint = np.array(test_data[test_data["Batch"]==test_data.sample()["Batch"].values[0]].filter(like="Post_Glucose_Conc"))
+setpoints = feed_setpoint + post_glucose_setpoint + [36.5,31.,5.]
+
+# print(initial_condition)
+# print()
+# print(setpoints)
+# print()
+# print(glucose_input)
+# print()
 
 first_model_train = ModelTraining(
     train_data,
@@ -144,33 +203,80 @@ model_optimize = ModelOptimizer(
     initial_input=setpoints,
     initial_condition=initial_condition,
     days=15,
-    max_iters=10,
+    max_iters=100,
     scaler_dict=scaler_dict
 )
 
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION
 
-# model_optimize.glucose = glucose_input
-# model_optimize.optimize()
-# model_optimize.plot_inputs()
-# model_optimize.plot_states()
+# model_optimize.glucose = post_glucose_setpoint
+model_optimize.optimize()
+model_optimize.plot_inputs()
+model_optimize.plot_states()
 # pd.DataFrame(model_optimize.result).to_clipboard()
 
+# dataframe.graph_train_data(
+#     smoothing_list=SMOOTHE_LIST,
+#     test_label="Post_Gluose_Conc",
+#     ylim=8,
+# )
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
-#     r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029",
+#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}", # \Experimental_matrices
 #     test_label="IGG",
-#     iterations=50,
+#     iterations=100,
 #     first_train=False,
 # )
 
-first_model_train.evaluate(
-    test_label="IGG",
-    ylim=6500,
-)
+# first_model_train.evaluate(
+#     test_label="IGG",
+#     ylim=6000,
+# )
 
 # r2 = first_model_train.get_r2_table()
-# pd.DataFrame(r2).to_clipboard()
 # print(r2)
+# pd.DataFrame(r2).to_clipboard()
+
+
+
+# SINGLE BATCH TEST
+
+# data_test = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\MR23-045_Flu_mAb_Test_Batch.csv")
+
+# dataframe_test = ModelData(
+#     df=data_test,
+#     scaler_train=scaler_train,
+#     group="Batch",
+#     discard=[],
+#     states=STATES,
+#     inputs=INPUTS,
+# )
+
+# smoothed_data = dataframe_test.spline_smoothing(
+#     smoothing_list=SMOOTHE_LIST,
+#     win_len=7,
+#     poly_order=3,
+# )
+
+# testing_data = dataframe_test.feature_scaling(
+#     scaler=scaler_train,
+#     data=smoothed_data,
+#     new_scaler=False,
+# )
+
+# single_batch_test = ModelTraining(
+#     train_data,
+#     testing_data,
+#     a_matrix=A_Matrix,
+#     b_matrix=B_Matrix,
+#     states=STATES,
+#     inputs=INPUTS,
+#     num_days=15,
+#     scaler_dict=scaler_dict,
+# )
+
+# single_batch_test.single_batch_test(
+#     test_label="IGG",
+# )

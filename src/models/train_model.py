@@ -30,6 +30,7 @@ class ModelTraining:
         self.input_len = len(inputs)
         self.time = np.arange(0, self.num_days, 1)
         self.total = self.state_len + self.input_len
+        self.iters = 0
 
     def first_pass_training(self):
 
@@ -81,10 +82,9 @@ class ModelTraining:
                 of_x0 = np.array(group.filter(self.states).iloc[0])
                 of_u = np.array(group.filter(self.inputs))
                 of_y = np.array(group.filter(self.states))
-
                 a_matrix = mat[:(self.state_len**2)].reshape(self.state_len, self.state_len)
-                # added this in to weight the titer
-                a_matrix[:,self.state_len-1] = a_matrix[:,self.state_len-1]*1.1
+                # # added this in to weight the titer
+                # a_matrix[:,self.state_len-1] = a_matrix[:,self.state_len-1]
 
                 b_matrix = mat[(self.state_len**2):].reshape(self.state_len, self.input_len)
                 state = signal.StateSpace(a_matrix, b_matrix, C_Matrix, D_Matrix)
@@ -97,25 +97,60 @@ class ModelTraining:
                     y_sim_all = np.vstack([y_sim_all, of_yout])
                     y_actual_all = np.vstack([y_actual_all, of_y])
                 iter_counter += 1
-            if ((y_actual_all - y_sim_all) ** 2).sum() > np.finfo("d").max:
-                value = np.finfo("d").max
-            else:
-                value = ((y_actual_all - y_sim_all) ** 2).sum()
-            if info["Nfeval"] % 100 == 0:
+            # if ((y_actual_all - y_sim_all) ** 2).sum() > np.finfo("d").max:
+            #     value = np.finfo("d").max
+            # else:
+            
+            value = ((y_actual_all - y_sim_all) ** 2).sum()
+            if info["Nfeval"] % 50 == 0:
                 print("")
                 print("Iteration: ", info["Nfeval"])
                 print("Error: ", value)
-
             info["Nfeval"] += 1
             return value
 
+        
+        # minimizer_kwargs = {"method": "SLSQP", "args": ({"Nfeval": 0}, )}
+        # res = optimize.basinhopping(
+        #     func=objective_func,
+        #     x0=combined_mat,
+        #     niter=1,
+        #     minimizer_kwargs=minimizer_kwargs,
+        #     seed=2,
+        #     # options={"maxiter": iterations, 'disp': False},
+        # )
+
         res = optimize.minimize(
-            objective_func,
-            combined_mat,
+            fun=objective_func,
+            x0=combined_mat,
             method="SLSQP",
-            args=({"Nfeval": 0},),
+            args=({"Nfeval": 0}, ),
             options={"maxiter": iterations, 'disp': False},
         )
+
+        # Assuming you want to search in the range [-5.0, 5.0] for each element in the matrices
+        # lw = [-10] * len(combined_mat)
+        # up = [10] * len(combined_mat)
+        # print(combined_mat)
+
+        # res = optimize.dual_annealing(
+        #     func=objective_func,
+        #     bounds=list(zip(lw, up)),
+        #     args=({"Nfeval": 0},),
+        #     # x0=combined_mat,
+        #     visit=2,
+        #     accept=1,
+        #     maxiter=100,
+        #     no_local_search=True,
+        # )
+
+        # res = optimize.differential_evolution(
+        #     func=objective_func,
+        #     x0=combined_mat,
+        #     bounds=list(zip(lw, up)),
+        #     args=({"Nfeval": 0},),
+        # )
+
         opt_matrix = res.x
 
         # This returns the matrix in the correct shape for use later on in the evaluation
@@ -212,10 +247,12 @@ class ModelTraining:
                 if ylim != None:
                     axes[i][j].set_ylim(0, ylim)
                 count += 1
+        axes[rows-1][cols-1].legend()
 
         fig.supxlabel('Day')
         fig.supylabel(f'{test_label}')
-
+        
+        
         plt.legend(loc="best")
         fig.tight_layout()
 
@@ -365,3 +402,46 @@ class ModelTraining:
         self.test_model(
             test_label=test_label,
         )
+    
+    def single_batch_test(self, test_label):
+
+        C_Matrix = np.identity(self.state_len)
+        D_Matrix = np.zeros([self.state_len, self.input_len])
+        columns = self.states + self.inputs
+
+        # y_out_test = np.zeros([self.num_days, self.state_len])
+        eval_dict = {}
+        test_model_dict = {}
+        test_grouped = self.test_data.groupby("Batch")
+        for name, group in test_grouped:
+            test_x0 = np.array(group.filter(self.states).iloc[0])
+            test_u = np.array(group.filter(self.inputs))
+            bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
+            _, test_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
+            raw_data = np.hstack((test_yout,test_u))
+            eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
+            test_model_dict[name] = group
+
+        scaler_value = self.scaler_dict[test_label][0]
+        min_value = self.scaler_dict[test_label][1]
+        cols = 1
+        rows = 1
+        fig, axes = plt.subplots(rows, cols, figsize=(10,10),squeeze=False)
+        dict_keys = [k for k in eval_dict.keys()]
+        key = dict_keys[0]
+        axes[0][0].plot(self.time, (eval_dict[key][test_label]-min_value)/scaler_value,"ro-", label="Simulated",markersize=3.5)
+        axes[0][0].plot(self.time, (test_model_dict[key][test_label]-min_value)/scaler_value,"bo-", label="Actual",markersize=3.5)
+        axes[0][0].set_title(key)
+        plt.legend(loc="best")
+        fig.tight_layout()
+
+        SMALL_SIZE = 3
+        MEDIUM_SIZE = 5
+        BIGGER_SIZE = 12
+
+        plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
+        plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
+        plt.rc('axes', labelsize=MEDIUM_SIZE)    # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=SMALL_SIZE)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=SMALL_SIZE)
+        plt.show()

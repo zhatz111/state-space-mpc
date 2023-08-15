@@ -32,7 +32,6 @@ This is a summary of all the model parameters needed to model the data from AR23
 | Lactate                  |  0.46589    |   0.0493622  |
 | IGG                      |  0.00020022 |  -0.00538272 |
 | Daily_Feed_Normalized    | 28.3235     |   0          |
-| Daily_Glucose_Normalized | 92.4286     |   0          |
 | pH_Setpoint              |  5          | -34.75       |
 | Temperature              |  0.181818   |  -5.63636    |
 
@@ -58,31 +57,33 @@ X_{\rm rescale} &= \frac{X - \min_{}}{\rm Scale}\\
 
 |        VCC |    Lactate |          IGG |
 |:----------:|:----------:|:------------:|
-| -0.191333  |  0.348639  | -0.0091029   |
-| -0.0142399 | -0.575035  |  0.0229528   |
-|  0.0397055 | -0.0431091 |  0.000589102 |
+| -0.08213468  |  0.321057501  | -0.015764287   |
+| -0.215401385 | -0.440952138  |  0.185376579   |
+|  0.084090084 | -0.093810389 |  0.015456439 |
 
 ### B-Matrix:
 
-|         Daily_Feed_Normalized |         Daily_Glucose_Normalized |           pH_Setpoint |           Temperature |
-|:---------:|:---------:|:-----------:|:-----------:|
-| -0.1863   |  0.495116 | -0.0304475  | -0.0425543  |
-|  0.393914 | -0.395079 |  0.0403181  |  0.385505   |
-|  0.124161 |  0.110922 |  0.00110679 | -0.00859193 |
+|         Daily_Feed_Normalized |            pH_Setpoint |           Temperature |
+|:---------:|:-----------:|:-----------:|
+| 0.00211507   | 0.009367172  | -0.052889187  |
+|  0.16868971 |  0.022492051  |  0.340158462   |
+|  0.095564742 |  -0.00095511 | 0.028224899 |
 
 ## **Model Optimization Parameters**
 
 ---
 
 ### Starting Inputs:
-    - VCC: 0.0215119
-    - Lactate: 0.0246256
-    - IGG: 0.00740393
-    - Volume: 200
+    - VCC: 0.0512001
+    - Lactate: 0.09772623
+    - IGG: 0.0015890
+    - Volume: 1500
+
+   
 
 ### Starting Setpoints:
-    - Daily Feed %: 3.6
-    - pH: 7.15
+    - Daily Normalized Feed: 0.03
+    - pH: 7.05
     - Start Temp: 36.5
     - Shift Temp: 31
     - Temp Shift Day: 5
@@ -91,10 +92,10 @@ X_{\rm rescale} &= \frac{X - \min_{}}{\rm Scale}\\
 
 | Bound | Lower Limit | Upper Limit |
 |:-----:|:-----------:|:-----------:|
-|Daily Feed %| 2 | 4 |
+|Daily Normalized Feed| 0 | 0.03 |
 | pH | 6.90 | 7.20 |
 |Start Temp| 36 | 37 |
-|Final Temp| 30 | 32 |
+|Final Temp| 30.5 | 31.5 |
 |Temp Shift Day| 4 | 6 |
 
 ### Glucose Input:
