@@ -25,7 +25,7 @@ STATES = [
     "VCC",
     # "ILAC",
     # "Osmo",
-    "Lactate",
+    "Ammonium",
     "IGG",
 ]
 
@@ -39,7 +39,7 @@ INPUTS = [
 SMOOTHE_LIST = [
     "VCC",
     # "Osmo",
-    "Lactate",
+    "Ammonium",
     "IGG",
     # "IVC",
     # "ILAC",
@@ -100,10 +100,10 @@ train_data, test_data = dataframe.clean(
 # print(A_Matrix)
 # print(B_Matrix)
 
-with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}\A_Matrix.csv", encoding="utf-8") as a_matrix:
+with open(fr"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\{folder_ext}\A_Matrix.csv", encoding="utf-8") as a_matrix:
     A_Matrix = np.loadtxt(a_matrix, delimiter=',')
 
-with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}\B_Matrix.csv", encoding="utf-8") as b_matrix:
+with open(fr"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\{folder_ext}\B_Matrix.csv", encoding="utf-8") as b_matrix:
     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
 
 # with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\Experimental_matrices\A_Matrix.csv", encoding="utf-8") as a_matrix:
@@ -140,7 +140,7 @@ constraint_dict = {
     "VCC": 30,
     "IVC": 300,
     "ILAC": 10,
-    "Max_feed_volume": 37,
+    "Max_feed_volume": 40,
 }
 
 # input length x day length matrix for the inputs into your model optimizer
@@ -154,7 +154,7 @@ constraint_dict = {
 
 # initial starting condition for your states in the model
 initial_condition = np.array(test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES))[0,:]
-volume = 200
+volume = 150
 
 # print(test_data["Batch"].values[0])
 # # initial_condition[0] = 0.980477
@@ -210,9 +210,9 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION
 
 # model_optimize.glucose = post_glucose_setpoint
-# model_optimize.optimize()
-# model_optimize.plot_inputs()
-# model_optimize.plot_states()
+model_optimize.optimize()
+model_optimize.plot_inputs()
+model_optimize.plot_states()
 # pd.DataFrame(model_optimize.result).to_clipboard()
 
 # dataframe.graph_train_data(
@@ -224,9 +224,9 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
-#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}", # \Experimental_matrices
+#     fr"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\{folder_ext}", # \Experimental_matrices
 #     test_label="IGG",
-#     iterations=100,
+#     iterations=50,
 #     first_train=False,
 # )
 
@@ -241,8 +241,8 @@ model_optimize = ModelOptimizer(
 # )
 
 # first_model_train.evaluate(
-#     test_label="Lactate",
-#     ylim=3,
+#     test_label="Ammonium",
+#     ylim=16,
 # )
 
 # first_model_train.test_model(
@@ -293,5 +293,5 @@ model_optimize = ModelOptimizer(
 # )
 
 # single_batch_test.single_batch_test(
-#     test_label="IGG",
+#     test_label="Osmo",
 # )

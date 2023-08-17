@@ -110,7 +110,7 @@ class ModelOptimizer:
         self.x_history.append(self.iterations)
         self.y_history.append(data[-1].item())
         # return 0 - data[-1].item()
-        return 0 - y_out[14][2] + 0.5*(np.sum(np.diff(u_sim[:,0])**2) + np.sum(np.diff(u_sim[:,1])**2) + np.sum(np.diff(u_sim[:,2])**2))
+        return 0 - y_out[14][2] + 0.2*(np.sum(np.diff(u_sim[:,0])**2) + np.sum(np.diff(u_sim[:,1])**2) + np.sum(np.diff(u_sim[:,2])**2))
     
     def inverse_scale(self, y_out, u_sim):
         data = np.hstack([y_out, u_sim])
@@ -128,7 +128,7 @@ class ModelOptimizer:
             # {"type": "ineq", "fun": self.vcc_constraint},
             # {"type": "ineq", "fun": self.ivc_constraint},
             # {"type": "ineq", "fun": self.viability_constraint},
-            # {"type": "ineq", "fun": self.ammonium_constraint},
+            {"type": "ineq", "fun": self.ammonium_constraint},
             # {"type": "ineq", "fun": self.lactate_constraint},
             # {"type": "ineq", "fun": self.ILAC_constraint},
             {"type": "ineq", "fun": self.feed_constraint},
