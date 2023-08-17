@@ -162,7 +162,7 @@ class ModelTraining:
         # np.savetxt(, self.a_matrix, delimiter=',')
         # np.savetxt(fr"{save_path}\B_Matrix.csv", self.b_matrix, delimiter=',')
 
-    def test_model(self, test_label: str):
+    def test_model(self, test_label: str, ylim=None):
 
         C_Matrix = np.identity(self.state_len)
         D_Matrix = np.zeros([self.state_len, self.input_len])
@@ -194,6 +194,8 @@ class ModelTraining:
                 axes[i][j].plot(self.time, (eval_dict[key][test_label]-min_value)/scaler_value,"ro-", label="Simulated",markersize=3.5)
                 axes[i][j].plot(self.time, (test_model_dict[key][test_label]-min_value)/scaler_value,"bo-", label="Actual",markersize=3.5)
                 axes[i][j].set_title(key)
+                if ylim != None:
+                    axes[i][j].set_ylim(0, ylim)
                 count += 1
         plt.legend(loc="best")
         fig.tight_layout()

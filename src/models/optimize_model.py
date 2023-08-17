@@ -137,6 +137,7 @@ class ModelOptimizer:
 
         num1 = 14
         num2 = 15
+        # feed_bounds_1 = [(0,0.015),(0,0.015),(0,0.015),(0,0.015)]
         feed_bounds = [(0,0.03)]*num1
         glucose_bounds = [(4.5,6)]*num2
         extra_bounds = ((36, 37),(30.5, 31.5),(4,6))
@@ -210,7 +211,7 @@ class ModelOptimizer:
         # volume, feed, glucose = self.volume_calculator(data[self.inputs[0]], data[self.inputs[1]])
         volume, feed = self.volume_calculator_no_gluc(data[self.inputs[0]])
         # pd.Series(feed).to_clipboard()
-        pd.Series(data["Daily_Feed_Normalized"]).to_clipboard()
+        pd.Series(feed).to_clipboard()
         input_dict = {}
         for column in data.columns:
             input_dict[column] = data[column]
@@ -260,6 +261,7 @@ class ModelOptimizer:
                     key = dict_keys[count]
                     axes[i][j].plot(np.arange(0,len(state_dict[key]),1),state_dict[key],"ro-",markersize=3.5)
                     axes[i][j].set_title(key)
+                    # pd.Series(state_dict[key]).to_clipboard()
                     count += 1
                 except:
                     pass

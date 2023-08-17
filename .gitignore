@@ -78,6 +78,10 @@ target/
 # exclude data from source control by default
 /data/
 
+# exclude python notebooks from source control
+/notebooks/
+*.ipynb
+
 # Mac OS-specific storage files
 .DS_Store
 
@@ -87,3 +91,5 @@ target/
 
 # Mypy cache
 .mypy_cache/
+*.ipynb
+*.ipynb

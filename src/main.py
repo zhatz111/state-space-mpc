@@ -210,9 +210,9 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION
 
 # model_optimize.glucose = post_glucose_setpoint
-model_optimize.optimize()
-model_optimize.plot_inputs()
-model_optimize.plot_states()
+# model_optimize.optimize()
+# model_optimize.plot_inputs()
+# model_optimize.plot_states()
 # pd.DataFrame(model_optimize.result).to_clipboard()
 
 # dataframe.graph_train_data(
@@ -235,6 +235,21 @@ model_optimize.plot_states()
 #     ylim=6000,
 # )
 
+# first_model_train.evaluate(
+#     test_label="VCC",
+#     ylim=35,
+# )
+
+# first_model_train.evaluate(
+#     test_label="Lactate",
+#     ylim=3,
+# )
+
+# first_model_train.test_model(
+#     test_label="Lactate",
+#     ylim=3,
+# )
+
 # r2 = first_model_train.get_r2_table()
 # print(r2)
 # pd.DataFrame(r2).to_clipboard()
@@ -243,40 +258,40 @@ model_optimize.plot_states()
 
 # SINGLE BATCH TEST
 
-# data_test = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\MR23-045_Flu_mAb_Test_Batch.csv")
+data_test = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\MR23-045_Flu_mAb_Test_Batch.csv")
 
-# dataframe_test = ModelData(
-#     df=data_test,
-#     scaler_train=scaler_train,
-#     group="Batch",
-#     discard=[],
-#     states=STATES,
-#     inputs=INPUTS,
-# )
+dataframe_test = ModelData(
+    df=data_test,
+    scaler_train=scaler_train,
+    group="Batch",
+    discard=[],
+    states=STATES,
+    inputs=INPUTS,
+)
 
-# smoothed_data = dataframe_test.spline_smoothing(
-#     smoothing_list=SMOOTHE_LIST,
-#     win_len=7,
-#     poly_order=3,
-# )
+smoothed_data = dataframe_test.spline_smoothing(
+    smoothing_list=SMOOTHE_LIST,
+    win_len=7,
+    poly_order=3,
+)
 
-# testing_data = dataframe_test.feature_scaling(
-#     scaler=scaler_train,
-#     data=smoothed_data,
-#     new_scaler=False,
-# )
+testing_data = dataframe_test.feature_scaling(
+    scaler=scaler_train,
+    data=smoothed_data,
+    new_scaler=False,
+)
 
-# single_batch_test = ModelTraining(
-#     train_data,
-#     testing_data,
-#     a_matrix=A_Matrix,
-#     b_matrix=B_Matrix,
-#     states=STATES,
-#     inputs=INPUTS,
-#     num_days=15,
-#     scaler_dict=scaler_dict,
-# )
+single_batch_test = ModelTraining(
+    train_data,
+    testing_data,
+    a_matrix=A_Matrix,
+    b_matrix=B_Matrix,
+    states=STATES,
+    inputs=INPUTS,
+    num_days=15,
+    scaler_dict=scaler_dict,
+)
 
-# single_batch_test.single_batch_test(
-#     test_label="IGG",
-# )
+single_batch_test.single_batch_test(
+    test_label="IGG",
+)
