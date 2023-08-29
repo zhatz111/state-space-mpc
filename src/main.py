@@ -1,5 +1,4 @@
-import sys
-# sys.path.insert(0, r'C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model')
+
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
