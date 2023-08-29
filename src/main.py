@@ -1,21 +1,15 @@
 import sys
-sys.path.insert(0, r'C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model')
-
-import joblib
+# sys.path.insert(0, r'C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model')
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from src.data.make_dataset import ModelData
-from src.models.train_model import ModelTraining
-from src.models.optimize_model import ModelOptimizer
+from data.make_dataset import ModelData
+from models.train_model import ModelTraining
+from models.optimize_model import ModelOptimizer
 
 #suppress warnings
 import warnings
 warnings.filterwarnings('ignore')
-
-
-# Current model error (includes glucose input): 8.07
-# Current model error (excludes glucose input): 11.9
 
 folder_ext = "AR23-029_MR23-045"
 file_ext = "AR23-029_MR23_045-Model-Data"
@@ -210,9 +204,9 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION
 
 # model_optimize.glucose = post_glucose_setpoint
-# model_optimize.optimize()
-# model_optimize.plot_inputs()
-# model_optimize.plot_states()
+model_optimize.optimize()
+model_optimize.plot_inputs()
+model_optimize.plot_states()
 # pd.DataFrame(model_optimize.result).to_clipboard()
 
 # dataframe.graph_train_data(

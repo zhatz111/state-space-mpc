@@ -6,9 +6,7 @@ import pandas as pd
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 from sklearn.metrics import r2_score
-from sklearn.metrics import matthews_corrcoef
 from sklearn.linear_model import LinearRegression
 
 import warnings
