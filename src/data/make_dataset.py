@@ -41,10 +41,18 @@ class ModelData:
 
             smooth_data.append(group)
         smooth_data = pd.concat(smooth_data)
+        smooth_data.to_clipboard()
         return smooth_data
 
-    def train_test_split(self, smoothing_list: list, test_size = 0.20, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2):
+    def train_test_split_smooth(self, smoothing_list: list, test_size = 0.20, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2):
         df = self.spline_smoothing(smoothing_list, win_len, poly_order)
+        splitter = GroupShuffleSplit(test_size=test_size, n_splits=n_splits, random_state=random_state)
+        split = splitter.split(df, groups=df[self.group])
+        train_inds, test_inds = next(split)
+        return df.iloc[train_inds], df.iloc[test_inds]
+    
+    def train_test_split(self, test_size = 0.20, n_splits = 2, random_state = 1):
+        df = self.interpolation()
         splitter = GroupShuffleSplit(test_size=test_size, n_splits=n_splits, random_state=random_state)
         split = splitter.split(df, groups=df[self.group])
         train_inds, test_inds = next(split)
@@ -68,13 +76,33 @@ class ModelData:
         return joblib.dump(scaler, scaler_name)
 
     def clean(self, column_inclusion, smoothing_list, test_size = 0.10, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2):
-        train, test = self.train_test_split(
+        train, test = self.train_test_split_smooth(
             smoothing_list=smoothing_list,
             test_size=test_size,
             n_splits=n_splits,
             random_state=random_state,
             win_len=win_len, 
             poly_order=poly_order,
+        )
+        train = self.feature_scaling(
+            data=train,
+            scaler=self.scaler_train,
+        )
+        test = self.feature_scaling(
+            data=test,
+            scaler=self.scaler_train,
+            new_scaler=False,
+        )
+        columns = column_inclusion + self.states + self.inputs
+
+        return train[train.columns[train.columns.isin(columns)]], \
+            test[test.columns[test.columns.isin(columns)]]
+    
+    def clean_no_smoothing(self, column_inclusion, test_size = 0.10, n_splits = 2, random_state = 1):
+        train, test = self.train_test_split(
+            test_size=test_size,
+            n_splits=n_splits,
+            random_state=random_state,
         )
         train = self.feature_scaling(
             data=train,

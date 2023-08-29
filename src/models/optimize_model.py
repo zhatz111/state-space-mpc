@@ -110,7 +110,7 @@ class ModelOptimizer:
         self.x_history.append(self.iterations)
         self.y_history.append(data[-1].item())
         # return 0 - data[-1].item()
-        return 0 - y_out[14][2] + 0.2*(np.sum(np.diff(u_sim[:,0])**2) + np.sum(np.diff(u_sim[:,1])**2) + np.sum(np.diff(u_sim[:,2])**2))
+        return 0 - y_out[14][2] + 1*(np.sum(np.diff(u_sim[:,0])**2) + np.sum(np.diff(u_sim[:,1])**2) + np.sum(np.diff(u_sim[:,2])**2))
     
     def inverse_scale(self, y_out, u_sim):
         data = np.hstack([y_out, u_sim])
@@ -130,7 +130,7 @@ class ModelOptimizer:
             # {"type": "ineq", "fun": self.viability_constraint},
             {"type": "ineq", "fun": self.ammonium_constraint},
             # {"type": "ineq", "fun": self.lactate_constraint},
-            # {"type": "ineq", "fun": self.ILAC_constraint},
+            {"type": "ineq", "fun": self.osmo_constraint},
             {"type": "ineq", "fun": self.feed_constraint},
             # {"type": "ineq", "fun": self.titer_constraint},
         ]
@@ -138,7 +138,7 @@ class ModelOptimizer:
         num1 = 14
         num2 = 15
         # feed_bounds_1 = [(0,0.015),(0,0.015),(0,0.015),(0,0.015)]
-        feed_bounds = [(0,0.03)]*num1
+        feed_bounds = [(0,0.04)]*num1
         glucose_bounds = [(4.5,6)]*num2
         extra_bounds = ((36, 37),(30.5, 31.5),(4,6))
         bounds = tuple(feed_bounds + glucose_bounds) + extra_bounds
@@ -308,6 +308,11 @@ class ModelOptimizer:
         y_out, u_sim = self.optimizer_function(input_array)
         amm = max(np.array(self.inverse_scale(y_out, u_sim).filter(like="Ammonium")))
         return self.constraint_dict["Ammonium"] - amm
+    
+    def osmo_constraint(self, input_array):  # Ammonium constraint
+        y_out, u_sim = self.optimizer_function(input_array)
+        osmo = max(np.array(self.inverse_scale(y_out, u_sim).filter(like="Osmo")))
+        return self.constraint_dict["Osmo"] - osmo
 
     def lactate_constraint(self, input_array):  # Lactate Constraint
         y_out, u_sim = self.optimizer_function(input_array)

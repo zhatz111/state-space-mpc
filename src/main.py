@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 # Current model error (includes glucose input): 8.07
 # Current model error (excludes glucose input): 11.9
 
-folder_ext = "AR23-029_MR23-045"
+folder_ext = "AR23-074_Matrices"
 file_ext = "AR23-029_MR23_045-Model-Data"
 
 STATES = [
@@ -25,7 +25,8 @@ STATES = [
     "VCC",
     # "ILAC",
     # "Osmo",
-    "Ammonium",
+    # "Ammonium",
+    "Lactate",
     "IGG",
 ]
 
@@ -39,7 +40,8 @@ INPUTS = [
 SMOOTHE_LIST = [
     "VCC",
     # "Osmo",
-    "Ammonium",
+    # "Ammonium",
+    "Lactate",
     "IGG",
     # "IVC",
     # "ILAC",
@@ -63,7 +65,12 @@ column_inclusion = [
     "Day",
 ]
 
+new_states = ["TCC","VCC","Viability","Diameter","Osmo","Ammonium","Calcium","Glucose","Glutamine","Glutamate","Lactate","pH_at_temp","pCO2_at_Temp","Potassium","Sodium","IGG"]
+new_inputs = ["Daily_Feed_Normalized","Post_Glucose_Conc","Temperature","Daily_Glucose_Normalized"]
+
 scaler_train = MinMaxScaler()
+
+other_scalar = MinMaxScaler()
 # scaler_train = joblib.load("./models/AR23-014_029/data/scaler_train_AR23-014_029.scale")
 
 data = pd.read_csv(fr"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\{file_ext}.csv")
@@ -77,9 +84,39 @@ dataframe = ModelData(
     inputs=INPUTS,
 )
 
+dataframe_2 = ModelData(
+    df=data,
+    scaler_train=other_scalar,
+    group="Batch",
+    discard=DISCARD,
+    states=new_states,
+    inputs=new_inputs,
+)
+
+
+# train_data_1, test_data_1 = dataframe_2.train_test_split(
+#     smoothing_list=SMOOTHE_LIST,
+#     test_size = 0.20,
+#     n_splits = 2,
+#     random_state = 1,
+#     win_len=7,
+#     poly_order=3,
+# )
+
 # Class method to clean up all the data
 # this includes interpolation to start, spline smoothing, train and test set splitting
 # and finally feature scaling using the scaler of choice
+
+train_data_2, test_data_2 = dataframe_2.clean_no_smoothing(
+    column_inclusion=column_inclusion,
+    # smoothing_list=SMOOTHE_LIST,
+    test_size = 0.20,
+    n_splits = 2,
+    random_state = 1,
+    # win_len=7,
+    # poly_order=3,
+)
+
 train_data, test_data = dataframe.clean(
     column_inclusion=column_inclusion,
     smoothing_list=SMOOTHE_LIST,
@@ -89,6 +126,8 @@ train_data, test_data = dataframe.clean(
     win_len=7,
     poly_order=3,
 )
+
+train_data_2.to_clipboard()
 
 # Save the Scaler for both the training and test sets to rescale in the future
 # with open("./models/AR23-014_029/data/scaler_train_AR23-014_029", encoding="utf-8") as scaler:
@@ -136,11 +175,12 @@ constraint_dict = {
     "Ammonium": 15,
     "Lactate": .5,
     "Glucose": 1.0,
+    "Osmo": 400,
     "IGG": 7000,
     "VCC": 30,
     "IVC": 300,
     "ILAC": 10,
-    "Max_feed_volume": 40,
+    "Max_feed_volume": 45,
 }
 
 # input length x day length matrix for the inputs into your model optimizer
@@ -210,9 +250,9 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION
 
 # model_optimize.glucose = post_glucose_setpoint
-model_optimize.optimize()
-model_optimize.plot_inputs()
-model_optimize.plot_states()
+# model_optimize.optimize()
+# model_optimize.plot_inputs()
+# model_optimize.plot_states()
 # pd.DataFrame(model_optimize.result).to_clipboard()
 
 # dataframe.graph_train_data(
@@ -241,13 +281,13 @@ model_optimize.plot_states()
 # )
 
 # first_model_train.evaluate(
-#     test_label="Ammonium",
-#     ylim=16,
+#     test_label="Osmo",
+#     ylim=500,
 # )
 
 # first_model_train.test_model(
-#     test_label="Lactate",
-#     ylim=3,
+#     test_label="IGG",
+#     ylim=6000,
 # )
 
 # r2 = first_model_train.get_r2_table()
@@ -258,7 +298,7 @@ model_optimize.plot_states()
 
 # SINGLE BATCH TEST
 
-# data_test = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\MR23-045_Flu_mAb_Test_Batch.csv")
+# data_test = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\MR23-045_2_Flu_mAb_Test_Batch.csv")
 
 # dataframe_test = ModelData(
 #     df=data_test,
@@ -281,6 +321,8 @@ model_optimize.plot_states()
 #     new_scaler=False,
 # )
 
+# testing_data.to_clipboard()
+
 # single_batch_test = ModelTraining(
 #     train_data,
 #     testing_data,
@@ -293,5 +335,5 @@ model_optimize.plot_states()
 # )
 
 # single_batch_test.single_batch_test(
-#     test_label="Osmo",
+#     test_label="IGG",
 # )

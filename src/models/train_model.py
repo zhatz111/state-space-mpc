@@ -421,6 +421,7 @@ class ModelTraining:
             bioreactor = signal.StateSpace(self.a_matrix, self.b_matrix, C_Matrix, D_Matrix)
             _, test_yout, _ = signal.lsim(bioreactor, test_u, self.time, test_x0)
             raw_data = np.hstack((test_yout,test_u))
+            print(test_yout)
             eval_dict[name] = pd.DataFrame(data=raw_data, columns=columns)
             test_model_dict[name] = group
 
