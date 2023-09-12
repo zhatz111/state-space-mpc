@@ -122,7 +122,7 @@ class ModelTraining:
 
         res = optimize.minimize(
             fun=objective_func,
-            x0=combined_mat,
+            x0=combined_mat.flatten(),
             method="SLSQP",
             args=({"Nfeval": 0}, ),
             options={"maxiter": iterations, 'disp': False},

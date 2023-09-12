@@ -17,7 +17,7 @@ warnings.filterwarnings('ignore')
 # Current model error (includes glucose input): 8.07
 # Current model error (excludes glucose input): 11.9
 
-folder_ext = "AR23-074_Matrices"
+folder_ext = "Kalman-Filter"
 file_ext = "AR23-029_MR23_045-Model-Data"
 
 STATES = [
@@ -32,8 +32,8 @@ STATES = [
 
 INPUTS = [
     "Daily_Feed_Normalized",
-    "Post_Glucose_Conc",
-    "Temperature",
+    # "Post_Glucose_Conc",
+    # "Temperature",
     # "Post_Gluose_Conc",
 ]
 
@@ -139,11 +139,12 @@ train_data_2.to_clipboard()
 # print(A_Matrix)
 # print(B_Matrix)
 
-with open(fr"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\{folder_ext}\A_Matrix.csv", encoding="utf-8") as a_matrix:
+with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}\A_Matrix.csv", encoding="utf-8") as a_matrix:
     A_Matrix = np.loadtxt(a_matrix, delimiter=',')
 
-with open(fr"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\{folder_ext}\B_Matrix.csv", encoding="utf-8") as b_matrix:
+with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}\B_Matrix.csv", encoding="utf-8") as b_matrix:
     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
+    B_Matrix = np.c_[B_Matrix]
 
 # with open(r"M:\Zach Hatzenbeller\State-Space-Matrices\AR23-014_029\Experimental_matrices\A_Matrix.csv", encoding="utf-8") as a_matrix:
 #     A_Matrix = np.loadtxt(a_matrix, delimiter=',')
@@ -209,10 +210,10 @@ volume = 150
 # feed_setpoint = [0.03]*14
 # post_glucose_setpoint = [0]*15
 feed_setpoint = test_data[test_data["Batch"]=="MR23-045-718"]["Daily_Feed_Normalized"].tolist()[:14]
-post_glucose_setpoint = test_data[test_data["Batch"]=="MR23-045-718"]["Post_Glucose_Conc"].tolist()
+# post_glucose_setpoint = test_data[test_data["Batch"]=="MR23-045-718"]["Post_Glucose_Conc"].tolist()
 
 # post_glucose_setpoint = np.array(test_data[test_data["Batch"]==test_data.sample()["Batch"].values[0]].filter(like="Post_Glucose_Conc"))
-setpoints = feed_setpoint + post_glucose_setpoint + [36.5,31.,5.]
+setpoints = feed_setpoint + [36.5,31.,5.]
 
 # print(initial_condition)
 # print()
@@ -263,12 +264,12 @@ model_optimize = ModelOptimizer(
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
-# first_model_train.train_test_model(
-#     fr"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\data\current\{folder_ext}", # \Experimental_matrices
-#     test_label="IGG",
-#     iterations=50,
-#     first_train=False,
-# )
+first_model_train.train_test_model(
+    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{folder_ext}", # \Experimental_matrices
+    test_label="IGG",
+    iterations=50,
+    first_train=False,
+)
 
 # first_model_train.evaluate(
 #     test_label="IGG",
