@@ -7,9 +7,14 @@ from scipy import optimize
 import matplotlib.pyplot as plt
 
 class ModelOptimizer:
+    """_summary_
+    """
 
-    def __init__(self, target_label: str, a_matrix: np.array, b_matrix: np.array, states: list, inputs: list, scaler, constraint_dict: dict,
-    initial_input, initial_condition: np.array, days: int, scaler_dict: dict, max_iters = 1000, volume = 196):
+    def __init__(self, target_label: str, a_matrix: np.ndarray, b_matrix: np.ndarray,
+        states: list, inputs: list, scaler, constraint_dict: dict, initial_input,
+        initial_condition: np.ndarray, days: int, scaler_dict: dict, volume = 200,
+        max_iters = 1000):
+
         self.days = days
         self.scaler_dict = scaler_dict
         self.target_label = target_label
@@ -32,64 +37,17 @@ class ModelOptimizer:
         self.y_history = []
         self.result = None
         self.glucose = None
-        
 
     def optimizer_function(self, input_array):
         # Change the start of this function according to what your input array will be
         x0 = np.zeros([self.days, self.input_len])
-        
+
         # UNCOMMENT FOR UNCONSTRAINED FEEDING STRATEGY
-
-        # Construct feed day matrix column
-        # for day in range(0,14):
-        #     x0[14,0] = (0*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [0,1]:
-        #         x0[day,0] = ((input_array[0])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [2,3]:
-        #         x0[day,0] = ((input_array[1])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [4,5]:
-        #         x0[day,0] = ((input_array[2])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [6,7]:
-        #         x0[day,0] = ((input_array[3])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [8,9]:
-        #         x0[day,0] = ((input_array[4])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [10,11]:
-        #         x0[day,0] = ((input_array[5])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        #     if day in [12,13]:
-        #         x0[day,0] = ((input_array[6])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-        
-        for count, day in enumerate(range(0,14)):
-            if day != 14:
-                x0[day,0] = ((input_array[count])*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
+        for count, day in enumerate(range(0,self.days)):
+            if day is not self.days:
+                x0[day,0] = (input_array[count]-self.scaler_dict["Normalized_Feed_Percent"][0])/self.scaler_dict["Normalized_Feed_Percent"][1]
             else:
-                x0[14,0] = (0*self.scaler_dict["Daily_Feed_Normalized"][0])+self.scaler_dict["Daily_Feed_Normalized"][1]
-
-        for count, day in enumerate(range(0,14)):
-            x0[day,1] = ((input_array[count+14])*self.scaler_dict["Post_Glucose_Conc"][0])+self.scaler_dict["Post_Glucose_Conc"][1]
-
-
-        # x0[:,1] = self.glucose
-
-        # Construct temperature column
-        shift_day = int(input_array[-1])
-        # x0[:shift_day,2] = (input_array[-3]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-        # x0[shift_day:,2] = (input_array[-2]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-
-        x0[:shift_day,2] = (36.5*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-        x0[shift_day:,2] = (31*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-    
-
-        # UNCOMMENT FOR POLYNOMIAL FEEDING STRATEGY
-
-        # for day in range(0,14):
-        #     x0[day,0] = np.polyval(input_array[0:4],day)
-
-        # # construct pH setpoint column
-        # x0[:,1] = (input_array[4]*self.scaler_dict["pH_Setpoint"][0])+self.scaler_dict["pH_Setpoint"][1]
-        # # Construct temperature column
-        # shift_day = int(input_array[7])
-        # x0[:shift_day,2] = (input_array[5]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
-        # x0[shift_day:,2] = (input_array[6]*self.scaler_dict["Temperature"][0])+self.scaler_dict["Temperature"][1]
+                x0[self.days,0] = (0-self.scaler_dict["Normalized_Feed_Percent"][0])/self.scaler_dict["Normalized_Feed_Percent"][1]
 
         c_matrix = np.identity(self.state_len)
         d_matrix = np.zeros([self.state_len, self.input_len])
@@ -98,7 +56,7 @@ class ModelOptimizer:
         state = signal.StateSpace(self.a_matrix, self.b_matrix, c_matrix, d_matrix)
         _, y_func, _ = signal.lsim(state, u_sim, t_sim, self.initial_condition)
         return y_func, u_sim
-    
+
     def objective_function(self, input_array):
         y_out, u_sim = self.optimizer_function(input_array)
         data = np.array(self.inverse_scale(y_out, u_sim).filter(like=self.target_label))
@@ -108,17 +66,16 @@ class ModelOptimizer:
         self.iterations += 1
         self.x_history.append(self.iterations)
         self.y_history.append(data[-1].item())
-        # return 0 - data[-1].item()
-        return 0 - y_out[14][2] + 0.5*(np.sum(np.diff(u_sim[:,0])**2) + np.sum(np.diff(u_sim[:,1])**2) + np.sum(np.diff(u_sim[:,2])**2))
-    
+        return 0 - data[-1].item() + 0.5*(np.sum(np.diff(u_sim[:,0])**2))
+
     def inverse_scale(self, y_out, u_sim):
         data = np.hstack([y_out, u_sim])
         columns = self.states + self.inputs
         df = pd.DataFrame(data=data, columns=columns)
         for column in df.columns:
-            scaler_value = self.scaler_dict[column][0]
-            min_value = self.scaler_dict[column][1]
-            df[column] = (df[column]-min_value)/scaler_value
+            scaler_value = self.scaler_dict[column][1]
+            min_value = self.scaler_dict[column][0]
+            df[column] = (df[column]*scaler_value)+min_value
         return df
 
     def optimize(self):
@@ -134,14 +91,9 @@ class ModelOptimizer:
             # {"type": "ineq", "fun": self.titer_constraint},
         ]
 
-        num1 = 14
-        num2 = 15
-        # feed_bounds_1 = [(0,0.015),(0,0.015),(0,0.015),(0,0.015)]
-        feed_bounds = [(0,0.03)]*num1
-        glucose_bounds = [(4.5,6)]*num2
-        extra_bounds = ((36, 37),(30.5, 31.5),(4,6))
-        bounds = tuple(feed_bounds + glucose_bounds) + extra_bounds
-        # bounds = tuple(feed_bounds) + extra_bounds
+        num1 = self.days
+        feed_bounds = [(0,5)]*num1
+        bounds = tuple(feed_bounds)
 
         res = optimize.minimize(
             fun=self.objective_function,
@@ -176,7 +128,7 @@ class ModelOptimizer:
             gluc_scaled.append(gluc)
 
         return np.array(volume_arr), np.array(feed_scaled), np.array(gluc_scaled)
-    
+
     def volume_calculator_no_gluc(self, feed_arr):
 
         volume_arr = []
@@ -195,32 +147,27 @@ class ModelOptimizer:
 
         return np.array(volume_arr), np.array(feed_scaled)
 
-
     def plot_history(self):
         plt.plot(self.x_history, self.y_history, 'o-')
         plt.xlabel('x')
         plt.ylabel('y')
         plt.title('Objective function history')
         plt.show()
-    
+
     def plot_inputs(self):
-        # print(((self.result[:6]-self.scaler_dict["Daily_Feed_Normalized"][1])/self.scaler_dict["Daily_Feed_Normalized"][0]))
         y_out, u_sim = self.optimizer_function(self.result)
         data = self.inverse_scale(y_out, u_sim).filter(items=self.inputs)
-        # volume, feed, glucose = self.volume_calculator(data[self.inputs[0]], data[self.inputs[1]])
         volume, feed = self.volume_calculator_no_gluc(data[self.inputs[0]])
-        # pd.Series(feed).to_clipboard()
-        pd.Series(feed).to_clipboard()
         input_dict = {}
         for column in data.columns:
             input_dict[column] = data[column]
         input_dict["Volume"] = volume
         input_dict["Scaled_Feed"] = feed
-        # input_dict["Scaled_Glucose"] = glucose
         cols = 2
         rows = math.ceil(len(input_dict) / cols)
         fig, axes = plt.subplots(rows, cols, figsize=(10,10),squeeze=False)
-        dict_keys = [k for k in input_dict.keys()]
+        dict_keys = list(input_dict)
+        print(dict_keys)
         count = 0
         for i in range(rows):
             for j in range(cols):
@@ -229,20 +176,20 @@ class ModelOptimizer:
                     axes[i][j].plot(np.arange(0,len(input_dict[key]),1),input_dict[key],"ro-",markersize=3.5)
                     axes[i][j].set_title(key)
                     count += 1
-                except:
+                except KeyError:
                     pass
-        feed_volume = 1.07*100*np.sum(feed)/self.constraint_dict["Volume"]
+                except IndexError:
+                    pass
+        feed_volume = np.sum(feed)/self.constraint_dict["Volume"]
         plt.legend(loc="best")
-        fig.suptitle(
-            f"Feed Volume: {feed_volume:.2f}, \
-            Final Volume: {volume[-1]:.2f}, \
-            Temp Start: {self.result[-3]:.2f}, \
-            Temp Final: {self.result[-2]:.2f}, \
-            Temp Shift Day: {self.result[-1]:.2f}\n"
-        )
+        if self.result is not None:
+            fig.suptitle(
+                f"Feed Volume: {feed_volume:.2f}, \
+                Final Volume: {volume[-1]:.2f}"
+            )
         fig.tight_layout()
         plt.show()
-    
+
     def plot_states(self):
         y_out, u_sim = self.optimizer_function(self.result)
         data = self.inverse_scale(y_out, u_sim).filter(items=self.states)
@@ -262,7 +209,9 @@ class ModelOptimizer:
                     axes[i][j].set_title(key)
                     # pd.Series(state_dict[key]).to_clipboard()
                     count += 1
-                except:
+                except KeyError:
+                    pass
+                except IndexError:
                     pass
         plt.legend(loc="best")
         fig.tight_layout()
@@ -280,6 +229,7 @@ class ModelOptimizer:
             confidence_list.append((m, m-h, m+h))
         return confidence_list
 
+
     # Place any constraints to the model here!!!
 
     def minzero_constraint(self, input_array):  # Nothing can be less than 0
@@ -291,7 +241,7 @@ class ModelOptimizer:
         y_out, u_sim = self.optimizer_function(input_array)
         vcc = np.array(self.inverse_scale(y_out, u_sim).filter(like="VCC"))
         return np.mean(vcc[9:]) - self.constraint_dict["VCC"]
-    
+
     def ivc_constraint(self, input_array):  # EOR IVC needs to be maximized
         y_out, u_sim = self.optimizer_function(input_array)
         ivc = np.array(self.inverse_scale(y_out, u_sim).filter(like="IVC"))
@@ -312,12 +262,12 @@ class ModelOptimizer:
         y_out, u_sim = self.optimizer_function(input_array)
         lac = max(np.array(self.inverse_scale(y_out, u_sim).filter(like="Lactate"))[8:])
         return self.constraint_dict["Lactate"] - lac
-    
+
     def ILAC_constraint(self, input_array):  # integral of lactate Constraint
         y_out, u_sim = self.optimizer_function(input_array)
         ilac = max(np.array(self.inverse_scale(y_out, u_sim).filter(like="ILAC")))
         return self.constraint_dict["ILAC"] - ilac
-    
+
     def titer_constraint(self, input_array):  # Titer Constraint
         y_out, u_sim = self.optimizer_function(input_array)
         igg = min(np.array(self.inverse_scale(y_out, u_sim).filter(like="IGG")))
@@ -327,6 +277,5 @@ class ModelOptimizer:
         y_out, u_sim = self.optimizer_function(input_array)
         data = self.inverse_scale(y_out, u_sim).filter(items=self.inputs)
         _, feed = self.volume_calculator_no_gluc(data[self.inputs[0]])
-        feed_volume = 1.07*100*np.sum(feed)/self.constraint_dict["Volume"]
+        feed_volume = np.sum(feed)/self.constraint_dict["Volume"]
         return self.constraint_dict["Max_feed_volume"] - feed_volume
-

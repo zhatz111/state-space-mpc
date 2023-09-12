@@ -12,43 +12,36 @@ class ModelData:
     """_summary_
     """
 
-    def __init__(self, df: pd.DataFrame, group: str, scaler_train, discard, states, inputs):
-        self.df = df
+    def __init__(self, raw_data: pd.DataFrame, group: str, scaler_train: object, discard: list, states: list, inputs: list) -> None:
+        self.df = raw_data
         self.group = group
         self.scaler_train = scaler_train
         self.discard = discard
         self.states = states
         self.inputs = inputs
 
-    def interpolation(self):
+    def interpolation(self) -> pd.DataFrame:
         if (len(self.discard) > 0) or (self.discard is None):
             self.df = self.df[~self.df[self.group].str.contains("|".join(self.discard),na=False)]
         grouped = self.df.groupby(self.group, group_keys=False)
-        # grouped.apply(lambda group: group.interpolate(method = 'spline',order=3))
-        return grouped.apply(lambda group: group.interpolate(method = 'linear', \
-        limit_direction='backward',limit=2))
+        df_interpolate = grouped.apply(lambda group: group.interpolate(method = 'linear', \
+            limit_direction='forward'))
+        return df_interpolate
 
-    def spline_smoothing(self, smoothing_list: list, win_len = 5, poly_order = 2):
-        df_savgol = self.interpolation().groupby(self.group)
-        smooth_data = []
-        smooth = set(smoothing_list)
-        for _, group in df_savgol:
-            for col in smooth:
-                # x = group["Day"].values
-                y = group[col].values
-                sg_filter = savgol_filter(y, window_length=win_len, polyorder=poly_order)
-                group[col] = sg_filter
+    def spline_smoothing(self, smoothing_list: list, win_len = 5, poly_order = 2) -> pd.DataFrame:
+        df_interpolated = self.interpolation()
+        df_smoothed = df_interpolated.copy()
+        if smoothing_list:
+            df_smoothed.loc[:, smoothing_list] = df_interpolated.filter(items=smoothing_list).apply(lambda x: \
+                savgol_filter(x,window_length=win_len,polyorder=poly_order))
+        return df_smoothed
 
-            smooth_data.append(group)
-        smooth_data = pd.concat(smooth_data)
-        return smooth_data
-
-    def train_test_split(self, smoothing_list: list, test_size = 0.20, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2):
-        df = self.spline_smoothing(smoothing_list, win_len, poly_order)
+    def train_test_split(self, smoothing_list: list, test_size = 0.20, n_splits = 2, random_state = 1, win_len = 5, poly_order = 2) -> tuple[pd.DataFrame, pd.DataFrame]:
+        df_smoothed = self.spline_smoothing(smoothing_list, win_len, poly_order)
         splitter = GroupShuffleSplit(test_size=test_size, n_splits=n_splits, random_state=random_state)
-        split = splitter.split(df, groups=df[self.group])
-        train_inds, test_inds = next(split)
-        return df.iloc[train_inds], df.iloc[test_inds]
+        split = splitter.split(df_smoothed, groups=df_smoothed[self.group])
+        train_index, test_index = next(split)
+        return df_smoothed.iloc[list(train_index),:], df_smoothed.iloc[list(test_index),:]
 
     def feature_scaling(self, data: pd.DataFrame, scaler, new_scaler=True):
         # data_set = set(data.columns)
@@ -90,7 +83,7 @@ class ModelData:
         return train[train.columns[train.columns.isin(columns)]], \
             test[test.columns[test.columns.isin(columns)]]
     
-    def graph_train_data(self, smoothing_list, test_label, ylim):
+    def graph_train_data(self, smoothing_list, test_label, ylim=None):
         train_data = self.spline_smoothing(smoothing_list)
         train_grouped = train_data.groupby("Batch")
         cols = 4
@@ -108,7 +101,7 @@ class ModelData:
                 key = dict_keys[random.randint(0,len(eval_dict)-1)]
                 axes[i][j].plot(eval_dict[key]["Day"], eval_dict[key][test_label],"bo-", label="Simulated",markersize=3.5)
                 axes[i][j].set_title(key)
-                if ylim != None:
+                if ylim is not None:
                     axes[i][j].set_ylim(0, ylim)
                 count += 1
         axes[rows-1][cols-1].legend()
@@ -120,7 +113,6 @@ class ModelData:
 
         SMALL_SIZE = 3
         MEDIUM_SIZE = 5
-        BIGGER_SIZE = 12
 
         plt.rc('font', size=SMALL_SIZE)          # controls default text sizes
         plt.rc('axes', titlesize=SMALL_SIZE)     # fontsize of the axes title
