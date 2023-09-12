@@ -22,7 +22,7 @@ file_ext = "AR23-029_MR23_045-Model-Data"
 
 STATES = [
     # "IVC",
-    "VCC",
+    # "VCC",
     # "ILAC",
     # "Osmo",
     # "Ammonium",
@@ -287,8 +287,8 @@ first_model_train.train_test_model(
 # )
 
 # first_model_train.test_model(
-#     test_label="IGG",
-#     ylim=6000,
+#     test_label="Lactate",
+#     ylim=5,
 # )
 
 # r2 = first_model_train.get_r2_table()
