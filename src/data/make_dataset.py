@@ -14,7 +14,7 @@ from sklearn.model_selection import GroupShuffleSplit
 
 
 # The `ModelData` class provides methods for data cleaning, preprocessing, and visualization for a
-# machine learning model.
+# state space model.
 class ModelData:
     """_summary_
     """

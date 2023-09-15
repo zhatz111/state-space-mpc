@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression
 warnings.filterwarnings("ignore")
 
 
+# The ModelTraining class is used for training state space models.
 class ModelTraining:
     """_summary_"""
 
@@ -30,6 +31,35 @@ class ModelTraining:
         num_days: int,
         scaler: MinMaxScaler,
     ):
+        """
+        The function is an initializer for a class that takes in various parameters and initializes them
+        as attributes of the class.
+        
+        Args:
+          train_data (pd.DataFrame): The `train_data` parameter is a pandas DataFrame that contains the
+        training data for your model. It should have the necessary columns and rows to train your model.
+          test_data (pd.DataFrame): The `test_data` parameter is a pandas DataFrame that contains the
+        test data for your model. It is used to evaluate the performance of your model on unseen data.
+          a_matrix: The `a_matrix` parameter represents the transition matrix for the hidden states in a
+        Hidden Markov Model (HMM). It is a matrix that defines the probabilities of transitioning from
+        one state to another. Each row of the matrix represents the probabilities of transitioning from
+        the current state to all other states.
+          b_matrix: The `b_matrix` parameter is a matrix that represents the emission probabilities of
+        the hidden states given the observed inputs. It is a matrix of shape (num_states, num_inputs),
+        where num_states is the number of hidden states and num_inputs is the number of observed inputs.
+        Each element in the matrix
+          states (list): The `states` parameter is a list that represents the different states or
+        variables in your system. Each element in the list represents a state or variable.
+          inputs (list): The `inputs` parameter is a list that contains the names of the input variables
+        or features used in the model. These inputs are used to predict the state variables.
+          num_days (int): The `num_days` parameter represents the number of days for which the model
+        will be trained and tested. It determines the length of the time series data that will be used
+        for training and testing the model.
+          scaler (MinMaxScaler): The `scaler` parameter is an instance of the `MinMaxScaler` class. It
+        is used to scale the input data to a specified range, typically between 0 and 1. This scaling is
+        important for certain machine learning algorithms that are sensitive to the scale of the input
+        features.
+        """
         self.train_data = train_data
         self.test_data = test_data
         self.a_matrix = a_matrix
