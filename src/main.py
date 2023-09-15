@@ -1,8 +1,15 @@
+"""_summary_
+"""
+# pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
+# pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
+# Imports from third party
 import warnings
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
+
+# Imports from within repository
 from data.make_dataset import ModelData
 from models.train_model import ModelTraining
 from models.optimize_model import ModelOptimizer
@@ -41,7 +48,9 @@ column_inclusion = [
 
 scaler_train = MinMaxScaler()
 
-data = pd.read_csv(fr"~\GSK\Biopharm Model Predictive Control - General\data\{DATA_FOLDER_EXT}\{FILE_EXT}.csv")
+data = pd.read_csv(
+    fr"~\GSK\Biopharm Model Predictive Control - General\data\{DATA_FOLDER_EXT}\{FILE_EXT}.csv"
+    )
 
 dataframe = ModelData(
     raw_data=data,
@@ -65,19 +74,27 @@ train_data, test_data = dataframe.clean(
     poly_order=3,
 )
 
-with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", encoding="utf-8") as a_matrix:
+with open(
+    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
+    encoding="utf-8"
+    ) as a_matrix:
     A_Matrix = np.loadtxt(a_matrix, delimiter=',')
 
-with open(fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", encoding="utf-8") as b_matrix:
+with open(
+    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
+    encoding="utf-8"
+    ) as b_matrix:
     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
     B_Matrix = np.c_[B_Matrix]
 
 
-# Number of days is always equal to the last day number + 1, so 12 day culture duration will equal 13 days
+# Number of days is always equal to the last day number + 1, so 12 
+# day culture duration will equal 13 days
 scaler_dict = {}
 for count, name in enumerate(scaler_train.get_feature_names_out()):
     scaler_dict[name] = [scaler_train.min_[count], scaler_train.scale_[count]]
-df_Scaler = pd.DataFrame.from_dict(scaler_dict, orient="index").reset_index()
+
+# df_Scaler = pd.DataFrame.from_dict(scaler_dict, orient="index").reset_index()
 
 # UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
 
@@ -98,11 +115,15 @@ constraint_dict = {
 }
 
 # initial starting condition for your states in the model
-initial_condition = np.array(test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES))[0,:]
-volume = 200
+initial_condition = np.array(
+    test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES)
+    )[0,:]
 
+VOLUME = 200
 
-feed_setpoint = test_data[test_data["Batch"]==test_data["Batch"].unique()[0]]["Normalized_Feed_Percent"].tolist()
+feed_setpoint = test_data[test_data["Batch"]==test_data["Batch"].unique()[0]] \
+    ["Normalized_Feed_Percent"].tolist()
+
 setpoints = feed_setpoint
 
 first_model_train = ModelTraining(
@@ -113,7 +134,6 @@ first_model_train = ModelTraining(
     states=STATES,
     inputs=INPUTS,
     num_days=13,
-    scaler_dict=scaler_dict,
     scaler=scaler_train,
 )
 
@@ -128,7 +148,7 @@ model_optimize = ModelOptimizer(
     initial_input=setpoints,
     initial_condition=initial_condition,
     days=13,
-    volume=volume,
+    volume=VOLUME,
     max_iters=100,
     scaler_dict=scaler_dict
 )
@@ -147,7 +167,7 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
-#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}", # \Experimental_matrices
+#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
 #     iterations=50,
 #     first_train=False,
@@ -157,50 +177,14 @@ model_optimize = ModelOptimizer(
 #     test_label="Lactate",
 # )
 
-first_model_train.test_model(
-    test_label="Lactate",
+first_model_train.plot_test_data(
+    test_label="IGG",
+)
+
+first_model_train.plot_train_data(
+    test_label="IGG",
 )
 
 # r2 = first_model_train.get_r2_table()
 # print(r2)
 # pd.DataFrame(r2).to_clipboard()
-
-# SINGLE BATCH TEST
-
-# data_test = pd.read_csv(r"~\GSK\Biopharm Model Predictive Control - General\data\aPVRIG-ar23-029\MR23-045_Flu_mAb_Test_Batch.csv")
-
-# dataframe_test = ModelData(
-#     df=data_test,
-#     scaler_train=scaler_train,
-#     group="Batch",
-#     discard=[],
-#     states=STATES,
-#     inputs=INPUTS,
-# )
-
-# smoothed_data = dataframe_test.spline_smoothing(
-#     smoothing_list=SMOOTHE_LIST,
-#     win_len=7,
-#     poly_order=3,
-# )
-
-# testing_data = dataframe_test.feature_scaling(
-#     scaler=scaler_train,
-#     data=smoothed_data,
-#     new_scaler=False,
-# )
-
-# single_batch_test = ModelTraining(
-#     train_data,
-#     testing_data,
-#     a_matrix=A_Matrix,
-#     b_matrix=B_Matrix,
-#     states=STATES,
-#     inputs=INPUTS,
-#     num_days=15,
-#     scaler_dict=scaler_dict,
-# )
-
-# single_batch_test.single_batch_test(
-#     test_label="IGG",
-# )
