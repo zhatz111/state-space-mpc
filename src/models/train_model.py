@@ -26,8 +26,8 @@ class ModelTraining:
         test_data: pd.DataFrame,
         a_matrix,
         b_matrix,
-        states: list,
-        inputs: list,
+        states: list[str],
+        inputs: list[str],
         num_days: int,
         scaler: MinMaxScaler,
     ):
@@ -183,7 +183,7 @@ class ModelTraining:
                 print("Iteration: ", info["Nfeval"])
                 print("Error: ", value)
             info["Nfeval"] += 1
-            return value
+            return value #+ 0.5 * (np.sum(np.diff(y_sim_all[:, 0]) ** 2))
 
         res = optimize.minimize(
             fun=objective_func,

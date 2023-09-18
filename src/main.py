@@ -4,6 +4,7 @@
 # pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
 # Imports from third party
+import joblib
 import warnings
 import numpy as np
 import pandas as pd
@@ -17,14 +18,13 @@ from models.optimize_model import ModelOptimizer
 #suppress warnings
 warnings.filterwarnings('ignore')
 
-DATA_FOLDER_EXT = "aCD96-ar21-023-042"
-MATRIX_FOLDER_EXT = "CD96-AR21-042"
-FILE_EXT = "AR21-042-Model-Data"
+DATA_FOLDER_EXT = "aPVRIG-ar23-029"
+DATA_FILE_EXT = "AR23-029_MR23_045-Model-Data"
+MATRIX_FOLDER_EXT = "Kalman-Filter"
 
 STATES = [
     "IGG",
     "VCC",
-    "Ammonium",
     "Lactate",
 ]
 
@@ -33,12 +33,18 @@ INPUTS = [
 ]
 
 SMOOTHE_LIST = [
+    "IGG",
     "VCC",
-    "Ammonium",
     "Lactate",
 ]
 
-DISCARD = []
+DISCARD = [
+    "AR23-029-005",
+    "MR23-045-718",
+    "MR23-045-719",
+    # "MR23-045-810",
+    # "MR23-045-811",
+]
 
 column_inclusion = [
     "Batch",
@@ -49,7 +55,7 @@ column_inclusion = [
 scaler_train = MinMaxScaler()
 
 data = pd.read_csv(
-    fr"~\GSK\Biopharm Model Predictive Control - General\data\{DATA_FOLDER_EXT}\{FILE_EXT}.csv"
+    fr"~\GSK\Biopharm Model Predictive Control - General\data\{DATA_FOLDER_EXT}\{DATA_FILE_EXT}.csv"
     )
 
 dataframe = ModelData(
@@ -70,9 +76,20 @@ train_data, test_data = dataframe.clean(
     test_size = 0.20,
     n_splits = 2,
     random_state = 1,
-    win_len=7,
-    poly_order=3,
+    win_len=2,
 )
+
+joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\scaler.scl")
+
+# dataframe.graph_train_data(
+#     smoothing_list=SMOOTHE_LIST,
+#     test_label="VCC",
+# )
+
+# dataframe.graph_smoothed_unsmoothed_data(
+#     smoothing_list=SMOOTHE_LIST,
+#     test_label="Lactate",
+# )
 
 with open(
     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
@@ -88,13 +105,11 @@ with open(
     B_Matrix = np.c_[B_Matrix]
 
 
-# Number of days is always equal to the last day number + 1, so 12 
+# Number of days is always equal to the last day number + 1, so 12
 # day culture duration will equal 13 days
 scaler_dict = {}
 for count, name in enumerate(scaler_train.get_feature_names_out()):
     scaler_dict[name] = [scaler_train.min_[count], scaler_train.scale_[count]]
-
-# df_Scaler = pd.DataFrame.from_dict(scaler_dict, orient="index").reset_index()
 
 # UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
 
@@ -119,7 +134,7 @@ initial_condition = np.array(
     test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES)
     )[0,:]
 
-VOLUME = 200
+VOLUME = 1550
 
 feed_setpoint = test_data[test_data["Batch"]==test_data["Batch"].unique()[0]] \
     ["Normalized_Feed_Percent"].tolist()
@@ -133,7 +148,7 @@ first_model_train = ModelTraining(
     b_matrix=B_Matrix,
     states=STATES,
     inputs=INPUTS,
-    num_days=13,
+    num_days=15,
     scaler=scaler_train,
 )
 
@@ -147,7 +162,7 @@ model_optimize = ModelOptimizer(
     constraint_dict=constraint_dict,
     initial_input=setpoints,
     initial_condition=initial_condition,
-    days=13,
+    days=15,
     volume=VOLUME,
     max_iters=100,
     scaler_dict=scaler_dict
@@ -159,31 +174,26 @@ model_optimize = ModelOptimizer(
 # model_optimize.plot_inputs()
 # model_optimize.plot_states()
 
-# dataframe.graph_train_data(
-#     smoothing_list=SMOOTHE_LIST,
-#     test_label="Ammonium",
-# )
-
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
-# first_model_train.train_test_model(
-#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-#     test_label="IGG",
-#     iterations=50,
-#     first_train=False,
-# )
-
-# first_model_train.evaluate(
-#     test_label="Lactate",
-# )
-
-first_model_train.plot_test_data(
+first_model_train.train_test_model(
+    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
     test_label="IGG",
+    iterations=50,
+    first_train=False,
 )
+
+# first_model_train.plot_test_data(
+#     test_label="IGG",
+# )
 
 first_model_train.plot_train_data(
-    test_label="IGG",
+    test_label="Lactate",
 )
+
+# first_model_train.plot_train_data(
+#     test_label="VCC",
+# )
 
 # r2 = first_model_train.get_r2_table()
 # print(r2)

@@ -9,7 +9,6 @@ import random
 import joblib
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.signal import savgol_filter
 from sklearn.model_selection import GroupShuffleSplit
 
 
@@ -18,6 +17,7 @@ from sklearn.model_selection import GroupShuffleSplit
 class ModelData:
     """_summary_
     """
+    random.seed(10)
     def __init__(
         self,
         raw_data: pd.DataFrame,
@@ -75,37 +75,48 @@ class ModelData:
         )
         return df_interpolate
 
-    def spline_smoothing(
-        self, smoothing_list: list, win_len=5, poly_order=2
+    def moving_average_smoother(
+        self, smoothing_list: list, win_len=2
     ) -> pd.DataFrame:
         """
-        The function `spline_smoothing` takes a list of column names, performs interpolation on a
-        DataFrame, and then applies Savitzky-Golay smoothing to the specified columns.
-
+        The `moving_average_smoother` function takes a list of columns to smooth and a window length,
+        and applies a moving average smoothing technique to the specified columns within each group in a
+        DataFrame.
+        
         Args:
-          smoothing_list (list): A list of column names in the DataFrame that you want to apply the
-        smoothing to.
-          win_len: The `win_len` parameter specifies the length of the window used for smoothing. It
-        determines the number of neighboring data points used to calculate the smoothed value for each
-        data point. A larger `win_len` value will result in a smoother curve, but it may also cause the
-        smoothed curve to lag behind. Defaults to 5
-          poly_order: The `poly_order` parameter specifies the order of the polynomial used in the
-        Savitzky-Golay filter. It determines the degree of the polynomial that is used to fit the local
-        data points. A higher `poly_order` value will result in a smoother curve, but it may also
-        introduce more. Defaults to 2
-
+          smoothing_list (list): The `smoothing_list` parameter is a list of column names that you want
+        to apply the moving average smoothing to. These columns should be present in the
+        `df_interpolated` DataFrame.
+          win_len: The `win_len` parameter in the `moving_average_smoother` function represents the
+        window length for calculating the rolling mean. It determines the number of consecutive values
+        to consider when calculating the average. The default value is 2, which means it will calculate
+        the average of each value with its adjacent. Defaults to 2
+        
         Returns:
-          a pandas DataFrame object.
+          a pandas DataFrame that contains the smoothed values of the specified columns in the input
+        DataFrame.
         """
         df_interpolated = self.interpolation()
-        df_smoothed = df_interpolated.copy()
-        if smoothing_list:
-            df_smoothed.loc[:, smoothing_list] = df_interpolated.filter(
-                items=smoothing_list
-            ).apply(
-                lambda x: savgol_filter(x, window_length=win_len, polyorder=poly_order)
-            )
-        return df_smoothed
+        grouped = df_interpolated.groupby("Batch")
+        smoothed_df = pd.DataFrame()
+
+        for _, group_data in grouped:
+            group_smoothed = group_data.copy()
+
+            for col in smoothing_list:
+                # Calculate the rolling mean for the specified column within the group
+                group_smoothed[col] = group_data[col].rolling(
+                    window=win_len,
+                    min_periods=1,
+                    center=True
+                    ).mean()
+
+                # Keep the first and last values in the column unchanged
+                group_smoothed[col].iloc[0] = group_data[col].iloc[0]
+                group_smoothed[col].iloc[-1] = group_data[col].iloc[-1]
+
+            smoothed_df = pd.concat([smoothed_df, group_smoothed])
+        return smoothed_df
 
     def train_test_split(
         self,
@@ -113,42 +124,31 @@ class ModelData:
         test_size=0.20,
         n_splits=2,
         random_state=1,
-        win_len=5,
-        poly_order=2,
+        win_len=2,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
-        The `train_test_split` function takes a list of data to be smoothed, performs spline smoothing
-        on the data, and then splits the smoothed data into training and testing sets using group
-        shuffle splitting.
-
+        The function `train_test_split` takes in a list of smoothing values, test size, number of
+        splits, random state, and window length, and returns a tuple of two pandas DataFrames.
+        
         Args:
-          smoothing_list (list): The `smoothing_list` parameter is a list of column names in the
-        DataFrame that you want to apply spline smoothing to. These columns will be smoothed using the
-        `spline_smoothing` method.
-          test_size: The `test_size` parameter determines the proportion of the dataset that will be
-        allocated for testing. It is set to 0.20, which means that 20% of the data will be used for
-        testing, while the remaining 80% will be used for training.
-          n_splits: The `n_splits` parameter specifies the number of times the data will be split into
-        train and test sets. In this case, it is set to 2, which means the data will be split into train
-        and test sets twice. Defaults to 2
+          smoothing_list (list): The `smoothing_list` parameter is a list that contains the values used
+        for smoothing the data. It is used in the process of splitting the data into training and
+        testing sets.
+          test_size: The proportion of the dataset that should be allocated for testing. It should be a
+        value between 0 and 1, where 0 represents no testing data and 1 represents all data used for
+        testing.
+          n_splits: The `n_splits` parameter specifies the number of times the dataset will be split
+        into train and test sets. In this case, it is set to 2, which means the dataset will be split
+        into two sets. Defaults to 2
           random_state: The random_state parameter is used to set the seed for the random number
-        generator. By setting a specific value for random_state, you can ensure that the train-test
-        split is reproducible. If you use the same random_state value in multiple runs of the code, you
-        will get the same train-test split. Defaults to 1
-          win_len: The `win_len` parameter represents the window length used for spline smoothing. It
-        determines the number of data points used to calculate the smoothed value at each point. A
-        larger `win_len` value will result in a smoother curve, but it may also introduce more lag in
-        the smoothed data. Defaults to 5
-          poly_order: The `poly_order` parameter represents the order of the polynomial used for spline
-        smoothing. It determines the flexibility of the spline curve. A higher `poly_order` value will
-        result in a more flexible curve that can better fit the data but may also be more prone to
-        overfitting. Conversely, a. Defaults to 2
-
-        Returns:
-          The function `train_test_split` returns a tuple containing two pandas DataFrames. The first
-        DataFrame is the training set, and the second DataFrame is the test set.
+        generator. This ensures that the same random splits are generated each time the function is
+        called with the same random_state value. Defaults to 1
+          win_len: The `win_len` parameter represents the length of the sliding window used for
+        smoothing the data. It is used in conjunction with the `smoothing_list` parameter, which is a
+        list of values used for smoothing the data. The `smoothing_list` is applied to the data using a
+        sliding window. Defaults to 2
         """
-        df_smoothed = self.spline_smoothing(smoothing_list, win_len, poly_order)
+        df_smoothed = self.moving_average_smoother(smoothing_list, win_len)
         splitter = GroupShuffleSplit(
             test_size=test_size, n_splits=n_splits, random_state=random_state
         )
@@ -202,7 +202,7 @@ class ModelData:
         Returns:
           the result of the joblib.dump() function, which is used to save the scaler object to a file.
         """
-        scaler_name = file_name + ".scale"
+        scaler_name = file_name + ".scl"
         return joblib.dump(scaler, scaler_name)
 
     def clean(
@@ -212,42 +212,31 @@ class ModelData:
         test_size=0.10,
         n_splits=2,
         random_state=1,
-        win_len=5,
-        poly_order=2,
+        win_len=2,
     ):
         """
-        The `clean` function takes in various parameters, performs data cleaning and preprocessing
-        operations, and returns the cleaned train and test datasets.
-
+        The `clean` function takes in several parameters, including `column_inclusion`,
+        `smoothing_list`, `test_size`, `n_splits`, `random_state`, and `win_len`, and performs some
+        cleaning operations on the data.
+        
         Args:
-          column_inclusion: The `column_inclusion` parameter is a list of column names that you want to
-        include in the cleaned data. These columns will be retained in the cleaned data, while other
-        columns will be excluded.
-          smoothing_list: The `smoothing_list` parameter is a list of column names that you want to
-        apply smoothing to. It is used in the `train_test_split` method to perform smoothing on the
-        specified columns before splitting the data into train and test sets.
-          test_size: The proportion of the dataset that should be allocated for testing. It is set to
-        0.10, which means 10% of the data will be used for testing.
-          n_splits: The `n_splits` parameter is used to specify the number of splits for
-        cross-validation. It determines how many times the data will be split into train and test sets
-        during cross-validation. In this case, it is set to 2, meaning the data will be split into two
-        sets for cross-validation. Defaults to 2
-          random_state: The random_state parameter is used to set the seed for random number generation.
-        By setting a specific value for random_state, you can ensure that the random processes in your
-        code are reproducible. This means that if you run the code multiple times with the same
-        random_state value, you will get the same. Defaults to 1
-          win_len: The parameter "win_len" represents the window length used for smoothing the data. It
-        is used in the train_test_split function to apply a moving average filter to the data before
-        splitting it into train and test sets. Defaults to 5
-          poly_order: The `poly_order` parameter is used to specify the order of the polynomial features
-        to be generated during feature scaling. It is used in the `feature_scaling` method to create
-        polynomial features from the input data. The higher the `poly_order`, the more complex the
-        polynomial features will be. Defaults to 2
-
-        Returns:
-          two dataframes: `train[train.columns[train.columns.isin(columns)]]` and
-        `test[test.columns[test.columns.isin(columns)]]`. These dataframes contain the columns specified
-        in `column_inclusion` as well as the `states` and `inputs` attributes of the object.
+          column_inclusion: A list of columns to include in the cleaning process. Only the columns
+        specified in this list will be considered for cleaning.
+          smoothing_list: The `smoothing_list` parameter is a list that contains values for smoothing.
+        Smoothing is a technique used to reduce noise or fluctuations in data. It involves replacing
+        each value in a dataset with an average of its neighboring values. The `smoothing_list`
+        parameter allows you to specify the values to
+          test_size: The proportion of the dataset that should be used for testing. It should be a value
+        between 0 and 1, where 0 represents no testing data and 1 represents all data used for testing.
+          n_splits: The number of times the dataset will be split into train and test sets for
+        cross-validation. Defaults to 2
+          random_state: The random_state parameter is used to set the seed for the random number
+        generator. This ensures that the randomization process is reproducible. By setting a specific
+        value for random_state, you can obtain the same random splits each time you run the code.
+        Defaults to 1
+          win_len: The `win_len` parameter represents the window length used for smoothing the data. It
+        is used in the `smoothing_list` parameter, which contains a list of values representing the
+        smoothing window length for each column in the dataset. Defaults to 2
         """
         train, test = self.train_test_split(
             smoothing_list=smoothing_list,
@@ -255,7 +244,6 @@ class ModelData:
             n_splits=n_splits,
             random_state=random_state,
             win_len=win_len,
-            poly_order=poly_order,
         )
         train = self.feature_scaling(
             data=train,
@@ -279,7 +267,7 @@ class ModelData:
 
         Args:
           smoothing_list: The `smoothing_list` parameter is a list that contains the smoothing
-        parameters for each batch of train data. It is used as an input to the `spline_smoothing`
+        parameters for each batch of train data. It is used as an input to the `moving_average_smoother`
         method.
           test_label: The `test_label` parameter is a string that represents the label or variable that
         you want to plot on the y-axis of the graph. It could be any numerical value that you want to
@@ -288,38 +276,91 @@ class ModelData:
         specify the minimum and maximum values for the y-axis. If `ylim` is not provided, the y-axis
         limits will be automatically determined based on the data.
         """
-        train_data = self.spline_smoothing(smoothing_list)
-        train_grouped = train_data.groupby("Batch")
+        train_data = self.moving_average_smoother(smoothing_list)
+        smoothed_grouped = train_data.groupby("Batch")
         cols = 4
-        if train_grouped.ngroups > 15:
+        if smoothed_grouped.ngroups > 15:
             rows = math.floor(15 / cols)
         else:
-            rows = math.floor(train_grouped.ngroups / cols)
+            rows = math.floor(smoothed_grouped.ngroups / cols)
         fig, axes = plt.subplots(
             rows, cols, figsize=(10, 10), squeeze=False, sharex=True, sharey=True
         )
-        eval_dict = dict(list(train_grouped))
-        dict_keys = [k for k in eval_dict.keys()]
-        count = 0
-        random.seed(10)
-        for i in range(rows):
-            for j in range(cols):
-                key = dict_keys[random.randint(0, len(eval_dict) - 1)]
-                axes[i][j].plot(
-                    eval_dict[key]["Day"],
-                    eval_dict[key][test_label],
-                    "bo-",
-                    label="Simulated",
-                    markersize=3.5,
-                )
-                axes[i][j].set_title(key)
-                if ylim is not None:
-                    axes[i][j].set_ylim(0, ylim)
-                count += 1
+        smoothed_dict = dict(list(smoothed_grouped))
+        dict_keys = list(smoothed_dict.keys())
+        for count, ax_test in enumerate(axes.reshape(-1)):
+            key = dict_keys[count]
+            ax_test.plot(
+                smoothed_dict[key]["Day"],
+                smoothed_dict[key][test_label],
+                "bo-",
+                label="Simulated",
+                markersize=3.5,
+            )
+            ax_test.set_title(key)
+            if ylim is not None:
+                ax_test.set_ylim(0, ylim)
         axes[rows - 1][cols - 1].legend()
 
         fig.supxlabel("Day")
         fig.supylabel(f"{test_label}")
-        plt.legend(loc="best")
         fig.tight_layout()
+        plt.legend(loc="best")
+        plt.show()
+
+    def graph_smoothed_unsmoothed_data(self, smoothing_list, test_label, ylim=None):
+        """
+        The function `graph_train_data` plots the training data grouped by batches in a grid layout.
+
+        Args:
+          smoothing_list: The `smoothing_list` parameter is a list that contains the smoothing
+        parameters for each batch of train data. It is used as an input to the `moving_average_smoother`
+        method.
+          test_label: The `test_label` parameter is a string that represents the label or variable that
+        you want to plot on the y-axis of the graph. It could be any numerical value that you want to
+        visualize, such as "Loss", "Accuracy", "Error", etc.
+          ylim: The `ylim` parameter is used to set the y-axis limits for the plots. It allows you to
+        specify the minimum and maximum values for the y-axis. If `ylim` is not provided, the y-axis
+        limits will be automatically determined based on the data.
+        """
+        smoothed_data = self.moving_average_smoother(smoothing_list)
+        smoothed_grouped = smoothed_data.groupby("Batch")
+        unsmoothed_data = self.interpolation()
+        unsmoothed_grouped = unsmoothed_data.groupby("Batch")
+        cols = 4
+        if smoothed_grouped.ngroups > 15:
+            rows = math.floor(15 / cols)
+        else:
+            rows = math.floor(smoothed_grouped.ngroups / cols)
+        fig, axes = plt.subplots(
+            rows, cols, figsize=(10, 10), squeeze=False, sharex=True, sharey=True
+        )
+        smoothed_dict = dict(list(smoothed_grouped))
+        unsmoothed_dict = dict(list(unsmoothed_grouped))
+        dict_keys = list(smoothed_dict.keys())
+        for count, ax_test in enumerate(axes.reshape(-1)):
+            key = dict_keys[count]
+            ax_test.plot(
+                smoothed_dict[key]["Day"],
+                smoothed_dict[key][test_label],
+                "bo-",
+                label="Smoothed Data",
+                markersize=3.5,
+            )
+            ax_test.plot(
+                unsmoothed_dict[key]["Day"],
+                unsmoothed_dict[key][test_label],
+                "ro-",
+                label="Unsmoothed Data",
+                markersize=3.5,
+            )
+            ax_test.set_title(key)
+            if ylim is not None:
+                ax_test.set_ylim(0, ylim)
+        axes[rows - 1][cols - 1].legend()
+
+        fig.supxlabel("Day")
+        fig.supylabel(f"{test_label}")
+        fig.tight_layout()
+        plt.legend(loc="best")
         plt.show()
