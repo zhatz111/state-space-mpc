@@ -278,7 +278,8 @@ class ModelTraining:
         cols = 2
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="test")
         rows = math.floor(len(simulation_dict) / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(10, 10), squeeze=False)
+        fig, axes = plt.subplots(rows, cols, figsize=(9,7), squeeze=False)
+        fig.subplots_adjust(top=0.8)
         dict_keys = list(simulation_dict.keys())
         for count, ax_test in enumerate(axes.reshape(-1)):
             key = dict_keys[count]
@@ -296,11 +297,15 @@ class ModelTraining:
                 label="Experimental Data",
                 markersize=3.5,
             )
-            ax_test.set_title(key)
+            ax_test.set_title(key, size="medium", weight="bold")
+            ax_test.grid()
             if ylim is not None:
                 ax_test.set_ylim(0, ylim)
-        plt.legend(loc="best")
+        fig.suptitle("Testing Data Set", size= "x-large", weight= "bold", y=0.98)
+        fig.supxlabel("Day", size= "x-large", weight= "bold")
+        fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
         fig.tight_layout()
+        plt.legend(loc="best")
         plt.show()
 
     def plot_train_data(self, test_label: str, ylim=None):
@@ -325,11 +330,13 @@ class ModelTraining:
             rows = math.floor(len(simulation_dict) / cols)
 
         fig, axes = plt.subplots(
-            rows, cols, figsize=(10, 10), squeeze=False, sharex=True, sharey=True
+            rows, cols, figsize=(10,8), squeeze=False, #sharex=True, sharey=True
         )
+        fig.subplots_adjust(top=0.8)
         fig2, axes2 = plt.subplots(
-            rows, cols, figsize=(10, 10), squeeze=False, sharex=True, sharey=True
+            rows, cols, figsize=(10,8), squeeze=False, #sharex=True, sharey=True
         )
+        fig2.subplots_adjust(top=0.8)
 
         dict_keys = list(simulation_dict.keys())
         for count, ax_test in enumerate(axes.reshape(-1)):
@@ -348,14 +355,15 @@ class ModelTraining:
                 label="Experimental Data",
                 markersize=3.5,
             )
-            ax_test.set_title(key)
+            ax_test.set_title(key, size="medium", weight="bold")
+            ax_test.grid()
             if ylim is not None:
                 ax_test.set_ylim(0, ylim)
 
         axes[rows - 1][cols - 1].legend()
-        fig.suptitle("Simulation vs Experimental Data")
-        fig.supxlabel("Day")
-        fig.supylabel(f"{test_label}")
+        fig.suptitle("Training Data Set", size= "x-large", weight= "bold", y=0.98)
+        fig.supxlabel("Day", size= "x-large", weight= "bold")
+        fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
         fig.tight_layout()
 
         for count, ax_test in enumerate(axes2.reshape(-1)):
@@ -363,19 +371,20 @@ class ModelTraining:
             ax_test.plot(
                 train_test_dict[key][test_label],
                 simulation_dict[key][test_label],
-                "bo",
+                "ro",
                 label="Simulated Data",
                 markersize=4.5,
             )
-            ax_test.set_title(key)
+            ax_test.set_title(key, size="medium", weight="bold")
             ax_test.axline((0, 0), slope=1, color="black")
             if ylim is not None:
                 ax_test.set_ylim(0, ylim)
+                ax_test.set_xlim(0, ylim)
 
         plt.legend()
-        fig2.supxlabel("Measurement")
-        fig2.supylabel("Prediction")
-        fig2.suptitle("Parity Plot")
+        fig2.supxlabel("Measurement", size= "x-large", weight= "bold")
+        fig2.supylabel("Prediction", size= "x-large", weight= "bold")
+        fig2.suptitle("Parity Plot", size= "x-large", weight= "bold", y=0.98)
         fig2.tight_layout()
         plt.show()
 

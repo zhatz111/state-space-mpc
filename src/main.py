@@ -18,13 +18,15 @@ from models.optimize_model import ModelOptimizer
 #suppress warnings
 warnings.filterwarnings('ignore')
 
-DATA_FOLDER_EXT = "aPVRIG-ar23-029"
-DATA_FILE_EXT = "AR23-029_MR23_045-Model-Data"
-MATRIX_FOLDER_EXT = "Kalman-Filter"
+DATA_FOLDER_EXT = "aCD96-ar21-023-042"
+DATA_FILE_EXT = "AR21-042-Model-Data"
+MATRIX_FOLDER_EXT = "CD96-AR21-042"
+PROCESS_DAYS = 13
 
 STATES = [
     "IGG",
     "VCC",
+    "Ammonium",
     "Lactate",
 ]
 
@@ -36,15 +38,10 @@ SMOOTHE_LIST = [
     "IGG",
     "VCC",
     "Lactate",
+    "Ammonium",
 ]
 
-DISCARD = [
-    "AR23-029-005",
-    "MR23-045-718",
-    "MR23-045-719",
-    # "MR23-045-810",
-    # "MR23-045-811",
-]
+DISCARD = []
 
 column_inclusion = [
     "Batch",
@@ -148,7 +145,7 @@ first_model_train = ModelTraining(
     b_matrix=B_Matrix,
     states=STATES,
     inputs=INPUTS,
-    num_days=15,
+    num_days=PROCESS_DAYS,
     scaler=scaler_train,
 )
 
@@ -162,7 +159,7 @@ model_optimize = ModelOptimizer(
     constraint_dict=constraint_dict,
     initial_input=setpoints,
     initial_condition=initial_condition,
-    days=15,
+    days=PROCESS_DAYS,
     volume=VOLUME,
     max_iters=100,
     scaler_dict=scaler_dict
@@ -176,20 +173,22 @@ model_optimize = ModelOptimizer(
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
-first_model_train.train_test_model(
-    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-    test_label="IGG",
-    iterations=50,
-    first_train=False,
-)
-
-# first_model_train.plot_test_data(
+# first_model_train.train_test_model(
+#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
+#     iterations=50,
+#     first_train=False,
 # )
 
-first_model_train.plot_train_data(
-    test_label="Lactate",
-)
+# first_model_train.plot_test_data(
+#     test_label="Ammonium",
+#     ylim=7,
+# )
+
+# first_model_train.plot_train_data(
+#     test_label="Ammonium",
+#     ylim=7,
+# )
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",
