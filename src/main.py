@@ -19,8 +19,10 @@ from models.optimize_model import ModelOptimizer
 warnings.filterwarnings('ignore')
 
 DATA_FOLDER_EXT = "aPVRIG-ar23-029"
-DATA_FILE_EXT = "AR23-029_MR23_045-Model-Data"
+DATA_FILE_EXT = "MR23_045-Model-Data"
 MATRIX_FOLDER_EXT = "Kalman-Filter"
+PROCESS_TIME = 15
+VOLUME = 1550
 
 STATES = [
     "IGG",
@@ -38,13 +40,7 @@ SMOOTHE_LIST = [
     "Lactate",
 ]
 
-DISCARD = [
-    "AR23-029-005",
-    "MR23-045-718",
-    "MR23-045-719",
-    # "MR23-045-810",
-    # "MR23-045-811",
-]
+DISCARD = []
 
 column_inclusion = [
     "Batch",
@@ -76,7 +72,7 @@ train_data, test_data = dataframe.clean(
     test_size = 0.20,
     n_splits = 2,
     random_state = 1,
-    win_len=2,
+    win_len=50,
 )
 
 joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\scaler.scl")
@@ -86,23 +82,26 @@ joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_F
 #     test_label="VCC",
 # )
 
-# dataframe.graph_smoothed_unsmoothed_data(
-#     smoothing_list=SMOOTHE_LIST,
-#     test_label="Lactate",
-# )
+dataframe.graph_smoothed_unsmoothed_data(
+    smoothing_list=SMOOTHE_LIST,
+    test_label="IGG",
+)
 
 with open(
     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
     encoding="utf-8"
     ) as a_matrix:
-    A_Matrix = np.loadtxt(a_matrix, delimiter=',')
+    A_Matrix = np.loadtxt(a_matrix, delimiter=',', usecols=len(STATES), max_rows=len(STATES))
 
 with open(
     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
     encoding="utf-8"
     ) as b_matrix:
-    B_Matrix = np.loadtxt(b_matrix, delimiter=',')
+    B_Matrix = np.loadtxt(b_matrix, delimiter=',', usecols=len(INPUTS), max_rows=len(STATES))
     B_Matrix = np.c_[B_Matrix]
+
+print(A_Matrix)
+print(B_Matrix)
 
 
 # Number of days is always equal to the last day number + 1, so 12
@@ -134,8 +133,6 @@ initial_condition = np.array(
     test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES)
     )[0,:]
 
-VOLUME = 1550
-
 feed_setpoint = test_data[test_data["Batch"]==test_data["Batch"].unique()[0]] \
     ["Normalized_Feed_Percent"].tolist()
 
@@ -148,7 +145,7 @@ first_model_train = ModelTraining(
     b_matrix=B_Matrix,
     states=STATES,
     inputs=INPUTS,
-    num_days=15,
+    num_days=PROCESS_TIME,
     scaler=scaler_train,
 )
 
@@ -162,7 +159,7 @@ model_optimize = ModelOptimizer(
     constraint_dict=constraint_dict,
     initial_input=setpoints,
     initial_condition=initial_condition,
-    days=15,
+    days=PROCESS_TIME,
     volume=VOLUME,
     max_iters=100,
     scaler_dict=scaler_dict
@@ -188,7 +185,7 @@ first_model_train.train_test_model(
 # )
 
 first_model_train.plot_train_data(
-    test_label="Lactate",
+    test_label="IGG",
 )
 
 # first_model_train.plot_train_data(

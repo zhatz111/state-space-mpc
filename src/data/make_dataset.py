@@ -331,7 +331,7 @@ class ModelData:
         if smoothed_grouped.ngroups > 15:
             rows = math.floor(15 / cols)
         else:
-            rows = math.floor(smoothed_grouped.ngroups / cols)
+            rows = math.floor(smoothed_grouped.ngroups / cols) if math.floor(smoothed_grouped.ngroups / cols) != 0 else 1
         fig, axes = plt.subplots(
             rows, cols, figsize=(10, 10), squeeze=False, sharex=True, sharey=True
         )
@@ -339,7 +339,10 @@ class ModelData:
         unsmoothed_dict = dict(list(unsmoothed_grouped))
         dict_keys = list(smoothed_dict.keys())
         for count, ax_test in enumerate(axes.reshape(-1)):
-            key = dict_keys[count]
+            if len(dict_keys) == 1:
+                key = dict_keys[0]
+            else:
+                key = dict_keys[count]
             ax_test.plot(
                 smoothed_dict[key]["Day"],
                 smoothed_dict[key][test_label],

@@ -277,11 +277,14 @@ class ModelTraining:
         """
         cols = 2
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="test")
-        rows = math.floor(len(simulation_dict) / cols)
+        rows = math.floor(len(simulation_dict) / cols) if math.floor(len(simulation_dict) / cols) != 0 else 1
         fig, axes = plt.subplots(rows, cols, figsize=(10, 10), squeeze=False)
         dict_keys = list(simulation_dict.keys())
         for count, ax_test in enumerate(axes.reshape(-1)):
-            key = dict_keys[count]
+            if len(dict_keys) == 1:
+                key = dict_keys[0]
+            else:
+                key = dict_keys[count]
             ax_test.plot(
                 self.time,
                 simulation_dict[key][test_label],
