@@ -159,6 +159,7 @@ class ModelTraining:
                 of_x0 = np.array(group.filter(self.states).iloc[0, :])
                 of_u = np.array(group.filter(self.inputs))
                 of_y = np.array(group.filter(self.states))
+                time = np.arange(0, len(of_u), 1)
                 a_matrix = mat[: (self.state_len**2)].reshape(
                     self.state_len, self.state_len
                 )
@@ -167,7 +168,7 @@ class ModelTraining:
                     self.state_len, self.input_len
                 )
                 state = signal.StateSpace(a_matrix, b_matrix, c_matrix, d_matrix)
-                _, of_yout, _ = signal.lsim(state, of_u, self.time, of_x0)
+                _, of_yout, _ = signal.lsim(state, of_u, time, of_x0)
 
                 if iter_counter == 0:
                     y_sim_all = np.array(of_yout, dtype=np.float64)
@@ -243,11 +244,12 @@ class ModelTraining:
         for name, group in batch_grouped:
             x0_matrix = np.array(group.filter(self.states).iloc[0])
             u_matrix = np.array(group.filter(self.inputs))
+            time = np.arange(0, len(u_matrix), 1)
             bioreactor = signal.StateSpace(
                 self.a_matrix, self.b_matrix, c_matrix, d_matrix
             )
             _, y_out, _ = signal.lsim(
-                system=bioreactor, U=u_matrix, T=self.time, X0=x0_matrix
+                system=bioreactor, U=u_matrix, T=time, X0=x0_matrix
             )
             simulation_data = pd.DataFrame(
                 data=self.scaler.inverse_transform(np.hstack((y_out, u_matrix))),
@@ -285,15 +287,16 @@ class ModelTraining:
                 key = dict_keys[0]
             else:
                 key = dict_keys[count]
+            time = np.arange(0, len(simulation_dict[key][test_label]), 1)
             ax_test.plot(
-                self.time,
+                time,
                 simulation_dict[key][test_label],
                 "ro-",
                 label="Simulated Data",
                 markersize=3.5,
             )
             ax_test.plot(
-                self.time,
+                time,
                 train_test_dict[key][test_label],
                 "bo-",
                 label="Experimental Data",
@@ -337,15 +340,16 @@ class ModelTraining:
         dict_keys = list(simulation_dict.keys())
         for count, ax_test in enumerate(axes.reshape(-1)):
             key = dict_keys[count]
+            time = np.arange(0, len(simulation_dict[key][test_label]), 1)
             ax_test.plot(
-                self.time,
+                time,
                 simulation_dict[key][test_label],
                 "ro-",
                 label="Simulated Data",
                 markersize=3.5,
             )
             ax_test.plot(
-                self.time,
+                time,
                 train_test_dict[key][test_label],
                 "bo-",
                 label="Experimental Data",
@@ -507,15 +511,16 @@ class ModelTraining:
         fig, axes = plt.subplots(rows, cols, figsize=(10, 10), squeeze=False)
         dict_keys = list(simulation_dict.keys())
         key = dict_keys[0]
+        time = np.arange(0, len(simulation_dict[key][test_label]), 1)
         axes[0][0].plot(
-            self.time,
+            time,
             simulation_dict[key][test_label],
             "ro-",
             label="Simulated",
             markersize=3.5,
         )
         axes[0][0].plot(
-            self.time,
+            time,
             train_test_dict[key][test_label],
             "bo-",
             label="Actual",

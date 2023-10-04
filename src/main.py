@@ -18,26 +18,33 @@ from models.optimize_model import ModelOptimizer
 #suppress warnings
 warnings.filterwarnings('ignore')
 
-DATA_FOLDER_EXT = "aPVRIG-ar23-029"
-DATA_FILE_EXT = "MR23_045-Model-Data"
-MATRIX_FOLDER_EXT = "Kalman-Filter"
-PROCESS_TIME = 15
-VOLUME = 1550
+DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
+DATA_FILE_EXT = "AR23-019_067-Model-Data"
+MATRIX_FOLDER_EXT = "CD96-Robustness"
+PROCESS_TIME = 11
+VOLUME = 200
+
+# Make sure to check the window length for smoothing with moving average
 
 STATES = [
     "IGG",
     "VCC",
     "Lactate",
+    "Ammonium",
 ]
 
 INPUTS = [
-    "Normalized_Feed_Percent",
+    "Cumulative_Normalized_Feed",
+    "Temperature",
+    "pH_setpoint",
+    "DO",
 ]
 
 SMOOTHE_LIST = [
     "IGG",
     "VCC",
     "Lactate",
+    "Ammonium",
 ]
 
 DISCARD = []
@@ -72,37 +79,33 @@ train_data, test_data = dataframe.clean(
     test_size = 0.20,
     n_splits = 2,
     random_state = 1,
-    win_len=50,
+    win_len=2,
 )
 
-joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\scaler.scl")
+# joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\scaler.scl")
 
 # dataframe.graph_train_data(
 #     smoothing_list=SMOOTHE_LIST,
 #     test_label="VCC",
 # )
 
-dataframe.graph_smoothed_unsmoothed_data(
-    smoothing_list=SMOOTHE_LIST,
-    test_label="IGG",
-)
+# dataframe.graph_smoothed_unsmoothed_data(
+#     smoothing_list=SMOOTHE_LIST,
+#     test_label="VCC",
+# )
 
 with open(
     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
     encoding="utf-8"
     ) as a_matrix:
-    A_Matrix = np.loadtxt(a_matrix, delimiter=',', usecols=len(STATES), max_rows=len(STATES))
+    A_Matrix = np.loadtxt(a_matrix, delimiter=',')[:len(STATES),:len(STATES)]
 
 with open(
     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
     encoding="utf-8"
     ) as b_matrix:
-    B_Matrix = np.loadtxt(b_matrix, delimiter=',', usecols=len(INPUTS), max_rows=len(STATES))
-    B_Matrix = np.c_[B_Matrix]
-
-print(A_Matrix)
-print(B_Matrix)
-
+    B_Matrix = np.loadtxt(b_matrix, delimiter=',')
+    B_Matrix = np.c_[B_Matrix][:len(STATES),:len(INPUTS)]
 
 # Number of days is always equal to the last day number + 1, so 12
 # day culture duration will equal 13 days
@@ -134,7 +137,7 @@ initial_condition = np.array(
     )[0,:]
 
 feed_setpoint = test_data[test_data["Batch"]==test_data["Batch"].unique()[0]] \
-    ["Normalized_Feed_Percent"].tolist()
+    ["Cumulative_Normalized_Feed"].tolist()
 
 setpoints = feed_setpoint
 
@@ -173,20 +176,20 @@ model_optimize = ModelOptimizer(
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
-first_model_train.train_test_model(
-    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-    test_label="IGG",
-    iterations=50,
-    first_train=False,
-)
-
-# first_model_train.plot_test_data(
+# first_model_train.train_test_model(
+#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
+#     iterations=50,
+#     first_train=False,
 # )
 
-first_model_train.plot_train_data(
+first_model_train.plot_test_data(
     test_label="IGG",
 )
+
+# first_model_train.plot_train_data(
+#     test_label="VCC",
+# )
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",
