@@ -4,7 +4,6 @@
 # pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
 # Imports from third party
-import joblib
 import warnings
 import numpy as np
 import pandas as pd
@@ -82,8 +81,6 @@ train_data, test_data = dataframe.clean(
     win_len=2,
 )
 
-# joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\scaler.scl")
-
 # dataframe.graph_train_data(
 #     smoothing_list=SMOOTHE_LIST,
 #     test_label="VCC",
@@ -95,13 +92,13 @@ train_data, test_data = dataframe.clean(
 # )
 
 with open(
-    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
     encoding="utf-8"
     ) as a_matrix:
     A_Matrix = np.loadtxt(a_matrix, delimiter=',')[:len(STATES),:len(STATES)]
 
 with open(
-    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
     encoding="utf-8"
     ) as b_matrix:
     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
@@ -177,7 +174,7 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
-#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
 #     iterations=50,
 #     first_train=False,
