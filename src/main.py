@@ -35,9 +35,9 @@ STATES = [
 
 INPUTS = [
     "Cumulative_Normalized_Feed",
+    "Cumulative_Normalized_Glucose",
     "Temperature",
     "pH_setpoint",
-    "DO",
 ]
 
 SMOOTHE_LIST = [
@@ -179,17 +179,17 @@ model_optimize = ModelOptimizer(
 # first_model_train.train_test_model(
 #     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
-#     iterations=50,
+#     iterations=100,
 #     first_train=False,
 # )
 
-first_model_train.plot_test_data(
-    test_label="IGG",
-)
-
-# first_model_train.plot_train_data(
-#     test_label="VCC",
+# first_model_train.plot_test_data(
+#     test_label="IGG",
 # )
+
+first_model_train.plot_train_data(
+    test_label="Ammonium",
+)
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",
