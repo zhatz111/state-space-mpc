@@ -30,24 +30,27 @@ STATES = [
     "IGG",
     "VCC",
     "Lactate",
-    "Ammonium",
+    "Osmo",
 ]
 
 INPUTS = [
     "Cumulative_Normalized_Feed",
-    "Cumulative_Normalized_Glucose",
     "Temperature",
     "pH_setpoint",
+    "DO",
 ]
 
 SMOOTHE_LIST = [
     "IGG",
     "VCC",
     "Lactate",
-    "Ammonium",
+    "Osmo",
 ]
 
-DISCARD = []
+DISCARD = [
+    "AR23-067-005", # Reason: Ammonium profile is much higher than all others
+    "AR23-019-005", # Reason: Ammonium profile is highest
+]
 
 column_inclusion = [
     "Batch",
@@ -91,17 +94,17 @@ train_data, test_data = dataframe.clean(
 
 # dataframe.graph_smoothed_unsmoothed_data(
 #     smoothing_list=SMOOTHE_LIST,
-#     test_label="VCC",
+#     test_label="Osmo",
 # )
 
 with open(
-    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
     encoding="utf-8"
     ) as a_matrix:
     A_Matrix = np.loadtxt(a_matrix, delimiter=',')[:len(STATES),:len(STATES)]
 
 with open(
-    fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
     encoding="utf-8"
     ) as b_matrix:
     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
@@ -177,7 +180,7 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
 # first_model_train.train_test_model(
-#     fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
 #     iterations=100,
 #     first_train=False,
@@ -188,7 +191,7 @@ model_optimize = ModelOptimizer(
 # )
 
 first_model_train.plot_train_data(
-    test_label="Ammonium",
+    test_label="VCC",
 )
 
 # first_model_train.plot_train_data(
