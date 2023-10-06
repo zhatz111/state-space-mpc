@@ -35,9 +35,9 @@ STATES = [
 
 INPUTS = [
     "Cumulative_Normalized_Feed",
+    "Cumulative_Normalized_Glucose",
     "Temperature",
     "pH_setpoint",
-    "DO",
 ]
 
 SMOOTHE_LIST = [
@@ -48,8 +48,7 @@ SMOOTHE_LIST = [
 ]
 
 DISCARD = [
-    "AR23-067-005", # Reason: Ammonium profile is much higher than all others
-    "AR23-019-005", # Reason: Ammonium profile is highest
+    # "AR23-019-011", # Reason: Titer and VCC predictions were very far off for this one batch
 ]
 
 column_inclusion = [
@@ -186,12 +185,12 @@ model_optimize = ModelOptimizer(
 #     first_train=False,
 # )
 
-# first_model_train.plot_test_data(
-#     test_label="IGG",
-# )
+first_model_train.plot_test_data(
+    test_label="IGG",
+)
 
 first_model_train.plot_train_data(
-    test_label="VCC",
+    test_label="IGG",
 )
 
 # first_model_train.plot_train_data(
