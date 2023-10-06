@@ -29,15 +29,18 @@ VOLUME = 200
 STATES = [
     "IGG",
     "VCC",
+    "Viability",
     "Lactate",
-    "Osmo",
+    "Glutamate",
+    "pCO2_at_Temp",
 ]
 
 INPUTS = [
     "Cumulative_Normalized_Feed",
-    "Cumulative_Normalized_Glucose",
+    # "Cumulative_Normalized_Glucose",
     "Temperature",
     "pH_setpoint",
+    "DO",
 ]
 
 SMOOTHE_LIST = [
@@ -48,7 +51,10 @@ SMOOTHE_LIST = [
 ]
 
 DISCARD = [
+    # "AR23-019-009", # Reason: Lowest titer by far on day 14 and out of range
     # "AR23-019-011", # Reason: Titer and VCC predictions were very far off for this one batch
+    # "AR23-019-003", # Reason: Second highest titer, very far out of range of most
+    # "AR23-067-005", # Reason: Highest titer and well out of range of most
 ]
 
 column_inclusion = [
@@ -178,12 +184,12 @@ model_optimize = ModelOptimizer(
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 
-# first_model_train.train_test_model(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-#     test_label="IGG",
-#     iterations=100,
-#     first_train=False,
-# )
+first_model_train.train_test_model(
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+    test_label="IGG",
+    iterations=100,
+    first_train=False,
+)
 
 first_model_train.plot_test_data(
     test_label="IGG",
