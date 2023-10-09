@@ -36,15 +36,26 @@ class Bioreactor:
             sample_var_names: list[str],
             sample_var_vals: list[float]
             ):
-        """Replace the specified day with new data
+        """Replace the specified day (row) with new data
             Created by Yu Luo (yu.8.luo@gsk.com)
             Created: 2023-10-09
             Modified: 2023-10-09
         """
         self.data.loc[self.data['Day'] == sample_day,sample_var_names] = sample_var_vals
 
-    def predict(self):
-        """Predict the next-day state"""
+    def update_input(
+            self,
+            input_days,
+            input_var_names,
+            input_var_vals
+            ):
+        """Update column(s) of input
+            Created by Yu Luo (yu.8.luo@gsk.com)
+            Created: 2023-10-09
+            Modified: 2023-10-09
+        """
+        for i in range(len(input_days)):
+            self.data.loc[self.data.Day == input_days[i],input_var_names] = input_var_vals[i,:]
 
 
 class Controller:
