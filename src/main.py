@@ -18,7 +18,7 @@ from models.optimize_model import ModelOptimizer
 warnings.filterwarnings('ignore')
 
 DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
-DATA_FILE_EXT = "AR23-019_067-Model-Data"
+DATA_FILE_EXT = "AR21-042_AR23-019_067-Model-Data"
 MATRIX_FOLDER_EXT = "CD96-Robustness"
 PROCESS_TIME = 11
 VOLUME = 200
@@ -28,12 +28,15 @@ VOLUME = 200
 STATES = [
     "IGG",
     "VCC",
+    "Viability",
     "Lactate",
-    "Ammonium",
+    "Osmo",
+    "pCO2_at_Temp",
 ]
 
 INPUTS = [
     "Cumulative_Normalized_Feed",
+    # "Cumulative_Normalized_Glucose",
     "Temperature",
     "pH_setpoint",
     "DO",
@@ -42,11 +45,18 @@ INPUTS = [
 SMOOTHE_LIST = [
     "IGG",
     "VCC",
+    "Viability",
     "Lactate",
-    "Ammonium",
+    "Osmo",
+    "pCO2_at_Temp",
 ]
 
-DISCARD = []
+DISCARD = [
+    # "AR23-019-009", # Reason: Lowest titer by far on day 14 and out of range
+    # "AR23-019-011", # Reason: Titer and VCC predictions were very far off for this one batch
+    # "AR23-019-003", # Reason: Second highest titer, very far out of range of most
+    # "AR23-067-005", # Reason: Highest titer and well out of range of most
+]
 
 column_inclusion = [
     "Batch",
@@ -86,10 +96,10 @@ train_data, test_data = dataframe.clean(
 #     test_label="VCC",
 # )
 
-# dataframe.graph_smoothed_unsmoothed_data(
-#     smoothing_list=SMOOTHE_LIST,
-#     test_label="VCC",
-# )
+dataframe.graph_smoothed_unsmoothed_data(
+    smoothing_list=SMOOTHE_LIST,
+    test_label="Glutamate",
+)
 
 with open(
     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
@@ -172,21 +182,21 @@ model_optimize = ModelOptimizer(
 # model_optimize.plot_states()
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
-
-# first_model_train.train_test_model(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-#     test_label="IGG",
-#     iterations=50,
-#     first_train=False,
-# )
-
-first_model_train.plot_test_data(
+first_model_train.train_test_model(
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
     test_label="IGG",
+    iterations=50,
+    first_train=False,
 )
 
-# first_model_train.plot_train_data(
-#     test_label="VCC",
+# first_model_train.plot_test_data(
+#     test_label="IGG",
 # )
+
+first_model_train.plot_train_data(
+    test_label="IGG",
+    random_plots=True,
+)
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",
