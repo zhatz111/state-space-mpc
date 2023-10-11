@@ -42,3 +42,36 @@ class StateSpaceModel:
         self.b_matrix = b_matrix
         self.c_matrix = np.identity(len(states))
         self.d_matrix = np.zeros([len(states), len(inputs)])
+
+    def predict(self,x,u):
+        """Predict a trajectory
+          Created by Yu Luo (yu.8.luo@gsk.com)
+          Created: 2023-10-11
+          Modified: 2023-10-11          
+        """
+
+        if u.shape[0] == 1:
+
+          # Transform x and u to row arrays
+          x_row = x.reshape(1,-1)
+          u_row = u.reshape(1,-1)
+
+          # Concatenate x and u and scale them 
+          xu_row = np.hstack((x_row,u_row))
+          xu_scaled = self.scaler.transform(xu_row)
+          x_scaled = xu_scaled[:,0:x_row.shape[1]].reshape(-1,1)
+          u_scaled = xu_scaled[:,x_row.shape[1]:].reshape(-1,1)
+
+          # Predict based on A*x + B*u
+          xHat_scaled = np.dot(self.a_matrix,x_scaled) + np.dot(self.b_matrix,u_scaled)
+          xuHat_scaled = np.vstack((xHat_scaled,np.zeros((u_row.shape[1],1))))
+          xHat = self.scaler.inverse_transform(xuHat_scaled.reshape(1,-1))[:,:x_row.shape[1]]
+          
+          # Return as a row array
+          return xHat.reshape(1,-1)          
+        else:
+
+          # Recursively build the prediction results
+          xHat = self.predict(x,u[0:1,:])
+          xHats = np.vstack((xHat,self.predict(xHat,u[1:,:])))
+          return xHats
