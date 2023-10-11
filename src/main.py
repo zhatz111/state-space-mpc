@@ -5,6 +5,7 @@
 
 # Imports from third party
 import warnings
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -96,10 +97,10 @@ train_data, test_data = dataframe.clean(
 #     test_label="VCC",
 # )
 
-dataframe.graph_smoothed_unsmoothed_data(
-    smoothing_list=SMOOTHE_LIST,
-    test_label="Glutamate",
-)
+# dataframe.graph_smoothed_unsmoothed_data(
+#     smoothing_list=SMOOTHE_LIST,
+#     test_label="VCC",
+# )
 
 with open(
     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
@@ -119,6 +120,8 @@ with open(
 scaler_dict = {}
 for count, name in enumerate(scaler_train.get_feature_names_out()):
     scaler_dict[name] = [scaler_train.min_[count], scaler_train.scale_[count]]
+
+joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl")
 
 # UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
 
@@ -182,21 +185,21 @@ model_optimize = ModelOptimizer(
 # model_optimize.plot_states()
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
-first_model_train.train_test_model(
-    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-    test_label="IGG",
-    iterations=50,
-    first_train=False,
-)
+# first_model_train.train_test_model(
+#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+#     test_label="IGG",
+#     iterations=50,
+#     first_train=False,
+# )
 
 # first_model_train.plot_test_data(
 #     test_label="IGG",
 # )
 
-first_model_train.plot_train_data(
-    test_label="IGG",
-    random_plots=True,
-)
+# first_model_train.plot_train_data(
+#     test_label="IGG",
+#     random_plots=True,
+# )
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",
