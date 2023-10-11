@@ -313,7 +313,7 @@ class ModelTraining:
         plt.legend(loc="best")
         plt.show()
 
-    def plot_train_data(self, test_label: str, ylim=None):
+    def plot_train_data(self, test_label: str, ylim=None, random_plots=False):
         """
         The function `plot_train_data` plots simulated and experimental data, as well as a parity plot
         comparing the two.
@@ -345,8 +345,13 @@ class ModelTraining:
         fig2.subplots_adjust(top=0.8)
 
         dict_keys = list(simulation_dict.keys())
+        random_nums = [random.randint(0, len(dict_keys)) for _, _ in enumerate(dict_keys)]
+
         for count, ax_test in enumerate(axes.reshape(-1)):
-            key = dict_keys[count]
+            if random_plots:
+                key = dict_keys[random_nums[count]]
+            else:
+                key = dict_keys[count]
             time = np.arange(0, len(simulation_dict[key][test_label]), 1)
             ax_test.plot(
                 time,
@@ -374,7 +379,10 @@ class ModelTraining:
         fig.tight_layout()
 
         for count, ax_test in enumerate(axes2.reshape(-1)):
-            key = dict_keys[count]
+            if random_plots:
+                key = dict_keys[random_nums[count]]
+            else:
+                key = dict_keys[count]
             ax_test.plot(
                 train_test_dict[key][test_label],
                 simulation_dict[key][test_label],

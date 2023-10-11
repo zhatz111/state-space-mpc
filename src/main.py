@@ -19,7 +19,7 @@ from models.optimize_model import ModelOptimizer
 warnings.filterwarnings('ignore')
 
 DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
-DATA_FILE_EXT = "AR23-019_067-Model-Data"
+DATA_FILE_EXT = "AR21-042_AR23-019_067-Model-Data"
 MATRIX_FOLDER_EXT = "CD96-Robustness"
 PROCESS_TIME = 11
 VOLUME = 200
@@ -31,7 +31,7 @@ STATES = [
     "VCC",
     "Viability",
     "Lactate",
-    "Glutamate",
+    "Osmo",
     "pCO2_at_Temp",
 ]
 
@@ -46,8 +46,10 @@ INPUTS = [
 SMOOTHE_LIST = [
     "IGG",
     "VCC",
+    "Viability",
     "Lactate",
     "Osmo",
+    "pCO2_at_Temp",
 ]
 
 DISCARD = [
@@ -97,10 +99,10 @@ train_data, test_data = dataframe.clean(
 #     test_label="VCC",
 # )
 
-# dataframe.graph_smoothed_unsmoothed_data(
-#     smoothing_list=SMOOTHE_LIST,
-#     test_label="Osmo",
-# )
+dataframe.graph_smoothed_unsmoothed_data(
+    smoothing_list=SMOOTHE_LIST,
+    test_label="Glutamate",
+)
 
 with open(
     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
@@ -187,16 +189,17 @@ model_optimize = ModelOptimizer(
 first_model_train.train_test_model(
     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
     test_label="IGG",
-    iterations=100,
+    iterations=50,
     first_train=False,
 )
 
-first_model_train.plot_test_data(
-    test_label="IGG",
-)
+# first_model_train.plot_test_data(
+#     test_label="IGG",
+# )
 
 first_model_train.plot_train_data(
     test_label="IGG",
+    random_plots=True,
 )
 
 # first_model_train.plot_train_data(
