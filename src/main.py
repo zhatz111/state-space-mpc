@@ -21,6 +21,8 @@ warnings.filterwarnings('ignore')
 DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
 DATA_FILE_EXT = "AR21-042_AR23-019_067-Model-Data"
 MATRIX_FOLDER_EXT = "CD96-Robustness"
+PDF_PLOT_FILENAME = "Titer_plots_model_3"
+TARGET_LABEL = "IGG"
 PROCESS_TIME = 11
 VOLUME = 200
 
@@ -29,10 +31,8 @@ VOLUME = 200
 STATES = [
     "IGG",
     "VCC",
-    "Viability",
     "Lactate",
     "Osmo",
-    "pCO2_at_Temp",
 ]
 
 INPUTS = [
@@ -45,18 +45,11 @@ INPUTS = [
 SMOOTHE_LIST = [
     "IGG",
     "VCC",
-    "Viability",
     "Lactate",
     "Osmo",
-    "pCO2_at_Temp",
 ]
 
-DISCARD = [
-    # "AR23-019-009", # Reason: Lowest titer by far on day 14 and out of range
-    # "AR23-019-011", # Reason: Titer and VCC predictions were very far off for this one batch
-    # "AR23-019-003", # Reason: Second highest titer, very far out of range of most
-    # "AR23-067-005", # Reason: Highest titer and well out of range of most
-]
+DISCARD = []
 
 column_inclusion = [
     "Batch",
@@ -100,6 +93,7 @@ train_data, test_data = dataframe.clean(
 #     smoothing_list=SMOOTHE_LIST,
 #     test_label="VCC",
 # )
+
 A_Matrix = np.array(
     pd.read_csv(
         rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
@@ -184,20 +178,25 @@ model_optimize = ModelOptimizer(
 # model_optimize.plot_states()
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
-first_model_train.train_test_model(
-    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-    test_label="IGG",
-    iterations=100,
-    first_train=False,
-)
-
-# first_model_train.plot_test_data(
+# first_model_train.train_test_model(
+#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
 #     test_label="IGG",
+#     iterations=100,
+#     first_train=False,
 # )
 
-first_model_train.plot_train_data(
-    test_label="Viability",
-    random_plots=True,
+# first_model_train.plot_test_data(
+#     test_label=TARGET_LABEL,
+# )
+
+# first_model_train.plot_train_data(
+#     test_label=TARGET_LABEL,
+#     random_plots=True,
+# )
+
+first_model_train.save_plots_to_pdf(
+    output_pdf=fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\{PDF_PLOT_FILENAME}.pdf",
+    test_label=TARGET_LABEL,
 )
 
 # first_model_train.plot_train_data(

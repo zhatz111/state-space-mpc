@@ -15,6 +15,7 @@ from scipy import optimize
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
+from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 warnings.filterwarnings("ignore")
@@ -122,20 +123,20 @@ class ModelTraining:
         10
         """
         if first_train:
-            self.a_matrix = np.ones(self.state_len)
-            self.b_matrix = np.ones([self.state_len, self.input_len])
+            self.a_matrix = np.random.random([self.state_len, self.state_len])
+            self.b_matrix = np.random.random([self.state_len, self.input_len])
             c_matrix = np.identity(self.state_len)
             d_matrix = np.zeros([self.state_len, self.input_len])
         else:
             c_matrix = np.identity(self.state_len)
             d_matrix = np.zeros([self.state_len, self.input_len])
 
-        # Check to make sure matrices are correct dimensions, if not create a ones matrix
+        # Check to make sure matrices are correct dimensions, if not create a random matrix of values
         if (self.a_matrix.shape[0] != self.state_len) or (self.a_matrix.shape[1] != self.state_len):
-            self.a_matrix = np.ones(self.state_len)
+            self.a_matrix = np.random.random([self.state_len, self.state_len])
         
         if (self.b_matrix.shape[0] != self.state_len) or (self.b_matrix.shape[1] != self.input_len):
-            self.b_matrix = np.ones([self.state_len, self.input_len])
+            self.b_matrix = np.random.random([self.state_len, self.input_len])
 
         a_sim = self.a_matrix.reshape(-1, 1)
         b_sim = self.b_matrix.reshape(-1, 1)
@@ -172,7 +173,6 @@ class ModelTraining:
                 a_matrix = mat[: (self.state_len**2)].reshape(
                     self.state_len, self.state_len
                 )
-
                 b_matrix = mat[(self.state_len**2) :].reshape(
                     self.state_len, self.input_len
                 )
@@ -187,13 +187,13 @@ class ModelTraining:
                     y_actual_all = np.vstack([y_actual_all, of_y], dtype=np.float64)
                 iter_counter += 1
 
-            value = np.nansum((y_actual_all - y_sim_all) ** 2)
-            if info["Nfeval"] % 50 == 0:
+            value = np.sum((y_actual_all - y_sim_all) ** 2)
+            if info["Nfeval"] % 25 == 0:
                 print("")
-                print("Iteration: ", info["Nfeval"])
-                print("Error: ", value)
+                print(f"Iteration: {info['Nfeval']}")
+                print(f"Error: {value:.5f}")
             info["Nfeval"] += 1
-            return value #+ 0.5 * (np.sum(np.diff(y_sim_all[:, 0]) ** 2))
+            return value
 
         res = optimize.minimize(
             fun=objective_func,
@@ -201,12 +201,12 @@ class ModelTraining:
             bounds=[(-1,1)]*len(combined_mat),
             method="SLSQP",
             args=({"Nfeval": 0},),
-            options={"maxiter": iterations, "disp": False},
+            options={"maxiter": iterations, "disp": False, "ftol": 1e-09},
         )
 
         opt_matrix = res.x
 
-        # This returns the matrix in the correct shape for use later on in the evaluation
+        # This returns the matrix in the correct shape for use later on in the class
         self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(
             self.state_len, self.state_len
         )
@@ -412,6 +412,62 @@ class ModelTraining:
         fig2.suptitle("Parity Plot", size= "x-large", weight= "bold", y=0.98)
         fig2.tight_layout()
         plt.show()
+    
+    def save_plots_to_pdf(self, output_pdf: str, test_label: str, plots_per_page=12, ylim=None):
+        """
+        Save multiple plots to a PDF file, organized in a 4x4 matrix on each page.
+
+        Parameters:
+        - datas: List of data for each plot.
+        - output_pdf: Name of the output PDF file.
+        """
+        simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="train")
+        dict_keys = list(simulation_dict.keys())
+        ppg = plots_per_page
+        with PdfPages(output_pdf) as pdf:
+            for i in range(0, len(simulation_dict.keys()), ppg):
+                cols = 4
+                rows = math.floor(ppg/4)
+                fig, axs = plt.subplots(cols, rows, figsize=(10,8), squeeze=False)
+                fig.subplots_adjust(top=0.8)
+
+                for count, ax_test in enumerate(axs.reshape(-1)):
+                    if count+i < len(simulation_dict.keys()):
+                        key = dict_keys[count+i]
+                        time = np.arange(0, len(simulation_dict[key][test_label]), 1)
+                        ax_test.plot(
+                            time,
+                            simulation_dict[key][test_label],
+                            "ro-",
+                            label="Simulated Data",
+                            markersize=3.5,
+                        )
+                        ax_test.plot(
+                            time,
+                            train_test_dict[key][test_label],
+                            "bo-",
+                            label="Experimental Data",
+                            markersize=3.5,
+                        )
+                        ax_test.set_title(key, size="medium", weight="bold")
+                        ax_test.grid()
+                        if ylim is not None:
+                            ax_test.set_ylim(0, ylim)
+                    else:
+                        pass
+
+                # If on the last page and there are fewer than 12 plots, remove extra subplots
+                if len(simulation_dict.keys()) - i < ppg:
+                    for j in range(len(simulation_dict.keys()) - i, ppg):
+                        axs.ravel()[j].remove()
+
+                # axs[rows - 1][cols - 1].legend()
+                fig.suptitle("Training Data Set", size= "x-large", weight= "bold", y=0.98)
+                fig.supxlabel("Day", size= "x-large", weight= "bold")
+                fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
+                fig.tight_layout()
+                pdf.savefig(fig, bbox_inches='tight')
+                plt.close(fig)
 
     def get_rmse_table(self):
         """
