@@ -6,6 +6,8 @@
 
 import numpy as np
 import pandas as pd
+from scipy import optimize
+import warnings
 
 class Bioreactor:
     """Bioreactor object class for simulation and also processing real off-line data
@@ -18,16 +20,36 @@ class Bioreactor:
             self,
             vessel = None,
             process_model = None,
-            data = pd.DataFrame,
-            state = None,
-            duration = 12,
-            curr_time = 0):
+            data = pd.DataFrame):
+        
+        # Update attributes based on user input
         self.vessel = vessel # Vessel name for processing multiple bioreactors
         self.process_model = process_model # Model (if provided) for simulating a process
-        self.data = data # Data for storing simulation results or real data (if provided)
-        self.state = state # Current state of the process
-        self.duration = duration # Full culture duration
-        self.curr_time = curr_time # Current culture day
+        # self.data = data # Data for storing simulation results or real data (if provided)
+        
+        # Check if the data set starts on Day 0
+        if data['Day'].values[0] != 0:
+            raise Exception('Data set does not start on Day 0!')
+
+        # Initialize other attributes
+        self.curr_time = 0
+        self.state = data.loc[0,self.process_model.states].values
+        self.duration = data['Day'].values[-1]
+
+        # Check if the data set ends on Day duration
+        if data.shape[0] - 1 != self.duration:
+            raise Exception('Data set has missing or duplicate days!')
+        
+        # Convert cumulative feed to daily feed
+        if np.isin('Cumulative_Normalized_Feed',data.columns):
+            data['Cumulative_Normalized_Feed'] = np.append(np.diff(data.loc[:,'Cumulative_Normalized_Feed']),0)
+            self.has_cumulative_feed = True
+            warnings.warn('Cumulative feed was converted to daily feed (variable name is unchanged)!')
+        else:
+            self.has_cumulative_feed = False
+        
+        # Assign data
+        self.data = data
 
 
     def log_sample(
@@ -83,7 +105,7 @@ class Controller:
         self.controller_model = controller_model
         self.bioreactor = bioreactor
         self.curr_time = curr_time
-        self.ts = ts,
+        self.ts = ts
         self.pv_sps = pv_sps
         self.pv_names = pv_names
         self.pv_wts = pv_wts
@@ -120,8 +142,23 @@ class Controller:
         constr_low_array = constr_low_matrix.flatten()
         constr_high_matrix = np.tile(self.constr[1,:],(mv_matrix.shape[0],1))
         constr_high_array = constr_high_matrix.flatten()
+        bounds = np.vstack((constr_low_array,constr_high_array)).transpose()
 
         # Solve the optimization problem
+        mv_array_star = optimize.minimize(
+            fun=self.obj_func_wrapper,
+            x0=mv_array,
+            bounds=bounds,
+            method="SLSQP",
+            options={"disp": False, "maxiter":100}
+        )
+
+        # Fold mv to 2D
+        mv_matrix_star = mv_array_star.x.reshape([-1,len(self.mv_names)])
+
+        # Update the dataset
+        data.loc[data['Day'] >= self.curr_time,self.mv_names] = mv_matrix_star
+        self.bioreactor.data = data
 
 
     def obj_func_wrapper(self,mv_array):
@@ -131,20 +168,35 @@ class Controller:
         mv_matrix = mv_array.reshape([-1,len(self.mv_names)])
 
         # Retrieve input from curr_time to EoR
-        u_matrix = self.bioreactor.data.loc[
+        u_matrix_daily = self.bioreactor.data.loc[
             self.bioreactor.data['Day'] >= self.curr_time,
             self.controller_model.inputs].values
 
         # Replace MVs with mv_matrix
         loc_mv_in_inputs = np.where(np.isin(self.controller_model.inputs,self.mv_names))[0]
-        u_matrix[:,loc_mv_in_inputs] = mv_matrix
-        print(u_matrix)
+        u_matrix_daily[:,loc_mv_in_inputs] = mv_matrix
+        u_matrix_cumulative = u_matrix_daily
 
-        # # Sim
-        # xHat = self.controller_model.predict()
+        # Convert daily feed to cumulative feed
+        if self.bioreactor.has_cumulative_feed:
+            cumulative_feed_loc = np.where(np.isin(self.controller_model.inputs,'Cumulative_Normalized_Feed'))[0]
+            u_matrix_cumulative[:,cumulative_feed_loc] = np.cumsum(u_matrix_daily[:,cumulative_feed_loc]).reshape([-1,1])
 
-        # # Obj
-        # return self.obj_func(ts,xHat,u)
+
+        # Time array
+        ts = np.arange(u_matrix_daily.shape[0])
+
+        # Sim
+        x_out = self.controller_model.ssm_lsim(
+            initial_state=self.bioreactor.state,
+            input_matrix=u_matrix_cumulative,
+            time=ts
+        )
+
+        # Obj
+        pv_loc = np.where(np.isin(self.controller_model.states,self.pv_names))[0]
+        mv_loc = np.where(np.isin(self.controller_model.inputs,self.mv_names))[0]
+        return self.obj_func(ts + self.curr_time,x_out[:,pv_loc],u_matrix_daily[:,mv_loc])
         
 
     def obj_func(
@@ -155,13 +207,13 @@ class Controller:
         """Return the cost value based on x and u"""
 
         # Trim to keep only future entries
-        x2 = x[ts[:,0] > self.curr_time,:]
-        u2 = u[ts[:,0] >= self.curr_time,:]
-        pv_sps2 = self.pv_sps[self.pv_sps[:,0] > self.curr_time,1:]
+        x2 = x[ts > self.curr_time,:]
+        u2 = u[ts >= self.curr_time,:]
+        pv_sps2 = self.pv_sps[self.ts > self.curr_time,:]
 
         # Trim to keep the prediction and control horizons
         x3 = x2[0:self.pred_horizon,:]
-        pv_sps3 = pv_sps2[0:self.pred_horizon,1]
+        pv_sps3 = pv_sps2[0:self.pred_horizon,:]
         u3 = u2[0:self.ctrl_horizon,:]
 
         # Calculate the cost
