@@ -37,7 +37,6 @@ STATES = [
 
 INPUTS = [
     "Cumulative_Normalized_Feed",
-    # "Cumulative_Normalized_Glucose",
     "Temperature",
     "pH_setpoint",
     "DO",
@@ -101,19 +100,19 @@ train_data, test_data = dataframe.clean(
 #     smoothing_list=SMOOTHE_LIST,
 #     test_label="VCC",
 # )
+A_Matrix = np.array(
+    pd.read_csv(
+        rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
+        header=None,
+    )
+)
 
-with open(
-    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
-    encoding="utf-8"
-    ) as a_matrix:
-    A_Matrix = np.loadtxt(a_matrix, delimiter=',')[:len(STATES),:len(STATES)]
-
-with open(
-    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
-    encoding="utf-8"
-    ) as b_matrix:
-    B_Matrix = np.loadtxt(b_matrix, delimiter=',')
-    B_Matrix = np.c_[B_Matrix][:len(STATES),:len(INPUTS)]
+B_Matrix = np.array(
+    pd.read_csv(
+        rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv",
+        header=None,
+    )
+)
 
 # Number of days is always equal to the last day number + 1, so 12
 # day culture duration will equal 13 days
@@ -185,21 +184,21 @@ model_optimize = ModelOptimizer(
 # model_optimize.plot_states()
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
-# first_model_train.train_test_model(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-#     test_label="IGG",
-#     iterations=50,
-#     first_train=False,
-# )
+first_model_train.train_test_model(
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+    test_label="IGG",
+    iterations=100,
+    first_train=False,
+)
 
 # first_model_train.plot_test_data(
 #     test_label="IGG",
 # )
 
-# first_model_train.plot_train_data(
-#     test_label="IGG",
-#     random_plots=True,
-# )
+first_model_train.plot_train_data(
+    test_label="Viability",
+    random_plots=True,
+)
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",

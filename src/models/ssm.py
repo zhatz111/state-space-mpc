@@ -1,37 +1,47 @@
 """_summary_
 """
+# Standard library imports
+from typing import Union
+
+# Third party library imports
 import numpy as np
+from scipy.signal import lsim, StateSpace
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
+
+# Create type hint for the scaler object being passed to SSM class
+ScalerType = Union[MinMaxScaler, StandardScaler]
+
 
 # The StateSpaceModel class represents a mathematical model of a system in state space form.
 class StateSpaceModel:
-    """_summary_
-    """
+    """_summary_"""
+
     def __init__(
-            self,
-            states: list[str],
-            inputs: list[str],
-            scaler: object,
-            a_matrix: np.ndarray,
-            b_matrix: np.ndarray,
-            ):
+        self,
+        states: list[str],
+        inputs: list[str],
+        scaler: ScalerType,
+        a_matrix: np.ndarray,
+        b_matrix: np.ndarray,
+    ):
         """
         The function initializes an object with given states, inputs, scaler, a_matrix, and b_matrix
         .
-        
+
         Args:
-          states (list[str]): The states parameter is a list of strings representing the possible states of
+            states (list[str]): The states parameter is a list of strings representing the possible states of
         a system.
-          inputs (list[str]): The `inputs` parameter is a list of strings that represents the possible input
+            inputs (list[str]): The `inputs` parameter is a list of strings that represents the possible input
         values for the system. These input values can be used to control or influence the behavior of the
         system.
-          scaler (object): The `scaler` parameter is an object that is used to scale the input data. It is
+            scaler (object): The `scaler` parameter is an object that is used to scale the input data. It is
         typically used to normalize or standardize the input values before feeding them into the model. The
         specific implementation of the scaler object will depend on the library or framework being used.
-          a_matrix (np.ndarray): The `a_matrix` parameter is a numpy array representing the transition
+            a_matrix (np.ndarray): The `a_matrix` parameter is a numpy array representing the transition
         probabilities between states in a Markov chain. Each element `a[i][j]` represents the probability of
         transitioning from state `i` to state `j`. The shape of the array should be `(num_states,
         num_states)
-          b_matrix (np.ndarray): The `b_matrix` parameter is a numpy array representing the output matrix of
+            b_matrix (np.ndarray): The `b_matrix` parameter is a numpy array representing the output matrix of
         a system. It defines the relationship between the inputs and the outputs of the system. Each row of
         the matrix corresponds to a state of the system, and each column corresponds to an input.
         """
@@ -43,35 +53,81 @@ class StateSpaceModel:
         self.c_matrix = np.identity(len(states))
         self.d_matrix = np.zeros([len(states), len(inputs)])
 
-    def predict(self,x,u):
-        """Predict a trajectory
-          Created by Yu Luo (yu.8.luo@gsk.com)
-          Created: 2023-10-11
-          Modified: 2023-10-11          
+    def ssm_lsim(
+        self, initial_state: np.ndarray, input_matrix: np.ndarray, time: np.ndarray
+    ):
         """
+        Created by ZH (zach.a.hatzenbeller@gsk.com)
+        Created: 2023-10-13
+        Modified: 2023-10-13
 
-        if u.shape[0] == 1:
+        The function `ssm_lsim` predicts a trajectory based on a state space model using initial
+        conditions, inputs, and time.
 
-          # Transform x and u to row arrays
-          x_row = x.reshape(1,-1)
-          u_row = u.reshape(1,-1)
+        Args:
+          X0: The parameter X0 represents the initial condition matrix for the state variables of the
+        system. It can be either a 1-dimensional or 2-dimensional array. If it is 1-dimensional, it
+        should be reshaped to a row vector with shape (1, n), where n is the number of
+          U: The parameter U represents the input matrix. It is used to provide input values to the
+        system being modeled. The function expects U to be a 1-dimensional or 2-dimensional array. If U
+        is 1-dimensional, it will be reshaped to a 2-dimensional array with one row. If
+          time: The `time` parameter is a 1D array or list that represents the time points at which the
+        trajectory should be predicted. It specifies the time intervals at which the system's states
+        should be calculated.
 
-          # Concatenate x and u and scale them 
-          xu_row = np.hstack((x_row,u_row))
-          xu_scaled = self.scaler.transform(xu_row)
-          x_scaled = xu_scaled[:,0:x_row.shape[1]].reshape(-1,1)
-          u_scaled = xu_scaled[:,x_row.shape[1]:].reshape(-1,1)
+        Returns:
+          the predicted trajectory of the system, represented by the variable xHat.
+        """
+        # Warning: Remember that the time array needs to start at 0 with the initial condition at time 0
 
-          # Predict based on A*x + B*u
-          xHat_scaled = np.dot(self.a_matrix,x_scaled) + np.dot(self.b_matrix,u_scaled)
-          xuHat_scaled = np.vstack((xHat_scaled,np.zeros((u_row.shape[1],1))))
-          xHat = self.scaler.inverse_transform(xuHat_scaled.reshape(1,-1))[:,:x_row.shape[1]]
-          
-          # Return as a row array
-          return xHat.reshape(1,-1)          
+        # Ensure X0 is 1d or 2d and reshape accordingly
+        if initial_state.ndim == 1:
+            x_row = initial_state.reshape(1, -1)
+        elif initial_state.ndim == 2:
+            x_row = initial_state[0, :]
         else:
+            raise ValueError(
+                "Initial condition matrix X0 must have at least 1 dimension"
+            )
 
-          # Recursively build the prediction results
-          xHat = self.predict(x,u[0:1,:])
-          xHats = np.vstack((xHat,self.predict(xHat,u[1:,:])))
-          return xHats
+        # Ensure U is 1d or 2d and reshape accordingly
+        if input_matrix.ndim == 1:
+            u_row = input_matrix.reshape(1, -1)
+        elif input_matrix.ndim == 2:
+            u_row = input_matrix
+        else:
+            raise ValueError("Input matrix U must have at least 1 dimension")
+
+        # Check to see if X and U have the same # of rows and then scale them both
+        # by horizontally stacking them together or creating seperate zeros matrices
+        # for both X and U to get them in the correct data shape for transform
+        if x_row.shape[0] == u_row.shape[0]:
+            xu_row = np.hstack((x_row, u_row))
+            xu_scaled = np.array(self.scaler.transform(xu_row))
+            x_scaled = xu_scaled[:, : x_row.shape[1]]
+            u_scaled = xu_scaled[:, x_row.shape[1] :]
+        else:
+            xu_mask = np.hstack((x_row, np.zeros((x_row.shape[0], u_row.shape[1]))))
+            xu_mask_scaled = np.array(self.scaler.transform(xu_mask))
+            ux_mask = np.hstack((np.zeros((u_row.shape[0], x_row.shape[1])), u_row))
+            ux_mask_scaled = np.array(self.scaler.transform(ux_mask))
+            x_scaled = xu_mask_scaled[:, : x_row.shape[1]]
+            u_scaled = ux_mask_scaled[:, x_row.shape[1] :]
+
+        # Predict the next days states based on a continuous system using lsim
+        bioreactor = StateSpace(
+            self.a_matrix, self.b_matrix, self.c_matrix, self.d_matrix
+        )
+        _, y_out, _ = lsim(bioreactor, U=u_scaled, T=time, X0=x_scaled)
+
+        # Reshape the output, if X and U were the same initial shape, to a row matrix
+        if x_row.shape[0] == u_row.shape[0]:
+            xuhat_scaled = np.hstack((y_out.reshape(1, -1), u_row))
+        else:
+            xuhat_scaled = np.hstack((y_out, u_row))
+
+        # Inverse transform the output to get the unscaled values for next time step
+        x_hat = np.array(self.scaler.inverse_transform(xuhat_scaled))[
+            :, : x_row.shape[1]
+        ]
+        return x_hat

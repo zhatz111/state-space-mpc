@@ -54,3 +54,14 @@ robustness_model = StateSpaceModel(
     a_matrix=A_matrix,
     b_matrix=B_matrix,
 )
+
+data = pd.read_csv(
+    fr"~\GSK\Biopharm Model Predictive Control - General\data\batch-record-template\data.csv"
+    )
+
+x0 = np.array(data.loc[0,STATES].values)
+U = np.array(data.loc[0:0,INPUTS].values)
+time = np.arange(0,len(U),1)
+
+xHats = robustness_model.ssm_lsim(x0,U,time)
+print(xHats)

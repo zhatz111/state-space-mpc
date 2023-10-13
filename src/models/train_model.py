@@ -1,18 +1,24 @@
+"""summary
+"""
 
+# Standard library imports
 import math
 import random
 import warnings
+from typing import Union
+
+# Imports from 3rd party libraries
 import numpy as np
 import pandas as pd
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score
-from sklearn.preprocessing import MinMaxScaler
 from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 warnings.filterwarnings("ignore")
-
+ScalerType = Union[MinMaxScaler, StandardScaler]
 
 # The ModelTraining class is used for training state space models.
 class ModelTraining:
@@ -24,12 +30,12 @@ class ModelTraining:
         self,
         train_data: pd.DataFrame,
         test_data: pd.DataFrame,
-        a_matrix,
-        b_matrix,
+        a_matrix: np.ndarray,
+        b_matrix: np.ndarray,
         states: list[str],
         inputs: list[str],
         num_days: int,
-        scaler: MinMaxScaler,
+        scaler: ScalerType,
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -70,7 +76,6 @@ class ModelTraining:
         self.scaler = scaler
         self.state_len = len(states)
         self.input_len = len(inputs)
-        self.time = np.arange(0, self.num_days, 1)
         self.total = self.state_len + self.input_len
         self.iters = 0
 
@@ -101,32 +106,36 @@ class ModelTraining:
 
     def train_model(self, save_path, first_train=True, iterations=10):
         """
-        The `train_model` function trains a state space model by minimizing the error between the actual
-        and simulated outputs using the A and B matrices.
+        The `train_model` function trains a system model using the provided training data and saves the
+        resulting A and B matrices to CSV files.
         
         Args:
-          save_path: The `save_path` parameter is the directory path where you want to save the
-        A_Matrix.csv and B_Matrix.csv files.
+          save_path: The `save_path` parameter is the directory path where the A_Matrix.csv and
+        B_Matrix.csv files will be saved.
           first_train: The `first_train` parameter is a boolean flag that indicates whether it is the
-        first time training the model or not. If it is `True`, it means it is the first time training
-        and the `first_pass_training()` method will be called to obtain an initial matrix. If it is
-        `False. Defaults to True
-          iterations: The `iterations` parameter in the `train_model` function specifies the number of
-        iterations or optimization steps to perform when training the model. It determines how many
-        times the objective function will be minimized to find the optimal values for the A and B
-        matrices in the state space model. The default value is. Defaults to 10
+        first time training the model. If `first_train` is `True`, it means it is the first time
+        training and the matrices `a_matrix` and `b_matrix` will be initialized with ones. If `first.
+        Defaults to True
+          iterations: The `iterations` parameter specifies the maximum number of iterations for the
+        optimization algorithm to run. It determines how many times the objective function will be
+        evaluated and the optimization process will be performed. The default value is 10. Defaults to
+        10
         """
         if first_train:
-            initial_matrix = self.first_pass_training()
-            self.a_matrix = initial_matrix[: self.state_len, : self.state_len]
-            self.b_matrix = initial_matrix[: self.state_len, self.state_len :]
+            self.a_matrix = np.ones(self.state_len)
+            self.b_matrix = np.ones([self.state_len, self.input_len])
             c_matrix = np.identity(self.state_len)
             d_matrix = np.zeros([self.state_len, self.input_len])
         else:
-            self.a_matrix = self.a_matrix
-            self.b_matrix = self.b_matrix
             c_matrix = np.identity(self.state_len)
             d_matrix = np.zeros([self.state_len, self.input_len])
+
+        # Check to make sure matrices are correct dimensions, if not create a ones matrix
+        if (self.a_matrix.shape[0] != self.state_len) or (self.a_matrix.shape[1] != self.state_len):
+            self.a_matrix = np.ones(self.state_len)
+        
+        if (self.b_matrix.shape[0] != self.state_len) or (self.b_matrix.shape[1] != self.input_len):
+            self.b_matrix = np.ones([self.state_len, self.input_len])
 
         a_sim = self.a_matrix.reshape(-1, 1)
         b_sim = self.b_matrix.reshape(-1, 1)
@@ -189,6 +198,7 @@ class ModelTraining:
         res = optimize.minimize(
             fun=objective_func,
             x0=combined_mat,
+            bounds=[(-1,1)]*len(combined_mat),
             method="SLSQP",
             args=({"Nfeval": 0},),
             options={"maxiter": iterations, "disp": False},
@@ -252,7 +262,7 @@ class ModelTraining:
                 system=bioreactor, U=u_matrix, T=time, X0=x0_matrix
             )
             simulation_data = pd.DataFrame(
-                data=self.scaler.inverse_transform(np.hstack((y_out, u_matrix))),
+                data=np.array(self.scaler.inverse_transform(np.hstack((y_out, u_matrix)))),
                 columns=self.scaler.get_feature_names_out(),
             )
             simulation_data_dict[name] = pd.DataFrame(
@@ -277,7 +287,7 @@ class ModelTraining:
         specified (i.e., `None`), the y-axis limits will be automatically determined based on the data.
         If `ylim` is specified, the y-axis limits will be set to
         """
-        cols = 2
+        cols = 4
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="test")
         rows = math.floor(len(simulation_dict) / cols)
         fig, axes = plt.subplots(rows, cols, figsize=(9,7), squeeze=False)
