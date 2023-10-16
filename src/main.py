@@ -21,7 +21,7 @@ warnings.filterwarnings('ignore')
 DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
 DATA_FILE_EXT = "AR21-042_AR23-019_067-Model-Data"
 MATRIX_FOLDER_EXT = "CD96-Robustness"
-PDF_PLOT_FILENAME = "Titer_plots_model_3"
+PDF_PLOT_FILENAME = "model2_report"
 TARGET_LABEL = "IGG"
 PROCESS_TIME = 11
 VOLUME = 200
@@ -31,8 +31,10 @@ VOLUME = 200
 STATES = [
     "IGG",
     "VCC",
+    "Viability",
     "Lactate",
     "Osmo",
+    "pCO2_at_temp",
 ]
 
 INPUTS = [
@@ -45,11 +47,15 @@ INPUTS = [
 SMOOTHE_LIST = [
     "IGG",
     "VCC",
+    "Viability",
     "Lactate",
     "Osmo",
+    "pCO2_at_temp",
 ]
 
-DISCARD = []
+DISCARD = [
+    "AR23-067-005P"
+]
 
 column_inclusion = [
     "Batch",
@@ -112,7 +118,8 @@ B_Matrix = np.array(
 # day culture duration will equal 13 days
 scaler_dict = {}
 for count, name in enumerate(scaler_train.get_feature_names_out()):
-    scaler_dict[name] = [scaler_train.min_[count], scaler_train.scale_[count]]
+    scaler_dict[name] = {"Label": name[-15:], "min_": round(scaler_train.min_[count],5), "scale_": round(scaler_train.scale_[count],5)}
+scaler_table = pd.DataFrame.from_dict(scaler_dict).T.reset_index(drop=True)
 
 joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl")
 
@@ -185,24 +192,28 @@ model_optimize = ModelOptimizer(
 #     first_train=False,
 # )
 
-# first_model_train.plot_test_data(
-#     test_label=TARGET_LABEL,
-# )
+first_model_train.plot_test_data(
+    test_label=TARGET_LABEL,
+)
 
 # first_model_train.plot_train_data(
 #     test_label=TARGET_LABEL,
 #     random_plots=True,
 # )
 
-first_model_train.save_plots_to_pdf(
-    output_pdf=fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\{PDF_PLOT_FILENAME}.pdf",
-    test_label=TARGET_LABEL,
-)
+# first_model_train.generate_report(
+#     output_pdf=fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\{PDF_PLOT_FILENAME}.pdf",
+#     scaler_df=scaler_table,
+#     metadata_path=r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\reports\report_info\metadata.txt",
+#     figures_filepath=r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\reports\test_report",
+#     logo_filepath=r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\reports\report_info\GSK_logo_2022.png",
+#     xlim=15
+# )
 
 # first_model_train.plot_train_data(
 #     test_label="VCC",
 # )
 
-# r2 = first_model_train.get_r2_table()
-# print(r2)
-# pd.DataFrame(r2).to_clipboard()
+# rmse = first_model_train.get_rmse_table()
+# print(rmse)
+# pd.DataFrame(rmse).to_clipboard()
