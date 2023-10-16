@@ -9,6 +9,17 @@ import pandas as pd
 from scipy import optimize
 import warnings
 
+def daily_to_cumulative_feed(model,u_matrix_daily):
+    """Convert a U matrix's daily feed column to cumulative feed for lsim
+        Created by Yu Luo (yu.8.luo@gsk.com)
+        Created: 2023-10-14
+        Modified: 2023-10-14
+    """
+    u_matrix_cumulative = np.copy(u_matrix_daily)
+    cumulative_feed_loc = np.where(np.isin(model.inputs,'Cumulative_Normalized_Feed'))[0]
+    u_matrix_cumulative[:,cumulative_feed_loc] = np.cumsum(u_matrix_cumulative[:,cumulative_feed_loc]).reshape([-1,1])
+    return u_matrix_cumulative
+
 class Bioreactor:
     """Bioreactor object class for simulation and also processing real off-line data
         Created by Yu Luo (yu.8.luo@gsk.com)
@@ -28,6 +39,7 @@ class Bioreactor:
         # self.data = data # Data for storing simulation results or real data (if provided)
         
         # Check if the data set starts on Day 0
+        data = pd.DataFrame.copy(data)
         if data['Day'].values[0] != 0:
             raise Exception('Data set does not start on Day 0!')
 
@@ -50,7 +62,33 @@ class Bioreactor:
         
         # Assign data
         self.data = data
+        self.original_data = pd.DataFrame.copy(data)
 
+    def reset(self):
+        """Reinitialize the object
+            Created by Yu Luo (yu.8.luo@gsk.com)
+            Created: 2023-10-14
+            Modified: 2023-10-14
+        """
+
+        self.data = pd.DataFrame.copy(self.original_data)
+        self.curr_time = 0
+        self.state = self.data.loc[0,self.process_model.states].values
+    
+    def show_data(self):
+        """Show data with accurate column names
+            Created by Yu Luo (yu.8.luo@gsk.com)
+            Created: 2023-10-14
+            Modified: 2023-10-14
+        """
+        
+        if self.has_cumulative_feed:
+            data = pd.DataFrame.copy(self.data)
+            data = data.rename(columns={'Cumulative_Normalized_Feed':'Daily_Normalized_Feed'})
+        else:
+            data = self.data
+        
+        print(data)
 
     def log_sample(
             self,
@@ -78,6 +116,50 @@ class Bioreactor:
         """
         for i in range(len(input_days)):
             self.data.loc[self.data.Day == input_days[i],input_var_names] = input_var_vals[i,:]
+
+    def next_day(self):
+        """Advance 24 hours and update the state and current time
+            Created by Yu Luo (yu.8.luo@gsk.com)
+            Created: 2023-10-14
+            Modified: 2023-10-14
+        """
+
+        # Get initial state
+        initial_state = self.state
+
+        # Get all inputs with daily feed
+        u_matrix_daily = self.data.loc[:,self.process_model.inputs].values
+
+        # Convert daily feed to cumulative feed
+        u_matrix_cumulative = daily_to_cumulative_feed(self.process_model,u_matrix_daily)
+        
+        # Filter future inputs
+        u_matrix_cumulative = u_matrix_cumulative[self.data['Day'] >= self.curr_time,:]
+        
+        # Get time array 
+        ts = np.arange(u_matrix_cumulative.shape[0])
+        
+        # Solve
+        x_out = self.process_model.ssm_lsim(
+            initial_state=initial_state,
+            input_matrix=u_matrix_cumulative,
+            time=ts
+        )
+
+        # Create a DF
+        x_out_df = pd.DataFrame(x_out,columns=self.process_model.states)
+        x_out_df.insert(0,'Day',ts + self.curr_time)
+
+        # Check if the simulation starts from the current state
+        if ~np.all(self.state == x_out[0]):
+            raise Exception('Simulation did not start from the current state!')
+        
+        # Update state and time
+        self.state = x_out[1]
+        self.curr_time = self.curr_time + 1
+        self.data.loc[self.data['Day'] == self.curr_time,self.process_model.states] = self.state
+
+        return x_out_df
 
 
 class Controller:
@@ -115,16 +197,16 @@ class Controller:
         self.ctrl_horizon = ctrl_horizon
         self.constr = constr
 
-    def est_state(self):
-        """Estimate the current state based on previous measurement"""
-        # Gather previous day's state and input
-        data_prev = self.data.loc[
-            self.data[:,'Day'] == self.curr_time,:]
-        x_prev = data_prev[0,self.controller_model.states]
-        u_prev = data.prev[0,self.controller_model.states]
-        x_curr = self.controller_model.predict(x_prev,u_prev)
+    # def est_state(self):
+    #     """Estimate the current state based on previous measurement"""
+    #     # Gather previous day's state and input
+    #     data_prev = self.data.loc[
+    #         self.data[:,'Day'] == self.curr_time,:]
+    #     x_prev = data_prev[0,self.controller_model.states]
+    #     u_prev = data.prev[0,self.controller_model.states]
+    #     x_curr = self.controller_model.predict(x_prev,u_prev)
 
-        # Replace current missing data with estimated
+    #     # Replace current missing data with estimated
 
 
     def optimize(self):
@@ -179,8 +261,9 @@ class Controller:
 
         # Convert daily feed to cumulative feed
         if self.bioreactor.has_cumulative_feed:
-            cumulative_feed_loc = np.where(np.isin(self.controller_model.inputs,'Cumulative_Normalized_Feed'))[0]
-            u_matrix_cumulative[:,cumulative_feed_loc] = np.cumsum(u_matrix_daily[:,cumulative_feed_loc]).reshape([-1,1])
+            u_matrix_cumulative = daily_to_cumulative_feed(self.controller_model,u_matrix_daily)
+            # cumulative_feed_loc = np.where(np.isin(self.controller_model.inputs,'Cumulative_Normalized_Feed'))[0]
+            # u_matrix_cumulative[:,cumulative_feed_loc] = np.cumsum(u_matrix_daily[:,cumulative_feed_loc]).reshape([-1,1])
 
 
         # Time array

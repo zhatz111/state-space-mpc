@@ -96,17 +96,32 @@ controller = Controller(
     curr_time=curr_time
 )
 
-print(bioreactor.data)
+# Simulate trajectory without MPC
+df = bioreactor.next_day()
 
-controller.optimize()
+# Reset
+bioreactor.reset()
 
-print(bioreactor.data)
+# Simulate a process
+for i in range(len(ts) - 1):
+    controller.optimize()
+    bioreactor.next_day()
+    
+print(df)    
+bioreactor.show_data()
+
+# x_out = bioreactor.next_day()
+# print(x_out)
+# x_out = bioreactor.next_day()
+# print(x_out)
+
+# print(bioreactor.data)
 
 
-# mv_array = mv_matrix[data['Day'] >= curr_time,:].flatten() + 1
-# controller.obj_func_wrapper(mv_array=mv_array)
+# # mv_array = mv_matrix[data['Day'] >= curr_time,:].flatten() + 1
+# # controller.obj_func_wrapper(mv_array=mv_array)
 
-controller.optimize()
+# controller.optimize()
 
 
 
