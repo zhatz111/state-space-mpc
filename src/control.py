@@ -5,11 +5,15 @@
 """
 
 import joblib
+import warnings
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import copy
 
 from mpc.mpc_optimizer import *
 from models.ssm import *
+warnings.filterwarnings('ignore',category=UserWarning)
 
 # Load an example dataset
 data = pd.read_csv(
@@ -66,19 +70,30 @@ bioreactor = Bioreactor(
     process_model=robustness_model,
     data=data)
 
+# Construct an open-loop bioreactor object
+bioreactor_open_loop = copy.deepcopy(bioreactor)
+
 # Construct a controller object
 ts = data['Day'].values
 pv_names = np.array(['IGG'])
 pv_wts = np.array([1])
 pv_sps = data[pv_names].values
-mv_names = np.array(['Cumulative_Normalized_Feed','pH_setpoint'])
-mv_wts = np.array([1,1])
+mv_names = np.array([
+    'Cumulative_Normalized_Feed',
+    # 'pH_setpoint'
+    ])
+mv_wts = np.array([
+    1,
+    # 1
+    ])
+constr = np.array([
+    [0,     0.1],   # feed
+    # [7,   7.35]     # pH
+    ])
 mv_matrix = data[mv_names].values
 pred_horizon = 30
 ctrl_horizon = 3
-constr = np.array([
-    [0,     7],
-    [0.1,   7.35]])
+
 curr_time = 0
 
 controller = Controller(
@@ -97,17 +112,20 @@ controller = Controller(
 )
 
 # Simulate trajectory without MPC
-df = bioreactor.next_day()
+# bioreactor_open_loop.next_day()
 
-# Reset
-bioreactor.reset()
+# # Reset
+# bioreactor.reset()
 
 # Simulate a process
 for i in range(len(ts) - 1):
-    controller.optimize()
+    controller.optimize(plot=True)
+    # bioreactor.show_data()
+    bioreactor_open_loop.next_day()
     bioreactor.next_day()
     
-print(df)    
+plt.show()
+bioreactor_open_loop.show_data()   
 bioreactor.show_data()
 
 # x_out = bioreactor.next_day()
