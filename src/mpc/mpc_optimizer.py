@@ -6,8 +6,10 @@
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 from scipy import optimize
 import warnings
+import math
 
 def daily_to_cumulative_feed(model,u_matrix_daily):
     """Convert a U matrix's daily feed column to cumulative feed for lsim
@@ -24,7 +26,7 @@ class Bioreactor:
     """Bioreactor object class for simulation and also processing real off-line data
         Created by Yu Luo (yu.8.luo@gsk.com)
         Created: 2023-10-05
-        Modified: 2023-10-06
+        Modified: 2023-10-21
     """
 
     def __init__(
@@ -51,6 +53,10 @@ class Bioreactor:
         # Check if the data set ends on Day duration
         if data.shape[0] - 1 != self.duration:
             raise Exception('Data set has missing or duplicate days!')
+        
+        # Check if days are consecutive (2023-10-21)
+        if any(np.diff(data['Day']) != 1):
+            raise Exception('Data set is not in 1-day increments!')
         
         # Convert cumulative feed to daily feed
         if np.isin('Cumulative_Normalized_Feed',data.columns):
@@ -166,7 +172,7 @@ class Controller:
     """Controller object class
         Created by Yu Luo (yu.8.luo@gsk.com)
         Created: 2023-10-05
-        Modified: 2023-10-06
+        Modified: 2023-10-22
     """
 
     def __init__(
@@ -184,9 +190,11 @@ class Controller:
             constr: np.array, # A 2 by U array (lower and upper limits only)
             curr_time = 0 # Current culture day
     ):
+        
+        # The basics
         self.controller_model = controller_model
         self.bioreactor = bioreactor
-        self.curr_time = curr_time
+        self.curr_time = bioreactor.curr_time
         self.ts = ts
         self.pv_sps = pv_sps
         self.pv_names = pv_names
@@ -196,6 +204,24 @@ class Controller:
         self.pred_horizon = pred_horizon
         self.ctrl_horizon = ctrl_horizon
         self.constr = constr
+
+        # Data snapshots (2023-10-22)
+        self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
+        self.data_after_optim = pd.DataFrame.copy(bioreactor.data)
+
+        # Plot (2023-10-22)
+        cols = 4
+        rows = math.ceil(bioreactor.duration / cols)
+        figs = []
+        fig_axes = []
+        for i in range(len(self.pv_names) + len(self.mv_names)):
+            fig, axes = plt.subplots(rows, cols, figsize=(9,7), squeeze=False)
+            fig.subplots_adjust(top=0.8)
+            figs.append(fig)
+            fig_axes.append(axes)
+
+        self.figs = figs
+        self.fig_axes = fig_axes
 
     # def est_state(self):
     #     """Estimate the current state based on previous measurement"""
@@ -209,26 +235,34 @@ class Controller:
     #     # Replace current missing data with estimated
 
 
-    def optimize(self):
+    def optimize(self,plot=False):
         """Optimize future inputs"""
 
         # Retrieve MVs from curr_time to EoR
         data = self.bioreactor.data
-        mv_matrix = data.loc[data['Day'] >= self.curr_time,self.mv_names].values
+        self.curr_time = self.bioreactor.curr_time
+        is_in_ctrl_horizon = np.logical_and(data['Day'] >= self.curr_time,data['Day'] < (self.curr_time + self.ctrl_horizon))
+        mv_matrix = data.loc[is_in_ctrl_horizon,self.mv_names].values
 
         # Flatten initial mv
         mv_array = mv_matrix.flatten()
         
         # Create constraint matrix
-        constr_low_matrix = np.tile(self.constr[0,:],(mv_matrix.shape[0],1))
+        constr_low_matrix = np.tile(self.constr[:,0],(mv_matrix.shape[0],1))
         constr_low_array = constr_low_matrix.flatten()
-        constr_high_matrix = np.tile(self.constr[1,:],(mv_matrix.shape[0],1))
+        constr_high_matrix = np.tile(self.constr[:,1],(mv_matrix.shape[0],1))
         constr_high_array = constr_high_matrix.flatten()
         bounds = np.vstack((constr_low_array,constr_high_array)).transpose()
 
+        # Simulate before optimization
+        _,x_out_before_optim = self.obj_func_wrapper(mv_array)
+        data_before_optim = self.data_before_optim
+        data_before_optim.loc[data_before_optim['Day'] >= self.curr_time,self.controller_model.states] = x_out_before_optim
+        data_before_optim.loc[is_in_ctrl_horizon,self.mv_names] = mv_matrix
+
         # Solve the optimization problem
         mv_array_star = optimize.minimize(
-            fun=self.obj_func_wrapper,
+            fun=lambda x: self.obj_func_wrapper(x)[0],
             x0=mv_array,
             bounds=bounds,
             method="SLSQP",
@@ -238,25 +272,68 @@ class Controller:
         # Fold mv to 2D
         mv_matrix_star = mv_array_star.x.reshape([-1,len(self.mv_names)])
 
+        # Simulate after optimization
+        _,x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
+        data_after_optim = self.data_after_optim
+        data_after_optim.loc[data_after_optim['Day'] >= self.curr_time,self.controller_model.states] = x_out_after_optim
+        data_after_optim.loc[is_in_ctrl_horizon,self.mv_names] = mv_matrix_star
+
+        # Plot
+        if plot:
+
+            figs = self.figs
+            fig_axes = self.fig_axes
+            pv_mv_names = np.hstack((self.pv_names,self.mv_names))
+            for i in range(len(pv_mv_names)):
+                fig = figs[i]
+                axes = fig_axes[i]
+                ax = axes.reshape(-1)[self.curr_time]
+                if i < len(self.pv_names):
+                    ax.plot(self.ts,self.pv_sps[:,i],"k--",label="Setpoint")
+                    ax.plot(data_before_optim['Day'],data_before_optim[pv_mv_names[i]],"b-",label="Un-optimized")
+                    ax.plot(data_after_optim['Day'],data_after_optim[pv_mv_names[i]],"r-",label="Optimized")
+                else:
+                    ax.step(data_before_optim['Day'],data_before_optim[pv_mv_names[i]],"b-",label="Un-optimized")
+                    ax.step(data_after_optim['Day'],data_after_optim[pv_mv_names[i]],"r-",label="Optimized")
+
+                ax.title.set_text("Day " + f"{self.curr_time}")
+            
+                if (pv_mv_names[i] == 'Cumulative_Normalized_Feed') & self.bioreactor.has_cumulative_feed:
+                    fig.suptitle('Daily_Normalized_Feed', size= "x-large", weight= "bold", y=0.98)
+                else:
+                    fig.suptitle(pv_mv_names[i], size= "x-large", weight= "bold", y=0.98)
+
+                fig.supxlabel("Day", size= "x-large", weight= "bold")
+                fig.supylabel("Level", size= "x-large", weight= "bold")
+                fig.tight_layout()
+                # plt.legend(loc="best")
+            
+
+            
+            
+
         # Update the dataset
-        data.loc[data['Day'] >= self.curr_time,self.mv_names] = mv_matrix_star
+        data.loc[is_in_ctrl_horizon,self.mv_names] = mv_matrix_star
         self.bioreactor.data = data
 
 
     def obj_func_wrapper(self,mv_array):
         """Objective function wrapper"""
+
+        # Rows within the control horizon (2023-10-21)
+        ctrl_horizon_where = np.where(np.logical_and(self.bioreactor.data['Day'] >= self.curr_time,self.bioreactor.data['Day'] < (self.curr_time + self.ctrl_horizon)))[0]
         
         # Fold mv_array to a 2D array
         mv_matrix = mv_array.reshape([-1,len(self.mv_names)])
 
-        # Retrieve input from curr_time to EoR
-        u_matrix_daily = self.bioreactor.data.loc[
-            self.bioreactor.data['Day'] >= self.curr_time,
-            self.controller_model.inputs].values
+        # Retrieve input from day 0 to EoR
+        u_matrix_daily = self.bioreactor.data.loc[:,self.controller_model.inputs].values
 
         # Replace MVs with mv_matrix
         loc_mv_in_inputs = np.where(np.isin(self.controller_model.inputs,self.mv_names))[0]
-        u_matrix_daily[:,loc_mv_in_inputs] = mv_matrix
+        u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where,:]
+        u_matrix_daily_ctrl_horizon[:,loc_mv_in_inputs] = mv_matrix
+        u_matrix_daily[ctrl_horizon_where,:] = u_matrix_daily_ctrl_horizon
         u_matrix_cumulative = u_matrix_daily
 
         # Convert daily feed to cumulative feed
@@ -267,19 +344,19 @@ class Controller:
 
 
         # Time array
-        ts = np.arange(u_matrix_daily.shape[0])
+        ts = np.arange(u_matrix_daily[self.bioreactor.data['Day'] >= self.curr_time,:].shape[0])
 
         # Sim
         x_out = self.controller_model.ssm_lsim(
             initial_state=self.bioreactor.state,
-            input_matrix=u_matrix_cumulative,
+            input_matrix=u_matrix_cumulative[self.bioreactor.data['Day'] >= self.curr_time,:],
             time=ts
         )
 
         # Obj
         pv_loc = np.where(np.isin(self.controller_model.states,self.pv_names))[0]
         mv_loc = np.where(np.isin(self.controller_model.inputs,self.mv_names))[0]
-        return self.obj_func(ts + self.curr_time,x_out[:,pv_loc],u_matrix_daily[:,mv_loc])
+        return self.obj_func(ts + self.curr_time,x_out[:,pv_loc],u_matrix_daily[self.bioreactor.data['Day'] >= self.curr_time,:][:,mv_loc]),x_out
         
 
     def obj_func(
