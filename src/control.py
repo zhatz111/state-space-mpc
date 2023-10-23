@@ -10,15 +10,21 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import copy
+from pathlib import Path
 
 from mpc.mpc_optimizer import *
 from models.ssm import *
 warnings.filterwarnings('ignore',category=UserWarning)
 
 # Load an example dataset
-data = pd.read_csv(
-    fr"~\GSK\Biopharm Model Predictive Control - General\data\batch-record-template\data_sp_mv_only.csv"
-    )
+BATCH_SHEET_FOLDER = 'mpc-simulation'
+BATCH_SHEET_NAME = 'disturbance'
+simulation_path = Path("~/GSK/Biopharm Model Predictive Control - General/data/",BATCH_SHEET_FOLDER)
+data = pd.read_csv(Path(simulation_path,fr"{BATCH_SHEET_NAME}.csv"))
+
+# Create output folder
+batch_sheet_path = Path(simulation_path.expanduser(),BATCH_SHEET_NAME)
+batch_sheet_path.mkdir(parents=True, exist_ok=True)
 
 # Load the model
 MATRIX_FOLDER_EXT = "mpc-final-matrices"
@@ -108,7 +114,6 @@ controller = Controller(
     pred_horizon=pred_horizon,
     ctrl_horizon=ctrl_horizon,
     constr=constr,
-    curr_time=curr_time
 )
 
 # Simulate trajectory without MPC
@@ -125,6 +130,11 @@ for i in range(len(ts) - 1):
     bioreactor.next_day()
     
 plt.show()
+for j in range(len(controller.figs)):
+    fig = controller.figs[j]
+    fig.savefig(Path(batch_sheet_path,fr"{fig._suptitle.get_text()}.png"))
+    plt.close(fig) 
+
 bioreactor_open_loop.show_data()   
 bioreactor.show_data()
 
