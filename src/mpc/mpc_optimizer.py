@@ -188,7 +188,6 @@ class Controller:
             pred_horizon: int,
             ctrl_horizon: int,
             constr: np.array, # A 2 by U array (lower and upper limits only)
-            curr_time = 0 # Current culture day
     ):
         
         # The basics
@@ -293,6 +292,7 @@ class Controller:
                     ax.plot(data_before_optim['Day'],data_before_optim[pv_mv_names[i]],"b-",label="Un-optimized")
                     ax.plot(data_after_optim['Day'],data_after_optim[pv_mv_names[i]],"r-",label="Optimized")
                 else:
+                    ax.step(self.bioreactor.original_data['Day'],self.bioreactor.original_data[pv_mv_names[i]],"k--",label="Setpoint")
                     ax.step(data_before_optim['Day'],data_before_optim[pv_mv_names[i]],"b-",label="Un-optimized")
                     ax.step(data_after_optim['Day'],data_after_optim[pv_mv_names[i]],"r-",label="Optimized")
 
