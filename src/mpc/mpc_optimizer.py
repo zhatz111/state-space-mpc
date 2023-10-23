@@ -157,7 +157,7 @@ class Bioreactor:
         x_out_df.insert(0,'Day',ts + self.curr_time)
 
         # Check if the simulation starts from the current state
-        if ~np.all(self.state == x_out[0]):
+        if max(abs(self.state - x_out[0])) > 1e-10: # ~np.all(self.state == x_out[0]):
             raise Exception('Simulation did not start from the current state!')
         
         # Update state and time
@@ -292,7 +292,7 @@ class Controller:
                     ax.plot(data_before_optim['Day'],data_before_optim[pv_mv_names[i]],"b-",label="Un-optimized")
                     ax.plot(data_after_optim['Day'],data_after_optim[pv_mv_names[i]],"r-",label="Optimized")
                 else:
-                    ax.step(self.bioreactor.original_data['Day'],self.bioreactor.original_data[pv_mv_names[i]],"k--",label="Setpoint")
+                    ax.step(self.bioreactor.original_data['Day'],self.bioreactor.original_data[pv_mv_names[i]],"k--",label="Original")
                     ax.step(data_before_optim['Day'],data_before_optim[pv_mv_names[i]],"b-",label="Un-optimized")
                     ax.step(data_after_optim['Day'],data_after_optim[pv_mv_names[i]],"r-",label="Optimized")
 
@@ -303,10 +303,13 @@ class Controller:
                 else:
                     fig.suptitle(pv_mv_names[i], size= "x-large", weight= "bold", y=0.98)
 
+                if self.curr_time == 0:
+                    fig.legend(loc='lower right', ncol=3) 
+
                 fig.supxlabel("Day", size= "x-large", weight= "bold")
                 fig.supylabel("Level", size= "x-large", weight= "bold")
                 fig.tight_layout()
-                # plt.legend(loc="best")
+                  
             
 
             

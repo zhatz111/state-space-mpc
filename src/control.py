@@ -82,14 +82,16 @@ bioreactor_open_loop = copy.deepcopy(bioreactor)
 # Construct a controller object
 ts = data['Day'].values
 pv_names = np.array(['IGG'])
-pv_wts = np.array([1])
+pv_wts = np.array([
+    1/(1000)**2
+    ])
 pv_sps = data[pv_names].values
 mv_names = np.array([
     'Cumulative_Normalized_Feed',
     # 'pH_setpoint'
     ])
 mv_wts = np.array([
-    1,
+    1/(0.01)**2,
     # 1
     ])
 constr = np.array([
@@ -128,8 +130,9 @@ for i in range(len(ts) - 1):
     # bioreactor.show_data()
     bioreactor_open_loop.next_day()
     bioreactor.next_day()
-    
+ 
 plt.show()
+
 for j in range(len(controller.figs)):
     fig = controller.figs[j]
     fig.savefig(Path(batch_sheet_path,fr"{fig._suptitle.get_text()}.png"))
