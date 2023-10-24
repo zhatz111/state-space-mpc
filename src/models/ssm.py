@@ -12,9 +12,13 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 ScalerType = Union[MinMaxScaler, StandardScaler]
 
 
-# The StateSpaceModel class represents a mathematical model of a system in state space form.
 class StateSpaceModel:
-    """_summary_"""
+    """
+    The `StateSpaceModel` class represents a mathematical model of a system in state space form. It is
+    used to initialize an object with the given states, inputs, scaler, a_matrix, and b_matrix. The
+    `ssm_lsim` method is used to predict a trajectory based on the state space model using initial
+    conditions, inputs, and time.
+    """
 
     def __init__(
         self,
@@ -107,7 +111,10 @@ class StateSpaceModel:
             x_scaled = xu_scaled[:, : x_row.shape[1]]
             u_scaled = xu_scaled[:, x_row.shape[1] :]
         else:
-            xu_mask = np.hstack((x_row, np.zeros((x_row.shape[0], u_row.shape[1]))))
+            x_row_reshape = x_row.reshape(1, -1)
+            xu_mask = np.hstack(
+                (x_row_reshape, np.zeros((x_row.shape[0], u_row.shape[1])))
+            )
             xu_mask_scaled = np.array(self.scaler.transform(xu_mask))
             ux_mask = np.hstack((np.zeros((u_row.shape[0], x_row.shape[1])), u_row))
             ux_mask_scaled = np.array(self.scaler.transform(ux_mask))

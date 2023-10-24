@@ -6,6 +6,7 @@ import math
 import random
 import warnings
 from typing import Union
+from datetime import datetime
 
 # Imports from 3rd party libraries
 import numpy as np
@@ -13,11 +14,9 @@ import pandas as pd
 from fpdf import FPDF
 from scipy import signal
 from scipy import optimize
-from datetime import datetime
 import matplotlib.pyplot as plt
 from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
-from matplotlib.backends.backend_pdf import PdfPages
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 warnings.filterwarnings("ignore")
@@ -443,7 +442,7 @@ class ModelTraining:
         ax.axis('off')
 
         tbl = ax.table(
-                cellText=scaler_df.values,
+                cellText = scaler_df.values,
                 colLabels=list(scaler_df.columns),
                 cellLoc='center',
                 loc='center'
@@ -490,29 +489,29 @@ class ModelTraining:
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.set_text_color(r=0, g=0, b=0)
         pdf.ln(13)
-        pdf.write(7, text=f"Report Generated for {d['Asset']}")
+        pdf.write(7, f"Report Generated for {d['Asset']}")
         pdf.ln(2)
-        pdf.write(7, text=f"Dataset for Model Training: {d['Dataset']}")
+        pdf.write(7, f"Dataset for Model Training: {d['Dataset']}")
         pdf.ln(2)
-        pdf.write(7, text=f"States in Model: {(', ').join(self.states)}")
+        pdf.write(7, f"States in Model: {(', ').join(self.states)}")
         pdf.ln(6)
-        pdf.write(7, text=f"Inputs in Model: {(', ').join(self.inputs)}")
+        pdf.write(7, f"Inputs in Model: {(', ').join(self.inputs)}")
 
         pdf.set_font('helvetica', 'B', 18)
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.ln(15)
-        pdf.write(7, text=f"Table of Scaler Values from {d['scaler_type']}")
+        pdf.write(7, f"Table of Scaler Values from {d['scaler_type']}")
 
         pdf.image(rf"{figures_filepath}\table_image.png", w=160,h=100,x=25,y=120)
 
         pdf.set_font('helvetica', 'I', 16)
         pdf.set_text_color(r=0, g=0, b=0)
         pdf.ln(132)
-        pdf.write(7, text=f"Report Author: {d['Author']}")
+        pdf.write(7, f"Report Author: {d['Author']}")
         pdf.ln(2)
-        pdf.write(7, text=f"GitHub Link: {d['Github']}")
+        pdf.write(7, f"GitHub Link: {d['Github']}")
         pdf.ln(2)
-        pdf.write(7, text=f"This report was generated on {now}")
+        pdf.write(7, f"This report was generated on {now}")
 
         pdf.add_page()
         pdf.set_font("helvetica", "B",8)
@@ -544,18 +543,15 @@ class ModelTraining:
                 min_value = df_sim_concat[test_label].min()
             else:
                 min_value = df_sim_concat[test_label].min()
+
             for i in range(0, len(simulation_dict.keys()), ppg):
                 if i != 0:
                     pdf.add_page()
                     pdf.image(logo_filepath, w=30,h=10,x=170,y=10)
                     pdf.image(logo_filepath, w=30,h=10,x=10,y=277)
                 fig, axs = plt.subplots(ROWS, COLS, figsize=(8,10), squeeze=False)
-                # if ppg < len(simulation_dict.keys()) - i:
-                #     fig, axs = plt.subplots(ROWS, COLS, figsize=(8,10), squeeze=False)
-                # else:
-                #     fig, axs = plt.subplots(math.ceil((len(simulation_dict.keys()) - i)/COLS), COLS, figsize=(8,10), squeeze=False)
-
                 fig.subplots_adjust(top=0.8)
+
                 for count, ax_test in enumerate(axs.reshape(-1)):
                     if count+i < len(simulation_dict.keys()):
                         key = dict_keys[count+i]
@@ -600,9 +596,10 @@ class ModelTraining:
                 fig.supxlabel("Day", size= "x-large", weight= "bold")
                 fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
                 fig.tight_layout()
-                plt.savefig(rf"{figures_filepath}\{test_label}_{count+i}.png", dpi=200)
+
+                plt.savefig(rf"{figures_filepath}\{test_label}_{i}.png", dpi=200)
                 plt.close(fig)
-                pdf.image(rf"{figures_filepath}\{test_label}_{count+i}.png", w=190,h=250,x=10,y=22)
+                pdf.image(rf"{figures_filepath}\{test_label}_{i}.png", w=190,h=250,x=10,y=22)
 
         pdf.output(output_pdf)
 

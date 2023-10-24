@@ -78,6 +78,9 @@ target/
 # exclude data from source control by default
 /data/
 
+# exclude reports from source control by default
+/reports/
+
 # exclude python notebooks from source control
 /notebooks/
 *.ipynb

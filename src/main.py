@@ -15,12 +15,12 @@ from data.make_dataset import ModelData
 from models.train_model import ModelTraining
 from models.optimize_model import ModelOptimizer
 
-#suppress warnings
-warnings.filterwarnings('ignore')
+# suppress warnings
+warnings.filterwarnings("ignore")
 
 DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
 DATA_FILE_EXT = "AR21-042_AR23-019_067-Model-Data"
-MATRIX_FOLDER_EXT = "CD96-Robustness"
+MATRIX_FOLDER_EXT = "CD96-Robustness_Control_Model"
 PDF_PLOT_FILENAME = "model2_report"
 TARGET_LABEL = "IGG"
 PROCESS_TIME = 11
@@ -53,9 +53,7 @@ SMOOTHE_LIST = [
     "pCO2_at_temp",
 ]
 
-DISCARD = [
-    "AR23-067-005P"
-]
+DISCARD = ["AR23-067-005P"]
 
 column_inclusion = [
     "Batch",
@@ -66,8 +64,8 @@ column_inclusion = [
 scaler_train = MinMaxScaler()
 
 data = pd.read_csv(
-    fr"~\GSK\Biopharm Model Predictive Control - General\data\{DATA_FOLDER_EXT}\{DATA_FILE_EXT}.csv"
-    )
+    rf"~\GSK\Biopharm Model Predictive Control - General\data\{DATA_FOLDER_EXT}\{DATA_FILE_EXT}.csv"
+)
 
 dataframe = ModelData(
     raw_data=data,
@@ -83,10 +81,10 @@ dataframe = ModelData(
 # and finally feature scaling using the scaler of choice
 train_data, test_data = dataframe.clean(
     column_inclusion=column_inclusion,
-    smoothing_list=SMOOTHE_LIST, # is smoothing list is empty, no data will be smoothed
-    test_size = 0.20,
-    n_splits = 2,
-    random_state = 1,
+    smoothing_list=SMOOTHE_LIST,  # is smoothing list is empty, no data will be smoothed
+    test_size=0.20,
+    n_splits=2,
+    random_state=1,
     win_len=2,
 )
 
@@ -118,10 +116,17 @@ B_Matrix = np.array(
 # day culture duration will equal 13 days
 scaler_dict = {}
 for count, name in enumerate(scaler_train.get_feature_names_out()):
-    scaler_dict[name] = {"Label": name[-15:], "min_": round(scaler_train.min_[count],5), "scale_": round(scaler_train.scale_[count],5)}
+    scaler_dict[name] = {
+        "Label": name[-15:],
+        "min_": round(scaler_train.min_[count], 5),
+        "scale_": round(scaler_train.scale_[count], 5),
+    }
 scaler_table = pd.DataFrame.from_dict(scaler_dict).T.reset_index(drop=True)
 
-joblib.dump(scaler_train, fr"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl")
+joblib.dump(
+    scaler_train,
+    rf"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl",
+)
 
 # UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
 
@@ -143,11 +148,12 @@ constraint_dict = {
 
 # initial starting condition for your states in the model
 initial_condition = np.array(
-    test_data[test_data["Batch"]==test_data["Batch"].values[0]].filter(STATES)
-    )[0,:]
+    test_data[test_data["Batch"] == test_data["Batch"].values[0]].filter(STATES)
+)[0, :]
 
-feed_setpoint = test_data[test_data["Batch"]==test_data["Batch"].unique()[0]] \
-    ["Cumulative_Normalized_Feed"].tolist()
+feed_setpoint = test_data[test_data["Batch"] == test_data["Batch"].unique()[0]][
+    "Cumulative_Normalized_Feed"
+].tolist()
 
 setpoints = feed_setpoint
 
@@ -175,7 +181,7 @@ model_optimize = ModelOptimizer(
     days=PROCESS_TIME,
     volume=VOLUME,
     max_iters=100,
-    scaler_dict=scaler_dict
+    scaler_dict=scaler_dict,
 )
 
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION

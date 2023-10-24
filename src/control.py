@@ -4,26 +4,36 @@
     Modified: 2023-10-05
 """
 
-import joblib
+# pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
+# pylint: disable=locally-disabled, multiple-statements, fixme, import-error
+
+# Standard Library Imports
+import copy
 import warnings
+from pathlib import Path
+
+# 3rd Party Library Imports
+import joblib
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import copy
-from pathlib import Path
 
-from mpc.mpc_optimizer import *
-from models.ssm import *
-warnings.filterwarnings('ignore',category=UserWarning)
+# State-Space-Model Package Imports
+from mpc.mpc_optimizer import Bioreactor, Controller
+from models.ssm import StateSpaceModel
+
+warnings.filterwarnings("ignore", category=UserWarning)
 
 # Load an example dataset
-BATCH_SHEET_FOLDER = 'mpc-simulation'
-BATCH_SHEET_NAME = 'disturbance'
-simulation_path = Path("~/GSK/Biopharm Model Predictive Control - General/data/",BATCH_SHEET_FOLDER)
-data = pd.read_csv(Path(simulation_path,fr"{BATCH_SHEET_NAME}.csv"))
+BATCH_SHEET_FOLDER = "mpc-simulation"
+BATCH_SHEET_NAME = "disturbance"
+simulation_path = Path(
+    "~/GSK/Biopharm Model Predictive Control - General/data/", BATCH_SHEET_FOLDER
+)
+data = pd.read_csv(Path(simulation_path, rf"{BATCH_SHEET_NAME}.csv"))
 
 # Create output folder
-batch_sheet_path = Path(simulation_path.expanduser(),BATCH_SHEET_NAME)
+batch_sheet_path = Path(simulation_path.expanduser(), BATCH_SHEET_NAME)
 batch_sheet_path.mkdir(parents=True, exist_ok=True)
 
 # Load the model
@@ -71,38 +81,38 @@ robustness_model = StateSpaceModel(
 )
 
 # Construct a bioreactor object
-bioreactor = Bioreactor(
-    vessel=1,
-    process_model=robustness_model,
-    data=data)
+bioreactor = Bioreactor(vessel="BR1-MPC", process_model=robustness_model, data=data)
 
 # Construct an open-loop bioreactor object
 bioreactor_open_loop = copy.deepcopy(bioreactor)
+bioreactor_open_loop.vessel = "BR1-Open_Loop"
 
 # Construct a controller object
-ts = data['Day'].values
-pv_names = np.array(['IGG'])
-pv_wts = np.array([
-    1/(1000)**2
-    ])
+ts = np.array(data["Day"])
+pv_names = ["IGG"]
+pv_wts = np.array([1 / (1000) ** 2])
 pv_sps = data[pv_names].values
-mv_names = np.array([
-    'Cumulative_Normalized_Feed',
+mv_names = [
+    "Cumulative_Normalized_Feed",
     # 'pH_setpoint'
-    ])
-mv_wts = np.array([
-    1/(0.01)**2,
-    # 1
-    ])
-constr = np.array([
-    [0,     0.1],   # feed
-    # [7,   7.35]     # pH
-    ])
+]
+mv_wts = np.array(
+    [
+        1 / (0.01) ** 2,
+        # 1
+    ]
+)
+constr = np.array(
+    [
+        [0, 0.1],  # feed
+        # [7,   7.35]     # pH
+    ]
+)
 mv_matrix = data[mv_names].values
-pred_horizon = 30
-ctrl_horizon = 3
+PRED_HORIZON = 30
+CTRL_HORIZON = 3
 
-curr_time = 0
+CURR_TIME = 0
 
 controller = Controller(
     controller_model=robustness_model,
@@ -113,15 +123,15 @@ controller = Controller(
     pv_wts=pv_wts,
     mv_names=mv_names,
     mv_wts=mv_wts,
-    pred_horizon=pred_horizon,
-    ctrl_horizon=ctrl_horizon,
+    pred_horizon=PRED_HORIZON,
+    ctrl_horizon=CTRL_HORIZON,
     constr=constr,
 )
 
 # Simulate trajectory without MPC
 # bioreactor_open_loop.next_day()
 
-# # Reset
+# Reset
 # bioreactor.reset()
 
 # Simulate a process
@@ -130,15 +140,17 @@ for i in range(len(ts) - 1):
     # bioreactor.show_data()
     bioreactor_open_loop.next_day()
     bioreactor.next_day()
- 
+
 plt.show()
 
-for j in range(len(controller.figs)):
+for j, _ in enumerate(controller.figs):
     fig = controller.figs[j]
-    fig.savefig(Path(batch_sheet_path,fr"{fig._suptitle.get_text()}.png"))
-    plt.close(fig) 
+    fig.savefig(
+        Path(batch_sheet_path, rf"{fig._suptitle.get_text()}.png")
+    )  # pylint: disable=protected-access
+    plt.close(fig)
 
-bioreactor_open_loop.show_data()   
+bioreactor_open_loop.show_data()
 bioreactor.show_data()
 
 # x_out = bioreactor.next_day()
@@ -149,11 +161,10 @@ bioreactor.show_data()
 # print(bioreactor.data)
 
 
-# # mv_array = mv_matrix[data['Day'] >= curr_time,:].flatten() + 1
+# # mv_array = mv_matrix[data['Day'] >= CURR_TIME,:].flatten() + 1
 # # controller.obj_func_wrapper(mv_array=mv_array)
 
 # controller.optimize()
-
 
 
 # ts = data.loc[:,'Day'].values
@@ -166,7 +177,7 @@ bioreactor.show_data()
 # pred_horizon = 30
 # ctrl_horizon = 3
 # constr = np.array([[0,7],[0.1,7.35]])
-# curr_time = 3
+# CURR_TIME = 3
 
 # controller = Controller(
 #     controller_model=robustness_model,
@@ -180,7 +191,7 @@ bioreactor.show_data()
 #     pred_horizon=pred_horizon,
 #     ctrl_horizon=ctrl_horizon,
 #     constr=constr,
-#     curr_time=curr_time
+#     CURR_TIME=CURR_TIME
 # )
 
 
@@ -212,13 +223,13 @@ bioreactor.show_data()
 
 # # Define the model
 # with open(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv", 
+#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
 #     encoding="utf-8"
 #     ) as a_matrix:
 #     A_Matrix = np.loadtxt(a_matrix, delimiter=',')[:len(STATES),:len(STATES)]
 
 # with open(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv", 
+#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv",
 #     encoding="utf-8"
 #     ) as b_matrix:
 #     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
@@ -263,4 +274,3 @@ bioreactor.show_data()
 # # Results
 # optimal_u = u.value[0, 0]
 # print(optimal_u)
-
