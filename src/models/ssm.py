@@ -27,6 +27,7 @@ class StateSpaceModel:
         scaler: ScalerType,
         a_matrix: np.ndarray,
         b_matrix: np.ndarray,
+        name = ''
     ):
         """
         The function initializes an object with given states, inputs, scaler, a_matrix, and b_matrix
@@ -48,6 +49,7 @@ class StateSpaceModel:
             b_matrix (np.ndarray): The `b_matrix` parameter is a numpy array representing the output matrix of
         a system. It defines the relationship between the inputs and the outputs of the system. Each row of
         the matrix corresponds to a state of the system, and each column corresponds to an input.
+            name (str): The `name` parameter is a str (no name by default) to identify the model
         """
         self.states = states
         self.inputs = inputs
@@ -56,6 +58,7 @@ class StateSpaceModel:
         self.b_matrix = b_matrix
         self.c_matrix = np.identity(len(states))
         self.d_matrix = np.zeros([len(states), len(inputs)])
+        self.name = name
 
     def ssm_lsim(
         self, initial_state: np.ndarray, input_matrix: np.ndarray, time: np.ndarray
