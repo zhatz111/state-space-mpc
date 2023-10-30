@@ -141,6 +141,21 @@ class Bioreactor:
         print(data)
         print("")
 
+    def return_data(self):
+        """
+        The function `return_data` returns the dataset for a bioreactor, with accurate column names.
+        """
+
+        if self.has_cumulative_feed:
+            data = self.data.copy(deep=True)
+            data = data.rename(
+                columns={"Cumulative_Normalized_Feed": "Daily_Normalized_Feed"}
+            )
+        else:
+            data = self.data
+
+        return data
+
     def log_sample(
         self, sample_day: int, sample_var_names: list[str], sample_var_vals: list[float]
     ):
@@ -432,8 +447,12 @@ class Controller:
                     fig.suptitle(
                         "Daily_Normalized_Feed", size="x-large", weight="bold", y=0.98
                     )
+                    # Set name attribute to allow for access without invoking a private method
+                    fig.name = "Daily_Normalized_Feed"
                 else:
                     fig.suptitle(pv_mv_names[i], size="x-large", weight="bold", y=0.98)
+                    # Set name attribute to allow for access without invoking a private method-
+                    fig.name = pv_mv_names[i]
 
                 if self.curr_time == 0:
                     fig.legend(loc="lower right", ncol=3)

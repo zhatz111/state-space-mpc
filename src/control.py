@@ -22,22 +22,27 @@ import matplotlib.pyplot as plt
 from mpc.mpc_optimizer import Bioreactor, Controller
 from models.ssm import StateSpaceModel
 
-warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore")
 
 # Load an example dataset
 BATCH_SHEET_FOLDER = "mpc-simulation"
 BATCH_SHEET_NAME = "disturbance"
+SIM_SHEET_NAME = "control_data"
+
 simulation_path = Path(
     "~/GSK/Biopharm Model Predictive Control - General/data/", BATCH_SHEET_FOLDER
 )
 data = pd.read_csv(Path(simulation_path, rf"{BATCH_SHEET_NAME}.csv"))
+control_data = pd.read_csv(Path(simulation_path, rf"{SIM_SHEET_NAME}.csv"))
 
 # Create output folder
 batch_sheet_path = Path(simulation_path.expanduser(), BATCH_SHEET_NAME)
 batch_sheet_path.mkdir(parents=True, exist_ok=True)
 
 # Load the model
-MATRIX_FOLDER_EXT = "mpc-final-matrices"
+CONTROL_MATRIX_FOLDER_EXT = "Control_Model_Matrices"
+SIM_MATRIX_FOLDER_EXT = "Sim_Model_Matrices"
+
 STATES = [
     "IGG",
     "VCC",
@@ -54,34 +59,72 @@ INPUTS = [
     "DO",
 ]
 
-# Import both matrices and the scaler for the data
-model_scaler = joblib.load(
-    rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl"
+# Controller Matrices: Import matrices and scaler (worse model)
+controller_model_scaler = joblib.load(
+    Path(
+        simulation_path.expanduser(),
+        rf"{CONTROL_MATRIX_FOLDER_EXT}",
+        "model_scaler.scl",
+    ),
 )
-A_matrix = np.array(
+control_A_matrix = np.array(
     pd.read_csv(
-        rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
+        Path(
+            simulation_path.expanduser(),
+            rf"{CONTROL_MATRIX_FOLDER_EXT}",
+            "A_Matrix.csv",
+        ),
         header=None,
     )
 )
-B_matrix = np.array(
+control_B_matrix = np.array(
     pd.read_csv(
-        rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv",
+        Path(
+            simulation_path.expanduser(),
+            rf"{CONTROL_MATRIX_FOLDER_EXT}",
+            "B_Matrix.csv",
+        ),
+        header=None,
+    )
+)
+
+# Simulation Matrices: Import matrices and scaler (better model)
+sim_model_scaler = joblib.load(
+    Path(simulation_path.expanduser(), rf"{SIM_MATRIX_FOLDER_EXT}", "model_scaler.scl")
+)
+sim_A_matrix = np.array(
+    pd.read_csv(
+        Path(simulation_path.expanduser(), rf"{SIM_MATRIX_FOLDER_EXT}", "A_Matrix.csv"),
+        header=None,
+    )
+)
+sim_B_matrix = np.array(
+    pd.read_csv(
+        Path(simulation_path.expanduser(), rf"{SIM_MATRIX_FOLDER_EXT}", "B_Matrix.csv"),
         header=None,
     )
 )
 
 # Instantiate the StateSpaceModel object
-robustness_model = StateSpaceModel(
+controller_model = StateSpaceModel(
     states=STATES,
     inputs=INPUTS,
-    scaler=model_scaler,
-    a_matrix=A_matrix,
-    b_matrix=B_matrix,
+    scaler=controller_model_scaler,
+    a_matrix=control_A_matrix,
+    b_matrix=control_B_matrix,
+)
+
+# Instantiate the StateSpaceModel object
+simulation_model = StateSpaceModel(
+    states=STATES,
+    inputs=INPUTS,
+    scaler=sim_model_scaler,
+    a_matrix=sim_A_matrix,
+    b_matrix=sim_B_matrix,
 )
 
 # Construct a bioreactor object
-bioreactor = Bioreactor(vessel="BR1-MPC", process_model=robustness_model, data=data)
+bioreactor = Bioreactor(vessel="BR1-MPC", process_model=simulation_model, data=data)
 
 # Construct an open-loop bioreactor object
 bioreactor_open_loop = copy.deepcopy(bioreactor)
@@ -108,6 +151,7 @@ constr = np.array(
         # [7,   7.35]     # pH
     ]
 )
+
 mv_matrix = data[mv_names].values
 PRED_HORIZON = 30
 CTRL_HORIZON = 3
@@ -115,7 +159,7 @@ CTRL_HORIZON = 3
 CURR_TIME = 0
 
 controller = Controller(
-    controller_model=robustness_model,
+    controller_model=controller_model,
     bioreactor=bioreactor,
     ts=ts,
     pv_sps=pv_sps,
@@ -135,142 +179,97 @@ controller = Controller(
 # bioreactor.reset()
 
 # Simulate a process
-for i in range(len(ts) - 1):
-    controller.optimize(plot=True)
-    # bioreactor.show_data()
-    bioreactor_open_loop.next_day()
-    bioreactor.next_day()
+# for i in range(len(ts) - 1):
+#     controller.optimize(plot=True)
+#     # bioreactor.show_data()
+#     bioreactor_open_loop.next_day()
+#     bioreactor.next_day()
 
+# plt.show()
+
+# for j, _ in enumerate(controller.figs):
+#     fig = controller.figs[j]
+#     fig.savefig(
+#         Path(batch_sheet_path, rf"{fig.name}.png")
+#     )
+#     plt.close(fig)
+
+# bioreactor_open_loop.show_data()
+# bioreactor.show_data()
+
+
+# Simulate a DoE to Determine what factors to test in-silico
+
+# Create a list of bioreactors for the DoE
+NUM_REACTORS = 6
+sim_bioreactors = [
+    Bioreactor(vessel=f"BR{i}", process_model=simulation_model, data=control_data)
+    for i in range(1, NUM_REACTORS+1)
+]
+controllers = [
+    Controller(
+        controller_model=controller_model,
+        bioreactor=sim_bioreactors[count],
+        ts=ts,
+        pv_sps=pv_sps,
+        pv_names=pv_names,
+        pv_wts=pv_wts,
+        mv_names=mv_names,
+        mv_wts=mv_wts,
+        pred_horizon=PRED_HORIZON,
+        ctrl_horizon=CTRL_HORIZON,
+        constr=constr,
+    )
+    for count, _ in enumerate(sim_bioreactors)
+]
+
+# Day 3-4 and 9-10 pH and temp setpoints
+DOE_setpoints = [[7.1, 33], [7.3, 35], [7.3, 33], [7.1, 35], [7.05, 36], [7.18, 34]]
+
+# Change bioreactor data based on DoE setpoints
+for count, bioreactor in enumerate(sim_bioreactors):
+    # Change day 3's setpoints
+    bioreactor.data["pH_setpoint"].iloc[3] = DOE_setpoints[count][0]
+    bioreactor.data["Temperature"].iloc[3] = DOE_setpoints[count][1]
+
+    # Change day 9's setpoints
+    bioreactor.data["pH_setpoint"].iloc[9] = DOE_setpoints[count][0]
+    bioreactor.data["Temperature"].iloc[9] = DOE_setpoints[count][1]
+
+# Simulate all the bioreactors and each controller and get a dictionary output
+DOE_dict = {}
+for bioreactor, controller in zip(sim_bioreactors, controllers):
+    for i in range(len(ts) - 1):
+        controller.optimize(plot=True)
+        bioreactor.next_day()
+    DOE_dict[bioreactor.vessel] = bioreactor.return_data()
+
+ROWS = 3
+COLS = 2
+fig2, axes = plt.subplots(ROWS, COLS, figsize=(9,7), squeeze=False)
+fig2.subplots_adjust(top=0.8)
+dict_keys = list(DOE_dict.keys())
+for count, ax_test in enumerate(axes.reshape(-1)):
+    key = dict_keys[count]
+    time = np.arange(0, len(DOE_dict[key]["Daily_Normalized_Feed"]), 1)
+    ax_test.plot(
+        time,
+        DOE_dict[key]["Daily_Normalized_Feed"],
+        "r-",
+        label="MPC Tracker",
+        markersize=3.5,
+    )
+    ax_test.plot(
+        time,
+        sim_bioreactors[0].data["Cumulative_Normalized_Feed"],
+        "b--",
+        label="Setpoint",
+        markersize=3.5,
+    )
+    ax_test.set_title(key, size="medium", weight="bold")
+fig2.suptitle("DoE Simulation Results", size= "x-large", weight= "bold", y=0.98)
+fig2.supxlabel("Day", size= "x-large", weight= "bold")
+fig2.supylabel("Cumulative_Normalized_Feed", size= "x-large", weight= "bold")
+fig2.tight_layout()
+plt.legend(loc="best")
 plt.show()
-
-for j, _ in enumerate(controller.figs):
-    fig = controller.figs[j]
-    fig.savefig(
-        Path(batch_sheet_path, rf"{fig._suptitle.get_text()}.png")
-    )  # pylint: disable=protected-access
-    plt.close(fig)
-
-bioreactor_open_loop.show_data()
-bioreactor.show_data()
-
-# x_out = bioreactor.next_day()
-# print(x_out)
-# x_out = bioreactor.next_day()
-# print(x_out)
-
-# print(bioreactor.data)
-
-
-# # mv_array = mv_matrix[data['Day'] >= CURR_TIME,:].flatten() + 1
-# # controller.obj_func_wrapper(mv_array=mv_array)
-
-# controller.optimize()
-
-
-# ts = data.loc[:,'Day'].values
-# pv_names = np.array(['IGG'])
-# pv_wts = np.array([1])
-# pv_sps = data.loc[:,pv_names].values
-# mv_names = np.array(['Cumulative_Normalized_Feed','pH_setpoint'])
-# mv_wts = np.array([1,1])
-# mv_matrix = data.loc[:,mv_names].values
-# pred_horizon = 30
-# ctrl_horizon = 3
-# constr = np.array([[0,7],[0.1,7.35]])
-# CURR_TIME = 3
-
-# controller = Controller(
-#     controller_model=robustness_model,
-#     bioreactor=bioreactor,
-#     ts=ts,
-#     pv_sps=pv_sps,
-#     pv_names=pv_names,
-#     pv_wts=pv_wts,
-#     mv_names=mv_names,
-#     mv_wts=mv_wts,
-#     pred_horizon=pred_horizon,
-#     ctrl_horizon=ctrl_horizon,
-#     constr=constr,
-#     CURR_TIME=CURR_TIME
-# )
-
-
-# # Libraries
-# import numpy as np
-# import cvxpy as cp  # For optimization (optional)
-# import pandas as pd
-# from sklearn.preprocessing import MinMaxScaler
-# from scipy.optimize import minimize
-
-# # Constants
-# DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
-# DATA_FILE_EXT = "AR23-019_067-Model-Data"
-# MATRIX_FOLDER_EXT = "CD96-Robustness"
-# PROCESS_TIME = 11
-# VOLUME = 200
-# STATES = [
-#     "IGG",
-#     "VCC",
-#     "Lactate",
-#     "Ammonium",
-# ]
-# INPUTS = [
-#     "Cumulative_Normalized_Feed",
-#     "Temperature",
-#     "pH_setpoint",
-#     "DO",
-# ]
-
-# # Define the model
-# with open(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
-#     encoding="utf-8"
-#     ) as a_matrix:
-#     A_Matrix = np.loadtxt(a_matrix, delimiter=',')[:len(STATES),:len(STATES)]
-
-# with open(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv",
-#     encoding="utf-8"
-#     ) as b_matrix:
-#     B_Matrix = np.loadtxt(b_matrix, delimiter=',')
-#     B_Matrix = np.c_[B_Matrix][:len(STATES),:len(INPUTS)]
-# # A = np.array([[-28.42917581, .43123473, -13.97685655, -65.66274965],
-# #               [153.9119679, -18.73903529, -5.175464382, -20.9226924],
-# #               [42.69029844, 23.34400248, -93.96171558, -2.447073457],
-# #               [-15.02232579, 9.127941243, 0.353058181, -44.80103775]])
-# # B = np.array([[80.65505836,-12.30935346, 0.741227919, 1.271968107],
-# #               [-98.87239294, -35.59799158, -4.688637079, 3.903624997],
-# #               [-51.83706735, -2.714547051, 6.779817164, 28.81280986],
-# #               [53.33622907, -11.46735006, -0.20281312, -1.754946275]])
-
-# # Define the controller
-# N = 10  # Prediction horizon
-# M = 3   # Control horizon
-# Q = np.diag([1.0, 0, 0, 0])  # State cost
-# R = np.diag([0.1, 0.1, ])       # Control cost
-# x0 = np.array([0.0, 0.0])  # Initial state
-
-# # Define decision variables
-# u = cp.Variable((M, 1))
-
-# # Define the cost function
-# cost = cp.quad_form(x0, Q)  # Initial state cost
-
-# for k in range(N):
-#     x_kp1 = A @ x0 + B @ u[0]
-#     cost += cp.quad_form(x_kp1, Q)
-#     cost += cp.quad_form(u[0], R)
-#     x0 = x_kp1  # Update the state for the next time step
-
-# # Define constraints
-# constraints = [u >= 0, u <= 1]  # Control input constraints (optional)
-
-# # Create the optimization problem
-# prob = cp.Problem(cp.Minimize(cost), constraints)
-
-# # Solve
-# prob.solve()
-
-# # Results
-# optimal_u = u.value[0, 0]
-# print(optimal_u)
