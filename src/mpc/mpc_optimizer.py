@@ -58,6 +58,9 @@ class Bioreactor:
         vessel: str,
         process_model: StateSpaceModel,
         data: pd.DataFrame,
+        plot_names = [],
+        plot_ts = [],
+        plot_sps = []
     ):
         """
         The function initializes an object with attributes based on user input, checks the validity of
@@ -113,6 +116,24 @@ class Bioreactor:
 
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)
+
+        # Plot (2023-10-25)
+        self.plot_names = plot_names
+        self.plot_ts = plot_ts
+        self.plot_sps = plot_sps
+        cols = 4
+        rows = math.ceil(self.duration / cols)
+        figs = []
+        fig_axes = []
+        for _ in range(len(self.plot_names)):
+            fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
+            fig.subplots_adjust(top=0.8)
+            figs.append(fig)
+            fig_axes.append(axes)
+
+        self.figs = figs
+        self.fig_axes = fig_axes
+
 
     def reset(self):
         """
@@ -195,10 +216,14 @@ class Bioreactor:
                 self.data["Day"] == input_days[i], input_var_names
             ] = input_var_vals[i, :]
 
-    def next_day(self):
+    def next_day(self, plot=False, plot_ts=[], pv_names=[]):
         """
         The `next_day` function advances the simulation by 24 hours, updates the state and current time,
         and returns the simulation results as a DataFrame.
+
+        Args:
+          plot: The `plot` parameter is a boolean flag that determines whether or not to generate plots
+        after simulation. If `plot` is set to `True`, the code will generate plots comparing simulated PV and setpoint. Defaults to False
 
         Returns:
           a DataFrame object named `x_out_df`.
@@ -234,12 +259,55 @@ class Bioreactor:
         if max(abs(self.state - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
             raise ValueError("Simulation did not start from the current state!")
 
+        # Plot titer and other (2023-10-25)
+        if plot:
+            figs = self.figs
+            fig_axes = self.fig_axes
+            plot_names = self.plot_names
+            for i, _ in enumerate(plot_names):
+                fig = figs[i]
+                axes = fig_axes[i]
+                ax = axes.reshape(-1)[self.curr_time]
+
+                loc = np.where(np.isin(plot_names[i], self.process_model.states))[0]
+
+                ax.plot(
+                    self.plot_ts,
+                    self.plot_sps[:,loc],
+                    'k--',
+                    label="Setpoint")
+
+                ax.plot(
+                    self.data.loc[self.data['Day'] <= self.curr_time,'Day'],
+                    self.data.loc[self.data['Day'] <= self.curr_time,plot_names[i]],
+                    'b*',
+                    label="Measurement")
+                
+                ax.plot(
+                    x_out_df['Day'],
+                    x_out_df[plot_names[i]],
+                    'r-',
+                    label="Simulation")
+
+                ax.title.set_text("Day " + f"{self.curr_time}")
+
+                fig.suptitle(plot_names[i], size="x-large", weight="bold", y=0.98)
+
+                if self.curr_time == 0:
+                    fig.legend(loc="lower right", ncol=3)
+
+                fig.supxlabel("Day", size="x-large", weight="bold")
+                fig.supylabel("Level", size="x-large", weight="bold")
+                fig.tight_layout()
+        
         # Update state and time
         self.state = x_out[1]
         self.curr_time = self.curr_time + 1
         self.data.loc[
             self.data["Day"] == self.curr_time, self.process_model.states
         ] = self.state
+
+        
 
         return x_out_df
 
