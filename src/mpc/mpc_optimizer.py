@@ -8,14 +8,12 @@
 # pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
 # Standard Library Imports
-import math
 import warnings
 
 # 3rd Party Library Imports
 import numpy as np
 import pandas as pd
 from scipy import optimize
-import matplotlib.pyplot as plt
 
 # State-Space-Model Package Imports
 from models.ssm import StateSpaceModel
@@ -58,9 +56,9 @@ class Bioreactor:
         vessel: str,
         process_model: StateSpaceModel,
         data: pd.DataFrame,
-        plot_names = [],
-        plot_ts = [],
-        plot_sps = []
+        # plot_names: list,
+        # plot_ts: list,
+        # plot_sps: list,
     ):
         """
         The function initializes an object with attributes based on user input, checks the validity of
@@ -116,24 +114,24 @@ class Bioreactor:
 
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)
+        self.tracking_dict = {}
 
         # Plot (2023-10-25)
-        self.plot_names = plot_names
-        self.plot_ts = plot_ts
-        self.plot_sps = plot_sps
-        cols = 4
-        rows = math.ceil(self.duration / cols)
-        figs = []
-        fig_axes = []
-        for _ in range(len(self.plot_names)):
-            fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
-            fig.subplots_adjust(top=0.8)
-            figs.append(fig)
-            fig_axes.append(axes)
+        # self.plot_names = plot_names
+        # self.plot_ts = plot_ts
+        # self.plot_sps = plot_sps
+        # cols = 4
+        # rows = math.ceil(self.duration / cols)
+        # figs = []
+        # fig_axes = []
+        # for _ in range(len(self.plot_names)):
+        #     fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
+        #     fig.subplots_adjust(top=0.8)
+        #     figs.append(fig)
+        #     fig_axes.append(axes)
 
-        self.figs = figs
-        self.fig_axes = fig_axes
-
+        # self.figs = figs
+        # self.fig_axes = fig_axes
 
     def reset(self):
         """
@@ -216,7 +214,7 @@ class Bioreactor:
                 self.data["Day"] == input_days[i], input_var_names
             ] = input_var_vals[i, :]
 
-    def next_day(self, plot=False, plot_ts=[], pv_names=[]):
+    def next_day(self):
         """
         The `next_day` function advances the simulation by 24 hours, updates the state and current time,
         and returns the simulation results as a DataFrame.
@@ -259,56 +257,13 @@ class Bioreactor:
         if max(abs(self.state - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
             raise ValueError("Simulation did not start from the current state!")
 
-        # Plot titer and other (2023-10-25)
-        if plot:
-            figs = self.figs
-            fig_axes = self.fig_axes
-            plot_names = self.plot_names
-            for i, _ in enumerate(plot_names):
-                fig = figs[i]
-                axes = fig_axes[i]
-                ax = axes.reshape(-1)[self.curr_time]
-
-                loc = np.where(np.isin(plot_names[i], self.process_model.states))[0]
-
-                ax.plot(
-                    self.plot_ts,
-                    self.plot_sps[:,loc],
-                    'k--',
-                    label="Setpoint")
-
-                ax.plot(
-                    self.data.loc[self.data['Day'] <= self.curr_time,'Day'],
-                    self.data.loc[self.data['Day'] <= self.curr_time,plot_names[i]],
-                    'b*',
-                    label="Measurement")
-                
-                ax.plot(
-                    x_out_df['Day'],
-                    x_out_df[plot_names[i]],
-                    'r-',
-                    label="Simulation")
-
-                ax.title.set_text("Day " + f"{self.curr_time}")
-
-                fig.suptitle(plot_names[i], size="x-large", weight="bold", y=0.98)
-
-                if self.curr_time == 0:
-                    fig.legend(loc="lower right", ncol=3)
-
-                fig.supxlabel("Day", size="x-large", weight="bold")
-                fig.supylabel("Level", size="x-large", weight="bold")
-                fig.tight_layout()
-        
         # Update state and time
         self.state = x_out[1]
         self.curr_time = self.curr_time + 1
         self.data.loc[
             self.data["Day"] == self.curr_time, self.process_model.states
         ] = self.state
-
-        
-
+        self.tracking_dict[self.curr_time] = self.data.copy()
         return x_out_df
 
 
@@ -391,21 +346,10 @@ class Controller:
         self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
         self.data_after_optim = pd.DataFrame.copy(bioreactor.data)
 
-        # Plot (2023-10-22)
-        cols = 4
-        rows = math.ceil(bioreactor.duration / cols)
-        figs = []
-        fig_axes = []
-        for _ in range(len(self.pv_names) + len(self.mv_names)):
-            fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
-            fig.subplots_adjust(top=0.8)
-            figs.append(fig)
-            fig_axes.append(axes)
+        self.data_before_optim_dict = {}
+        self.data_after_optim_dict = {}
 
-        self.figs = figs
-        self.fig_axes = fig_axes
-
-    def optimize(self, plot=False):
+    def optimize(self):
         """
         The `optimize` function optimizes future inputs for a bioreactor system and updates the dataset
         with the optimized inputs.
@@ -443,6 +387,7 @@ class Controller:
             data_before_optim["Day"] >= self.curr_time, self.controller_model.states
         ] = x_out_before_optim
         data_before_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix
+        self.data_before_optim_dict[self.curr_time] = data_before_optim.copy()
 
         # Solve the optimization problem
         mv_array_star = optimize.minimize(
@@ -463,71 +408,7 @@ class Controller:
             data_after_optim["Day"] >= self.curr_time, self.controller_model.states
         ] = x_out_after_optim
         data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix_star
-
-        # Plot
-        if plot:
-            figs = self.figs
-            fig_axes = self.fig_axes
-            pv_mv_names = np.hstack((self.pv_names, self.mv_names))
-            for i, _ in enumerate(pv_mv_names):
-                fig = figs[i]
-                axes = fig_axes[i]
-                ax = axes.reshape(-1)[self.curr_time]
-                if i < len(self.pv_names):
-                    ax.plot(self.ts, self.pv_sps[:, i], "k--", label="Setpoint")
-                    ax.plot(
-                        data_before_optim["Day"],
-                        data_before_optim[pv_mv_names[i]],
-                        "b-",
-                        label="Un-optimized",
-                    )
-                    ax.plot(
-                        data_after_optim["Day"],
-                        data_after_optim[pv_mv_names[i]],
-                        "r-",
-                        label="Optimized",
-                    )
-                else:
-                    ax.step(
-                        self.bioreactor.original_data["Day"],
-                        self.bioreactor.original_data[pv_mv_names[i]],
-                        "k--",
-                        label="Original",
-                    )
-                    ax.step(
-                        data_before_optim["Day"],
-                        data_before_optim[pv_mv_names[i]],
-                        "b-",
-                        label="Un-optimized",
-                    )
-                    ax.step(
-                        data_after_optim["Day"],
-                        data_after_optim[pv_mv_names[i]],
-                        "r-",
-                        label="Optimized",
-                    )
-
-                ax.title.set_text("Day " + f"{self.curr_time}")
-
-                if (
-                    pv_mv_names[i] == "Cumulative_Normalized_Feed"
-                ) & self.bioreactor.has_cumulative_feed:
-                    fig.suptitle(
-                        "Daily_Normalized_Feed", size="x-large", weight="bold", y=0.98
-                    )
-                    # Set name attribute to allow for access without invoking a private method
-                    fig.name = "Daily_Normalized_Feed"
-                else:
-                    fig.suptitle(pv_mv_names[i], size="x-large", weight="bold", y=0.98)
-                    # Set name attribute to allow for access without invoking a private method-
-                    fig.name = pv_mv_names[i]
-
-                if self.curr_time == 0:
-                    fig.legend(loc="lower right", ncol=3)
-
-                fig.supxlabel("Day", size="x-large", weight="bold")
-                fig.supylabel("Level", size="x-large", weight="bold")
-                fig.tight_layout()
+        self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset
         data.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix_star

@@ -56,10 +56,10 @@ robustness_model = StateSpaceModel(
 )
 
 data = pd.read_csv(
-    fr"~\GSK\Biopharm Model Predictive Control - General\data\batch-record-template\data.csv"
+    r"~\GSK\Biopharm Model Predictive Control - General\data\batch-record-template\data.csv"
     )
 
-x0 = np.array(data.loc[0,STATES].values)
+x0 = np.array(data.loc[0:0,STATES].values)
 U = np.array(data.loc[0:0,INPUTS].values)
 time = np.arange(0,len(U),1)
 
