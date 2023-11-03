@@ -14,6 +14,7 @@ The main reasons for starting this project are:
   - [Table of Contents](#table-of-contents)
   - [Model Development History](#model-development-history)
     - [Model 1: AR22-075 Process Model](#model-1-ar22-075-process-model)
+  - [Setting up a Python Virtual Environment](#setting-up-a-python-virtual-environment)
   - [Project Organization](#project-organization)
 
 
@@ -27,6 +28,26 @@ The main reasons for starting this project are:
   - [Code](https://mygithub.gsk.com/gsk-tech/state-space-model/tree/main/models/Model%201/Code)
   - [Figures](https://mygithub.gsk.com/gsk-tech/state-space-model/tree/main/models/Model%201/Figures)
 
+
+## Setting up a Python Virtual Environment
+
+- Install the "virtualenv" python package using terminal with the command below
+```shell
+pip install virtualenv
+```
+- Load IDE of choice (VS Code for myself), start a new terminal within your GitHub project directory and enter command below (may need to use python3 instead).
+  - The ".venv" is just the name of the virtual environment, this can be changed based on preference. The ".venv" is a generally accepted naming convention.
+```shell
+python -m virtualenv .venv
+```
+- After package installation use pipreqs to generate requirements.txt.
+  - To use pipreqs properly you need to cd into the "src" folder (from data-science cookiecutter) to run it properly.
+  - This will generate a requirements.txt file in the "src" folder directory which should be moved to the main folder directory.
+```shell
+pip install pipreqs
+cd Documents/GitHub/{repository_name}/src
+pipreqs
+```
 
 
 ## Project Organization
