@@ -25,18 +25,16 @@ from models.ssm import StateSpaceModel
 warnings.filterwarnings("ignore")
 
 # Load an example dataset
-BATCH_SHEET_FOLDER = "mpc-simulation"
-BATCH_SHEET_NAME = "disturbance"
-SIM_SHEET_NAME = "control_data"
+SIM_FOLDER = "mpc-simulation"
+SIM_REFERENCE_DATA = "control_data"
 
 simulation_path = Path(
-    "~/GSK/Biopharm Model Predictive Control - General/data/", BATCH_SHEET_FOLDER
+    "~/GSK/Biopharm Model Predictive Control - General/data/", SIM_FOLDER
 )
-data = pd.read_csv(Path(simulation_path, rf"{BATCH_SHEET_NAME}.csv"))
-control_data = pd.read_csv(Path(simulation_path, rf"{SIM_SHEET_NAME}.csv"))
+reference_data = pd.read_csv(Path(simulation_path, rf"{SIM_REFERENCE_DATA}.csv"))
 
 # Create output folder
-batch_sheet_path = Path(simulation_path.expanduser(), BATCH_SHEET_NAME)
+batch_sheet_path = Path(simulation_path.expanduser(), SIM_REFERENCE_DATA)
 batch_sheet_path.mkdir(parents=True, exist_ok=True)
 
 # Load the model
@@ -126,72 +124,40 @@ simulation_model = StateSpaceModel(
 )
 
 # Construct a bioreactor object
-bioreactor = Bioreactor(vessel="BR1-MPC", process_model=simulation_model, data=data)
-
-# Construct an open-loop bioreactor object
-bioreactor_open_loop = copy.deepcopy(bioreactor)
-bioreactor_open_loop.vessel = "BR1-Open_Loop"
+bioreactor = Bioreactor(vessel="BR1-MPC", process_model=simulation_model, data=reference_data)
 
 # Construct a controller object
 PRED_HORIZON = 30
 CTRL_HORIZON = 3
 CURR_TIME = 0
-ts = np.array(data["Day"])
-pv_names = ["IGG"]
-pv_wts = np.array([1 / (1000) ** 2])
-pv_sps = data[pv_names].values
-mv_names = ["Cumulative_Normalized_Feed"]
-mv_wts = np.array([1 / (0.01) ** 2])
-constr = np.array([[0, 0.1]])  # feed
+ts = np.array(reference_data["Day"])
+PV_NAMES = ["IGG"]
+PV_WTS = np.array([1 / (1000) ** 2])
+pv_sps = reference_data[PV_NAMES].values
+MV_NAMES = ["Cumulative_Normalized_Feed"]
+MV_WTS = np.array([1 / (0.01) ** 2])
+MV_BOUNDS = np.array([[0, 0.1]])  # feed
 
-mv_matrix = data[mv_names].values
+mv_matrix = reference_data[MV_NAMES].values
 
 controller = Controller(
     controller_model=controller_model,
     bioreactor=bioreactor,
     ts=ts,
     pv_sps=pv_sps,
-    pv_names=pv_names,
-    pv_wts=pv_wts,
-    mv_names=mv_names,
-    mv_wts=mv_wts,
+    pv_names=PV_NAMES,
+    pv_wts=PV_WTS,
+    mv_names=MV_NAMES,
+    mv_wts=MV_WTS,
     pred_horizon=PRED_HORIZON,
     ctrl_horizon=CTRL_HORIZON,
-    constr=constr,
+    constr=MV_BOUNDS,
 )
 
 # Simulate a DoE to Determine what factors to test in-silico
 
-# Create a list of bioreactors for the DoE
-NUM_REACTORS = 9
-
-sim_bioreactors = [
-    Bioreactor(
-        vessel=f"BR{i}",
-        process_model=simulation_model,
-        data=control_data,
-    )
-    for i in range(1, NUM_REACTORS + 1)
-]
-controllers = [
-    Controller(
-        controller_model=controller_model,
-        bioreactor=sim_bioreactors[count],
-        ts=ts,
-        pv_sps=pv_sps,
-        pv_names=pv_names,
-        pv_wts=pv_wts,
-        mv_names=mv_names,
-        mv_wts=mv_wts,
-        pred_horizon=PRED_HORIZON,
-        ctrl_horizon=CTRL_HORIZON,
-        constr=constr,
-    )
-    for count, _ in enumerate(sim_bioreactors)
-]
-
 # Day 3-4, 6-7, and 9-10 pH and temp setpoints
-DOE_setpoints = [
+DOE_FACTOR_LEVELS = [
     [18, 7.05, 33],
     [15, 7.35, 35],
     [15, 7.05, 33],
@@ -203,31 +169,64 @@ DOE_setpoints = [
     [18, 7.35, 35],
 ]
 
+# Create a list of bioreactors for the DoE
+NUM_REACTORS = len(DOE_FACTOR_LEVELS)
+
+sim_bioreactors = [
+    Bioreactor(
+        vessel=f"BR{i}",
+        process_model=simulation_model,
+        data=reference_data,
+    )
+    for i in range(1, NUM_REACTORS + 1)
+]
+controllers = [
+    Controller(
+        controller_model=controller_model,
+        bioreactor=sim_bioreactors[count],
+        ts=ts,
+        pv_sps=pv_sps,
+        pv_names=PV_NAMES,
+        pv_wts=PV_WTS,
+        mv_names=MV_NAMES,
+        mv_wts=MV_WTS,
+        pred_horizon=PRED_HORIZON,
+        ctrl_horizon=CTRL_HORIZON,
+        constr=MV_BOUNDS,
+    )
+    for count, _ in enumerate(sim_bioreactors)
+]
+
+
+
 # Change bioreactor data based on DoE setpoints
 for count, bioreactor in enumerate(sim_bioreactors):
     # bioreactor.data["pH_setpoint"].iloc[3:] = DOE_setpoints[count][0]
     # bioreactor.data["Temperature"].iloc[3:] = DOE_setpoints[count][1]
 
     # Change day 0's iVCC setpoints
-    bioreactor.data["VCC"].iloc[0] = DOE_setpoints[count][0]
+    bioreactor.data["VCC"].iloc[0] = DOE_FACTOR_LEVELS[count][0]
 
     # Change day 3's pH and Temp setpoints
-    bioreactor.data["pH_setpoint"].iloc[3] = DOE_setpoints[count][1]
-    bioreactor.data["Temperature"].iloc[3] = DOE_setpoints[count][2]
+    bioreactor.data["pH_setpoint"].iloc[3] = DOE_FACTOR_LEVELS[count][1]
+    bioreactor.data["Temperature"].iloc[3] = DOE_FACTOR_LEVELS[count][2]
 
     # Change day 9's pH and Temp setpoints
-    bioreactor.data["pH_setpoint"].iloc[9] = DOE_setpoints[count][1]
-    bioreactor.data["Temperature"].iloc[9] = DOE_setpoints[count][2]
+    bioreactor.data["pH_setpoint"].iloc[9] = DOE_FACTOR_LEVELS[count][1]
+    bioreactor.data["Temperature"].iloc[9] = DOE_FACTOR_LEVELS[count][2]
+
+    # Open loop simulation
+    _,bioreactor.open_loop_df = bioreactor.sim_from_curr_day()
 
 # Simulate all the bioreactors and each controller and get a dictionary output
 DOE_dict = {}
 for bioreactor, controller in zip(sim_bioreactors, controllers):
     for i in range(len(ts) - 1):
-        controller.optimize()
+        controller.optimize(open_loop=False)
         bioreactor.next_day()
     DOE_dict[bioreactor.vessel] = bioreactor.return_data()
 
 # Plot the in-silico Simulations
 br_plots = MPCVisualizer(sim_bioreactors, controllers)
-# br_plots.plot_simulations()
-print(br_plots.output_table())
+br_plots.plot_simulations()
+# print(br_plots.output_table())
