@@ -8,7 +8,6 @@
 # pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
 # Standard Library Imports
-import copy
 import warnings
 from pathlib import Path
 
@@ -197,8 +196,6 @@ controllers = [
     for count, _ in enumerate(sim_bioreactors)
 ]
 
-
-
 # Change bioreactor data based on DoE setpoints
 for count, bioreactor in enumerate(sim_bioreactors):
     # bioreactor.data["pH_setpoint"].iloc[3:] = DOE_setpoints[count][0]
@@ -216,7 +213,7 @@ for count, bioreactor in enumerate(sim_bioreactors):
     bioreactor.data["Temperature"].iloc[9] = DOE_FACTOR_LEVELS[count][2]
 
     # Open loop simulation
-    _,bioreactor.open_loop_df = bioreactor.sim_from_curr_day()
+    _, bioreactor.open_loop_df = bioreactor.sim_from_curr_day()
 
 # Simulate all the bioreactors and each controller and get a dictionary output
 DOE_dict = {}

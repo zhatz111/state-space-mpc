@@ -251,7 +251,7 @@ class Bioreactor:
         if max(abs(self.state() - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
             raise ValueError("Simulation did not start from the current state!")
         
-        return x_out,x_out_df
+        return x_out, x_out_df
         
         
     def next_day(self):
@@ -462,17 +462,17 @@ class Controller:
         else:
           
           # Solve the optimization problem
-          mv_array_star = optimize.minimize(
-              fun=lambda x: self.obj_func_wrapper(x)[0],
-              x0=mv_array,
-              bounds=bounds,
-              method="SLSQP",
-              options={"disp": False, "maxiter": 100},
-          )
+            mv_array_star = optimize.minimize(
+                fun=lambda x: self.obj_func_wrapper(x)[0],
+                x0=mv_array,
+                bounds=bounds,
+                method="SLSQP",
+                options={"disp": False, "maxiter": 100},
+            )
 
           # Fold mv to 2D
-          mv_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
-          _, x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
+            mv_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
+            _, x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
         
         # Update post-optimization (or open loop) data record
         data_after_optim = self.data_after_optim

@@ -169,12 +169,15 @@ class MPCVisualizer:
 
                 # Line for Open Loop MPC
                 ax.plot(
-                    self.controller[count].data_before_optim_dict[before_keys[0]][
+                    self.bioreactor[count].open_loop_df[
                         "Day"
                     ],
-                    self.controller[count].data_before_optim_dict[before_keys[0]][
+                    self.bioreactor[count].open_loop_df[
                         self.controller[count].pv_names
                     ],
+                    # self.controller[count].data_before_optim_dict[before_keys[0]][
+                    #     self.controller[count].pv_names
+                    # ],
                     "b-",
                     label="Open Loop MPC",
                 )
@@ -190,11 +193,9 @@ class MPCVisualizer:
                     "r-",
                     label="Closed Loop MPC",
                 )
-
                 ax.title.set_text(self.bioreactor[count].vessel)
-            if count == 0:
-                pass
-                # ax.legend(bbox_to_anchor=(3, 1.3), ncol=3, fancybox=True, shadow=True)
+            if ax == axes.flatten()[0]:
+                ax.legend()
 
         fig2, axes2 = plt.subplots(
             rows, cols, figsize=(9, 7), squeeze=False, constrained_layout=True
@@ -236,9 +237,12 @@ class MPCVisualizer:
                 )
 
                 ax.title.set_text(self.bioreactor[count].vessel)
-            if count == 0:
-                pass
-                # ax.legend(bbox_to_anchor=(3, 1.3), ncol=3, fancybox=True, shadow=True)
+            if ax == axes2.flatten()[0]:
+                ax.legend()
+            
+            # if count == 0:
+            #     pass
+            #     # ax.legend(bbox_to_anchor=(3, 1.3), ncol=3, fancybox=True, shadow=True)
 
         fig.supxlabel("Day", size="x-large", weight="bold")
         fig.supylabel("Level", size="x-large", weight="bold")
