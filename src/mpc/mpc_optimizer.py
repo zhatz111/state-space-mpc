@@ -83,13 +83,16 @@ class Bioreactor:
         self.data = data.copy(deep=True)
         # self.data = data # Data for storing simulation results or real data (if provided)
 
+        # Data frame for open_loop simulation results
+        self.open_loop_df = pd.DataFrame()
+
         # Check if the data set starts on Day 0
         if self.data["Day"].values[0] != 0:
             raise ValueError("Data set does not start on Day 0!")
 
         # Initialize other attributes
         self.curr_time = 0
-        self.state = self.data.filter(items=self.process_model.states).values[0]
+        # self.state = self.data.filter(items=self.process_model.states)
         self.duration = self.data["Day"].values[-1]
 
         # Check if the data set ends on Day duration
@@ -133,15 +136,15 @@ class Bioreactor:
         # self.figs = figs
         # self.fig_axes = fig_axes
 
-    def reset(self):
-        """
-        The `reset` function reinitializes an object by copying the original data, resetting the current
-        time to 0, and updating the state based on the process model.
-        """
+    # def reset(self):
+    #     """
+    #     The `reset` function reinitializes an object by copying the original data, resetting the current
+    #     time to 0, and updating the state based on the process model.
+    #     """
 
-        self.data = self.original_data.copy(deep=True)
-        self.curr_time = 0
-        self.state = self.data.filter(items=self.process_model.states).values
+    #     self.data = self.original_data.copy(deep=True)
+    #     self.curr_time = 0
+    #     self.state = self.data.filter(items=self.process_model.states).values
 
     def show_data(self):
         """
@@ -214,22 +217,13 @@ class Bioreactor:
                 self.data["Day"] == input_days[i], input_var_names
             ] = input_var_vals[i, :]
 
-    def next_day(self):
-        """
-        The `next_day` function advances the simulation by 24 hours, updates the state and current time,
-        and returns the simulation results as a DataFrame.
-
-        Args:
-          plot: The `plot` parameter is a boolean flag that determines whether or not to generate plots
-        after simulation. If `plot` is set to `True`, the code will generate plots comparing simulated PV and setpoint. Defaults to False
-
-        Returns:
-          a DataFrame object named `x_out_df`.
-        """
-
-        # Get initial state
-        initial_state = self.state
-
+    def state(self):
+        return self.data.loc[
+            self.data["Day"] == self.curr_time, self.process_model.states
+        ].values[0]
+    
+    def sim_from_curr_day(self):
+        
         # Get all inputs with daily feed
         u_matrix_daily = self.data.loc[:, self.process_model.inputs].values
 
@@ -246,7 +240,7 @@ class Bioreactor:
 
         # Solve
         x_out = self.process_model.ssm_lsim(
-            initial_state=initial_state, input_matrix=u_matrix_cumulative, time=ts
+            initial_state=self.state(), input_matrix=u_matrix_cumulative, time=ts
         )
 
         # Create a DF
@@ -254,17 +248,84 @@ class Bioreactor:
         x_out_df.insert(0, "Day", ts + self.curr_time)
 
         # Check if the simulation starts from the current state
-        if max(abs(self.state - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
+        if max(abs(self.state() - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
             raise ValueError("Simulation did not start from the current state!")
+        
+        return x_out,x_out_df
+        
+        
+    def next_day(self):
+        """
+        The `next_day` function advances the simulation by 24 hours, updates the state and current time,
+        and returns the simulation results as a DataFrame.
+
+        Args:
+          plot: The `plot` parameter is a boolean flag that determines whether or not to generate plots
+        after simulation. If `plot` is set to `True`, the code will generate plots comparing simulated PV and setpoint. Defaults to False
+
+        Returns:
+          a DataFrame object named `x_out_df`.
+        """
+
+        # Simulate from the current date
+        x_out,x_out_df = self.sim_from_curr_day()
 
         # Update state and time
-        self.state = x_out[1]
         self.curr_time = self.curr_time + 1
         self.data.loc[
             self.data["Day"] == self.curr_time, self.process_model.states
-        ] = self.state
+        ] = x_out[1]
         self.tracking_dict[self.curr_time] = self.data.copy()
         return x_out_df
+
+
+    # def next_day(self):
+    #     """
+    #     The `next_day` function advances the simulation by 24 hours, updates the state and current time,
+    #     and returns the simulation results as a DataFrame.
+
+    #     Args:
+    #       plot: The `plot` parameter is a boolean flag that determines whether or not to generate plots
+    #     after simulation. If `plot` is set to `True`, the code will generate plots comparing simulated PV and setpoint. Defaults to False
+
+    #     Returns:
+    #       a DataFrame object named `x_out_df`.
+    #     """
+
+    #     # Get all inputs with daily feed
+    #     u_matrix_daily = self.data.loc[:, self.process_model.inputs].values
+
+    #     # Convert daily feed to cumulative feed
+    #     u_matrix_cumulative = daily_to_cumulative_feed(
+    #         self.process_model, u_matrix_daily
+    #     )
+
+    #     # Filter future inputs
+    #     u_matrix_cumulative = u_matrix_cumulative[self.data["Day"] >= self.curr_time, :]
+
+    #     # Get time array
+    #     ts = np.arange(u_matrix_cumulative.shape[0])
+
+    #     # Solve
+    #     x_out = self.process_model.ssm_lsim(
+    #         initial_state=self.state(), input_matrix=u_matrix_cumulative, time=ts
+    #     )
+
+    #     # Create a DF
+    #     x_out_df = pd.DataFrame(x_out, columns=self.process_model.states)
+    #     x_out_df.insert(0, "Day", ts + self.curr_time)
+
+    #     # Check if the simulation starts from the current state
+    #     if max(abs(self.state() - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
+    #         raise ValueError("Simulation did not start from the current state!")
+
+    #     # Update state and time
+    #     self.curr_time = self.curr_time + 1
+    #     self.data.loc[
+    #         self.data["Day"] == self.curr_time, self.process_model.states
+    #     ] = x_out[1]
+    #     self.tracking_dict[self.curr_time] = self.data.copy()
+    #     return x_out_df
 
 
 class Controller:
@@ -349,7 +410,7 @@ class Controller:
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
 
-    def optimize(self):
+    def optimize(self,open_loop = False):
         """
         The `optimize` function optimizes future inputs for a bioreactor system and updates the dataset
         with the optimized inputs.
@@ -389,20 +450,31 @@ class Controller:
         data_before_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix
         self.data_before_optim_dict[self.curr_time] = data_before_optim.copy()
 
-        # Solve the optimization problem
-        mv_array_star = optimize.minimize(
-            fun=lambda x: self.obj_func_wrapper(x)[0],
-            x0=mv_array,
-            bounds=bounds,
-            method="SLSQP",
-            options={"disp": False, "maxiter": 100},
-        )
 
-        # Fold mv to 2D
-        mv_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
 
         # Simulate after optimization
-        _, x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
+        if open_loop:
+            
+            # No change of inputs in open loop
+            x_out_after_optim = x_out_before_optim
+            mv_matrix_star = mv_array.reshape([-1, len(self.mv_names)])
+
+        else:
+          
+          # Solve the optimization problem
+          mv_array_star = optimize.minimize(
+              fun=lambda x: self.obj_func_wrapper(x)[0],
+              x0=mv_array,
+              bounds=bounds,
+              method="SLSQP",
+              options={"disp": False, "maxiter": 100},
+          )
+
+          # Fold mv to 2D
+          mv_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
+          _, x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
+        
+        # Update post-optimization (or open loop) data record
         data_after_optim = self.data_after_optim
         data_after_optim.loc[
             data_after_optim["Day"] >= self.curr_time, self.controller_model.states
@@ -412,7 +484,6 @@ class Controller:
 
         # Update the dataset
         data.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix_star
-        self.bioreactor.data = data
 
     def obj_func_wrapper(self, mv_array):
         """
@@ -472,7 +543,7 @@ class Controller:
 
         # Sim
         x_out = self.controller_model.ssm_lsim(
-            initial_state=self.bioreactor.state,
+            initial_state=self.bioreactor.state(),
             input_matrix=u_matrix_cumulative[
                 self.bioreactor.data["Day"] >= self.curr_time, :
             ],
