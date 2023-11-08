@@ -163,7 +163,7 @@ controller = Controller(
 # Simulate a DoE to Determine what factors to test in-silico
 
 # Create a list of bioreactors for the DoE
-NUM_REACTORS = 6
+NUM_REACTORS = 9
 
 sim_bioreactors = [
     Bioreactor(
@@ -191,16 +191,33 @@ controllers = [
 ]
 
 # Day 3-4, 6-7, and 9-10 pH and temp setpoints
-DOE_setpoints = [[7.0, 30], [7.2, 34], [7.3, 33], [7.1, 35], [7.05, 36], [7.18, 34]]
+DOE_setpoints = [
+    [18, 7.05, 33],
+    [15, 7.35, 35],
+    [15, 7.05, 33],
+    [18, 7.2, 34],
+    [12, 7.20, 34],
+    [12, 7.35, 35],
+    [12, 7.05, 33],
+    [15, 7.35, 35],
+    [18, 7.35, 35],
+]
 
 # Change bioreactor data based on DoE setpoints
 for count, bioreactor in enumerate(sim_bioreactors):
-    bioreactor.data["pH_setpoint"].iloc[3:] = DOE_setpoints[count][0]
-    bioreactor.data["Temperature"].iloc[3:] = DOE_setpoints[count][1]
+    # bioreactor.data["pH_setpoint"].iloc[3:] = DOE_setpoints[count][0]
+    # bioreactor.data["Temperature"].iloc[3:] = DOE_setpoints[count][1]
 
-    # # Change day 9's setpoints
-    # bioreactor.data["pH_setpoint"].iloc[9] = DOE_setpoints[count][0]
-    # bioreactor.data["Temperature"].iloc[9] = DOE_setpoints[count][1]
+    # Change day 0's iVCC setpoints
+    bioreactor.data["VCC"].iloc[0] = DOE_setpoints[count][0]
+
+    # Change day 3's pH and Temp setpoints
+    bioreactor.data["pH_setpoint"].iloc[3] = DOE_setpoints[count][1]
+    bioreactor.data["Temperature"].iloc[3] = DOE_setpoints[count][2]
+
+    # Change day 9's pH and Temp setpoints
+    bioreactor.data["pH_setpoint"].iloc[9] = DOE_setpoints[count][1]
+    bioreactor.data["Temperature"].iloc[9] = DOE_setpoints[count][2]
 
 # Simulate all the bioreactors and each controller and get a dictionary output
 DOE_dict = {}

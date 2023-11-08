@@ -175,7 +175,7 @@ class MPCVisualizer:
                     self.controller[count].data_before_optim_dict[before_keys[0]][
                         self.controller[count].pv_names
                     ],
-                    "bo-",
+                    "b-",
                     label="Open Loop MPC",
                 )
 
@@ -187,7 +187,7 @@ class MPCVisualizer:
                     self.controller[count].data_after_optim_dict[before_keys[-1]][
                         self.controller[count].pv_names
                     ],
-                    "ro-",
+                    "r-",
                     label="Closed Loop MPC",
                 )
 
@@ -298,22 +298,24 @@ class MPCVisualizer:
             rows, cols, figsize=(9, 7), squeeze=False, constrained_layout=True
         )
         dict_keys = list(output_dict.keys())
+        bar_width = 0.4
         for count, ax in enumerate(axes.flatten()):
             if count < len(self.bioreactor):
-                ax.plot(
+                ax.bar(
                     output_dict[dict_keys[count]]["Day"],
                     output_dict[dict_keys[count]]["Unoptimized Difference %"],
-                    "ro",
+                    color="r",
+                    width=bar_width,
                     label="Open Loop MPC",
                 )
 
-                ax.plot(
-                    output_dict[dict_keys[count]]["Day"],
+                ax.bar(
+                    output_dict[dict_keys[count]]["Day"]+bar_width,
                     output_dict[dict_keys[count]]["Optimized Difference %"],
-                    "bo",
+                    color="b",
+                    width=bar_width,
                     label="Closed Loop MPC",
                 )
-                ax.grid()
                 ax.title.set_text(self.bioreactor[count].vessel)
 
         fig.supxlabel("Day", size="x-large", weight="bold")
