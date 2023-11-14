@@ -160,7 +160,7 @@ DOE_FACTOR_LEVELS = [
     [18, 7.05, 33],
     [15, 7.35, 35],
     [15, 7.05, 33],
-    [18, 7.2, 34],
+    [18, 7.20, 34],
     [12, 7.20, 34],
     [12, 7.35, 35],
     [12, 7.05, 33],
@@ -181,7 +181,7 @@ sim_bioreactors = [
 ]
 controllers = [
     Controller(
-        controller_model=controller_model,
+        controller_model=simulation_model,
         bioreactor=sim_bioreactors[count],
         ts=ts,
         pv_sps=pv_sps,

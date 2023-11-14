@@ -179,20 +179,30 @@ class MPCVisualizer:
                     #     self.controller[count].pv_names
                     # ],
                     "b-",
-                    label="Open Loop MPC",
+                    label="Open Loop",
                 )
 
                 # Line for Closed Loop MPC
                 ax.plot(
-                    self.controller[count].data_after_optim_dict[before_keys[-1]][
+                    self.bioreactor[count].data[
                         "Day"
                     ],
-                    self.controller[count].data_after_optim_dict[before_keys[-1]][
+                    self.bioreactor[count].data[
                         self.controller[count].pv_names
                     ],
                     "r-",
                     label="Closed Loop MPC",
                 )
+                # ax.plot(
+                #     self.controller[count].data_after_optim_dict[before_keys[-1]][
+                #         "Day"
+                #     ],
+                #     self.controller[count].data_after_optim_dict[before_keys[-1]][
+                #         self.controller[count].pv_names
+                #     ],
+                #     "r-",
+                #     label="Closed Loop MPC",
+                # )
                 ax.title.set_text(self.bioreactor[count].vessel)
             if ax == axes.flatten()[0]:
                 ax.legend()
