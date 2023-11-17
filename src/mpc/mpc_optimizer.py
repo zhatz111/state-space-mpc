@@ -56,9 +56,6 @@ class Bioreactor:
         vessel: str,
         process_model: StateSpaceModel,
         data: pd.DataFrame,
-        # plot_names: list,
-        # plot_ts: list,
-        # plot_sps: list,
     ):
         """
         The function initializes an object with attributes based on user input, checks the validity of
@@ -118,23 +115,6 @@ class Bioreactor:
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)
         self.tracking_dict = {}
-
-        # Plot (2023-10-25)
-        # self.plot_names = plot_names
-        # self.plot_ts = plot_ts
-        # self.plot_sps = plot_sps
-        # cols = 4
-        # rows = math.ceil(self.duration / cols)
-        # figs = []
-        # fig_axes = []
-        # for _ in range(len(self.plot_names)):
-        #     fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
-        #     fig.subplots_adjust(top=0.8)
-        #     figs.append(fig)
-        #     fig_axes.append(axes)
-
-        # self.figs = figs
-        # self.fig_axes = fig_axes
 
     # def reset(self):
     #     """

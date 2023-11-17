@@ -188,13 +188,19 @@ class ModelTraining:
                     y_actual_all = np.vstack([y_actual_all, of_y], dtype=np.float64)
                 iter_counter += 1
 
-            value = np.sum((y_actual_all - y_sim_all) ** 2)
+            cost_func = []
+            for count, _ in enumerate(self.states):
+                mse = np.mean((y_actual_all[:,count]-y_sim_all[:,count])**2)
+                cost_func.append(mse)
+
+            # value = np.sum((y_actual_all - y_sim_all) ** 2)
             if info["Nfeval"] % 25 == 0:
                 print("")
                 print(f"Iteration: {info['Nfeval']}")
-                print(f"Error: {value:.5f}")
+                print(f"Error: {sum(cost_func):.5f}")
+                # print(f"Old Error: {value:.5f}")
             info["Nfeval"] += 1
-            return value
+            return sum(cost_func)
 
         res = optimize.minimize(
             fun=objective_func,

@@ -191,16 +191,16 @@ model_optimize = ModelOptimizer(
 # model_optimize.plot_states()
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
-# first_model_train.train_test_model(
-#     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-#     test_label="IGG",
-#     iterations=100,
-#     first_train=False,
-# )
-
-first_model_train.plot_test_data(
-    test_label=TARGET_LABEL,
+first_model_train.train_test_model(
+    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+    test_label="IGG",
+    iterations=25,
+    first_train=False,
 )
+
+# first_model_train.plot_test_data(
+#     test_label=TARGET_LABEL,
+# )
 
 # first_model_train.plot_train_data(
 #     test_label=TARGET_LABEL,
