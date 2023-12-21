@@ -61,7 +61,8 @@ class StateSpaceModel:
         self.name = name
 
     def ssm_lsim(
-        self, initial_state: np.ndarray, input_matrix: np.ndarray, time: np.ndarray
+        self, initial_state: np.ndarray, input_matrix: np.ndarray, time: np.ndarray,
+        delta_p = np.array([])
     ):
         """
         Created by ZH (zach.a.hatzenbeller@gsk.com)
@@ -96,6 +97,10 @@ class StateSpaceModel:
             raise ValueError(
                 "Initial condition matrix X0 must have at least 1 dimension"
             )
+        
+        # Default vector of ones
+        if delta_p.size == 0:
+            delta_p = np.ones((1,len(self.states)))
 
         # Ensure U is 1d or 2d and reshape accordingly
         if input_matrix.ndim == 1:
@@ -140,4 +145,9 @@ class StateSpaceModel:
         x_hat = np.array(self.scaler.inverse_transform(xuhat_scaled))[
             :, : x_row.shape[1]
         ]
-        return x_hat
+
+        # Modify measurement based on the correction factor delta_p (diagonal of the C matrix)
+        delta_p_matrix = np.tile(delta_p,(x_hat.shape[0],1))
+        y_hat = np.multiply(x_hat,delta_p_matrix)
+
+        return x_hat,y_hat

@@ -219,7 +219,7 @@ class Bioreactor:
         ts = np.arange(u_matrix_cumulative.shape[0])
 
         # Solve
-        x_out = self.process_model.ssm_lsim(
+        _,x_out = self.process_model.ssm_lsim(
             initial_state=self.state(), input_matrix=u_matrix_cumulative, time=ts
         )
 
@@ -327,6 +327,7 @@ class Controller:
         pred_horizon: int,
         ctrl_horizon: int,
         constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
+        delta_p: np.ndarray # Diagonal of the C matrix/correction factor for MHE
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters
@@ -382,6 +383,7 @@ class Controller:
         self.pred_horizon = pred_horizon
         self.ctrl_horizon = ctrl_horizon
         self.constr = constr
+        self.delta_p = delta_p
 
         # Data snapshots (2023-10-22)
         self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
@@ -522,12 +524,13 @@ class Controller:
         )
 
         # Sim
-        x_out = self.controller_model.ssm_lsim(
+        _,x_out = self.controller_model.ssm_lsim(
             initial_state=self.bioreactor.state(),
             input_matrix=u_matrix_cumulative[
                 self.bioreactor.data["Day"] >= self.curr_time, :
             ],
             time=ts,
+            delta_p = self.delta_p
         )
 
         # Obj

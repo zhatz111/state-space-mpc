@@ -151,6 +151,7 @@ controller = Controller(
     pred_horizon=PRED_HORIZON,
     ctrl_horizon=CTRL_HORIZON,
     constr=MV_BOUNDS,
+    delta_p=np.ones((1,len(STATES)))*1.5
 )
 
 # Simulate a DoE to Determine what factors to test in-silico
@@ -158,14 +159,14 @@ controller = Controller(
 # Day 3-4, 6-7, and 9-10 pH and temp setpoints
 DOE_FACTOR_LEVELS = [
     [18, 7.05, 33],
-    [15, 7.35, 35],
-    [15, 7.05, 33],
-    [18, 7.20, 34],
-    [12, 7.20, 34],
-    [12, 7.35, 35],
-    [12, 7.05, 33],
-    [15, 7.35, 35],
-    [18, 7.35, 35],
+    # [15, 7.35, 35],
+    # [15, 7.05, 33],
+    # [18, 7.20, 34],
+    # [12, 7.20, 34],
+    # [12, 7.35, 35],
+    # [12, 7.05, 33],
+    # [15, 7.35, 35],
+    # [18, 7.35, 35],
 ]
 
 # Create a list of bioreactors for the DoE
@@ -192,6 +193,7 @@ controllers = [
         pred_horizon=PRED_HORIZON,
         ctrl_horizon=CTRL_HORIZON,
         constr=MV_BOUNDS,
+        delta_p=controller.delta_p
     )
     for count, _ in enumerate(sim_bioreactors)
 ]
