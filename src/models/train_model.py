@@ -209,7 +209,7 @@ class ModelTraining:
                 print("")
                 print(f"Iteration: {info['Nfeval']}")
                 for count, state in enumerate(self.states):
-                    print(f"{state} Error: {rmse_unscaled[:,count][0]:.5f}")
+                    print(f"{state} Error: {np.array(rmse_unscaled)[:,count][0]:.5f}")
                 print("--------------------")
                 print(f"Total Error: {cost_func:.5f}, Old Error: {value:.5f}")
             info["Nfeval"] += 1
