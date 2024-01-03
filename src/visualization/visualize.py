@@ -294,12 +294,16 @@ class MPCVisualizer:
                 {
                     "Day": c.ts,
                     "Target Trajectory": c.pv_sps[:, 0],
-                    "Predicted Tracjectory": c.data_after_optim_dict[
+                    "Predicted Trajectory": c.data_after_optim_dict[
                         list(c.data_after_optim_dict)[0]
                     ][c.pv_names].values.flatten(),
                     "Optimized Trajectory": c.data_after_optim_dict[
                         list(c.data_after_optim_dict)[-1]
                     ][c.pv_names].values.flatten(),
+                    "Target Trajectory Feed Amount (mL)": b.original_data[c.mv_names].values.flatten(),
+                    "Optimized Trajectory Feed Amount (mL)": c.data_after_optim_dict[list(c.data_after_optim_dict)[-1]][
+                        c.mv_names
+                    ].values.flatten(),
                     "Unoptimized Difference %": unoptim_percent_diff,
                     "Optimized Difference %": optim_percent_diff,
                 }

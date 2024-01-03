@@ -36,6 +36,7 @@ class ModelTraining:
         b_matrix: np.ndarray,
         states: list[str],
         inputs: list[str],
+        pv_wghts: list,
         num_days: int,
         scaler: ScalerType,
     ):
@@ -76,6 +77,7 @@ class ModelTraining:
         self.inputs = inputs
         self.num_days = num_days
         self.scaler = scaler
+        self.pv_wghts = pv_wghts
         self.state_len = len(states)
         self.input_len = len(inputs)
         self.total = self.state_len + self.input_len
@@ -184,23 +186,34 @@ class ModelTraining:
                     y_sim_all = np.array(of_yout, dtype=np.float64)
                     y_actual_all = np.array(of_y, dtype=np.float64)
                 else:
-                    y_sim_all = np.vstack([y_sim_all, of_yout], dtype=np.float64)
-                    y_actual_all = np.vstack([y_actual_all, of_y], dtype=np.float64)
+                    y_sim_all = np.vstack([y_sim_all, of_yout])
+                    y_actual_all = np.vstack([y_actual_all, of_y])
                 iter_counter += 1
 
-            cost_func = []
-            for count, _ in enumerate(self.states):
-                mse = np.mean((y_actual_all[:,count]-y_sim_all[:,count])**2)
-                cost_func.append(mse)
+            # y_diff = y_actual_all - y_sim_all
+            # rmse_scaled = np.hstack([np.array(y_diff),np.zeros([len(y_actual_all),self.input_len])])
+            
 
-            # value = np.sum((y_actual_all - y_sim_all) ** 2)
+            cost_list = []
+            for count, _ in enumerate(self.states):
+                y_diff = y_actual_all - y_sim_all
+                cost = np.sqrt(np.square(y_diff[:,count]).mean())
+                cost_list.append(cost)
+
+            rmse_scaled = np.hstack([np.array(cost_list),np.zeros(self.input_len)]).reshape(1,-1)
+            rmse_unscaled = self.scaler.inverse_transform(rmse_scaled)
+            cost_func = sum(np.array(cost_list)*np.array(self.pv_wghts))
+            value = np.sum(np.square(y_actual_all - y_sim_all))
+
             if info["Nfeval"] % 25 == 0:
                 print("")
                 print(f"Iteration: {info['Nfeval']}")
-                print(f"Error: {sum(cost_func):.5f}")
-                # print(f"Old Error: {value:.5f}")
+                for count, state in enumerate(self.states):
+                    print(f"{state} Error: {rmse_unscaled[:,count][0]:.5f}")
+                print("--------------------")
+                print(f"Total Error: {cost_func:.5f}, Old Error: {value:.5f}")
             info["Nfeval"] += 1
-            return sum(cost_func)
+            return value
 
         res = optimize.minimize(
             fun=objective_func,

@@ -165,7 +165,7 @@ DOE_FACTOR_LEVELS = [
     [12, 7.35, 35],
     [12, 7.05, 33],
     [15, 7.35, 35],
-    [18, 7.35, 35],
+    # [18, 7.35, 35],
 ]
 
 # Create a list of bioreactors for the DoE
@@ -226,4 +226,4 @@ for bioreactor, controller in zip(sim_bioreactors, controllers):
 # Plot the in-silico Simulations
 br_plots = MPCVisualizer(sim_bioreactors, controllers)
 br_plots.plot_simulations()
-# print(br_plots.output_table())
+# br_plots.output_table().to_clipboard()
