@@ -20,8 +20,8 @@ warnings.filterwarnings("ignore")
 
 DATA_FOLDER_EXT = "aCD96-Robustness-ambrs"
 DATA_FILE_EXT = "AR21-042_AR23-019_067-Model-Data"
-MATRIX_FOLDER_EXT = "CD96-Robustness_Control_Model"
-PDF_PLOT_FILENAME = "model2_report"
+MATRIX_FOLDER_EXT = "test_matrices" #"CD96-Robustness_Control_Model"
+PDF_PLOT_FILENAME = "model_test_report"
 TARGET_LABEL = "IGG"
 PROCESS_TIME = 11
 VOLUME = 200
@@ -53,7 +53,16 @@ SMOOTHE_LIST = [
     "pCO2_at_temp",
 ]
 
-DISCARD = ["AR23-067-005P"]
+DISCARD = [
+    "AR23-067-005P",
+    "AR23-067-011P",
+    "AR23-019-001P",
+    "AR23-019-004P",
+    "AR23-019-007P",
+    "AR23-019-014P",
+]
+
+pv_wghts = [1.6,1.6,1.6,0.3,0.3,0.3]
 
 column_inclusion = [
     "Batch",
@@ -79,6 +88,11 @@ dataframe = ModelData(
 # Class method to clean up all the data
 # this includes interpolation to start, spline smoothing, train and test set splitting
 # and finally feature scaling using the scaler of choice
+training, testing = dataframe.train_test_split(
+    smoothing_list=SMOOTHE_LIST,
+)
+
+
 train_data, test_data = dataframe.clean(
     column_inclusion=column_inclusion,
     smoothing_list=SMOOTHE_LIST,  # is smoothing list is empty, no data will be smoothed
@@ -125,7 +139,7 @@ scaler_table = pd.DataFrame.from_dict(scaler_dict).T.reset_index(drop=True)
 
 joblib.dump(
     scaler_train,
-    rf"M:\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl",
+    rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl",
 )
 
 # UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
@@ -164,6 +178,7 @@ first_model_train = ModelTraining(
     b_matrix=B_Matrix,
     states=STATES,
     inputs=INPUTS,
+    pv_wghts=pv_wghts,
     num_days=PROCESS_TIME,
     scaler=scaler_train,
 )
@@ -193,8 +208,8 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 first_model_train.train_test_model(
     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-    test_label="IGG",
-    iterations=25,
+    test_label="Viability",
+    iterations=10,
     first_train=False,
 )
 

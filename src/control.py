@@ -159,13 +159,13 @@ controller = Controller(
 # Day 3-4, 6-7, and 9-10 pH and temp setpoints
 DOE_FACTOR_LEVELS = [
     [18, 7.05, 33],
-    # [15, 7.35, 35],
-    # [15, 7.05, 33],
-    # [18, 7.20, 34],
-    # [12, 7.20, 34],
-    # [12, 7.35, 35],
-    # [12, 7.05, 33],
-    # [15, 7.35, 35],
+    [15, 7.35, 35],
+    [15, 7.05, 33],
+    [18, 7.20, 34],
+    [12, 7.20, 34],
+    [12, 7.35, 35],
+    [12, 7.05, 33],
+    [15, 7.35, 35],
     # [18, 7.35, 35],
 ]
 
@@ -228,4 +228,4 @@ for bioreactor, controller in zip(sim_bioreactors, controllers):
 # Plot the in-silico Simulations
 br_plots = MPCVisualizer(sim_bioreactors, controllers)
 br_plots.plot_simulations()
-# print(br_plots.output_table())
+# br_plots.output_table().to_clipboard()
