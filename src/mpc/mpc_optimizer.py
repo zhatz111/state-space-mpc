@@ -11,6 +11,7 @@
 import warnings
 
 # 3rd Party Library Imports
+import do_mpc
 import numpy as np
 import pandas as pd
 from scipy import optimize
@@ -201,9 +202,8 @@ class Bioreactor:
         return self.data.loc[
             self.data["Day"] == self.curr_time, self.process_model.states
         ].values[0]
-    
+
     def sim_from_curr_day(self):
-        
         # Get all inputs with daily feed
         u_matrix_daily = self.data.loc[:, self.process_model.inputs].values
 
@@ -219,7 +219,7 @@ class Bioreactor:
         ts = np.arange(u_matrix_cumulative.shape[0])
 
         # Solve
-        _,x_out = self.process_model.ssm_lsim(
+        _, x_out = self.process_model.ssm_lsim(
             initial_state=self.state(), input_matrix=u_matrix_cumulative, time=ts
         )
 
@@ -228,12 +228,13 @@ class Bioreactor:
         x_out_df.insert(0, "Day", ts + self.curr_time)
 
         # Check if the simulation starts from the current state
-        if max(abs(self.state() - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
+        if (
+            max(abs(self.state() - x_out[0])) > 1e-10
+        ):  # ~np.all(self.state == x_out[0]):
             raise ValueError("Simulation did not start from the current state!")
-        
+
         return x_out, x_out_df
-        
-        
+
     def next_day(self):
         """
         The `next_day` function advances the simulation by 24 hours, updates the state and current time,
@@ -248,7 +249,7 @@ class Bioreactor:
         """
 
         # Simulate from the current date
-        x_out,x_out_df = self.sim_from_curr_day()
+        x_out, x_out_df = self.sim_from_curr_day()
 
         # Update state and time
         self.curr_time = self.curr_time + 1
@@ -257,7 +258,6 @@ class Bioreactor:
         ] = x_out[1]
         self.tracking_dict[self.curr_time] = self.data.copy()
         return x_out_df
-
 
     # def next_day(self):
     #     """
@@ -327,7 +327,11 @@ class Controller:
         pred_horizon: int,
         ctrl_horizon: int,
         constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
-        delta_p: np.ndarray # Diagonal of the C matrix/correction factor for MHE
+        delta_p: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE\
+        use_MHE: bool = True,
+        pv: np.ndarray = np.array([]),
+        px: np.ndarray = np.array([]),
+        pp: np.ndarray = np.array([]),
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters
@@ -392,7 +396,7 @@ class Controller:
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
 
-    def optimize(self,open_loop = False):
+    def optimize(self, open_loop=False):
         """
         The `optimize` function optimizes future inputs for a bioreactor system and updates the dataset
         with the optimized inputs.
@@ -432,18 +436,13 @@ class Controller:
         data_before_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix
         self.data_before_optim_dict[self.curr_time] = data_before_optim.copy()
 
-
-
         # Simulate after optimization
         if open_loop:
-            
             # No change of inputs in open loop
             x_out_after_optim = x_out_before_optim
             mv_matrix_star = mv_array.reshape([-1, len(self.mv_names)])
-
         else:
-          
-          # Solve the optimization problem
+            # Solve the optimization problem
             mv_array_star = optimize.minimize(
                 fun=lambda x: self.obj_func_wrapper(x)[0],
                 x0=mv_array,
@@ -452,10 +451,10 @@ class Controller:
                 options={"disp": False, "maxiter": 100},
             )
 
-          # Fold mv to 2D
+            # Fold mv to 2D
             mv_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
             _, x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
-        
+
         # Update post-optimization (or open loop) data record
         data_after_optim = self.data_after_optim
         data_after_optim.loc[
@@ -524,18 +523,18 @@ class Controller:
         )
 
         # Sim
-        _,x_out = self.controller_model.ssm_lsim(
+        _, x_out = self.controller_model.ssm_lsim(
             initial_state=self.bioreactor.state(),
             input_matrix=u_matrix_cumulative[
                 self.bioreactor.data["Day"] >= self.curr_time, :
             ],
             time=ts,
-            delta_p = self.delta_p
+            delta_p=self.delta_p,
         )
 
         # Obj
-        pv_loc = np.where(np.isin(self.controller_model.states, self.pv_names))[0]
-        mv_loc = np.where(np.isin(self.controller_model.inputs, self.mv_names))[0]
+        pv_loc = np.where(np.isin(self.controller_model.states, list(self.pv_names)))[0]
+        mv_loc = np.where(np.isin(self.controller_model.inputs, list(self.mv_names)))[0]
         return (
             self.obj_func(
                 ts + self.curr_time,
@@ -581,3 +580,73 @@ class Controller:
         x3_diff = x3 - pv_sps3
         x3_cost = np.sum(np.multiply(np.sum(np.square(x3_diff), axis=0), self.pv_wts))
         return u3_cost + x3_cost
+
+    def MHE(self):
+        model = do_mpc.model.Model("continuous")
+
+        # Define state variable
+        x = model.set_variable(
+            var_type="_x",
+            var_name="x",
+            shape=(
+                self.bioreactor.process_model.a_matrix.shape[0],
+                1,
+            ),
+        )
+
+        # Define input variable
+        u = model.set_variable(
+            var_type="_u",
+            var_name="u",
+            shape=(
+                self.bioreactor.process_model.b_matrix.shape[1],
+                1,
+            ),
+        )
+
+        # Define the parameters
+        A = model.set_variable(
+            var_type="_p",
+            var_name="A",
+            shape=(
+                self.bioreactor.process_model.a_matrix.shape[0],
+                self.bioreactor.process_model.a_matrix.shape[1],
+            ),
+        )
+        B = model.set_variable(
+            var_type="_p",
+            var_name="B",
+            shape=(
+                self.bioreactor.process_model.b_matrix.shape[0],
+                self.bioreactor.process_model.b_matrix.shape[1],
+            ),
+        )
+
+        # C = np.identity(self.bioreactor.process_model.a_matrix.shape[0])
+        # D = np.zeros([self.bioreactor.process_model.a_matrix.shape[0], self.bioreactor.process_model.b_matrix.shape[1]])
+
+        # Define the system equations
+        dx_dt = np.dot(A, x) + np.dot(B, u)
+        # dy_dt = np.dot(C, x)
+
+        # Setup the model equations
+        model.set_rhs("x", dx_dt, process_noise=False) # may want to change process noise to true if it will help simulation
+        model.setup()
+
+        mhe = do_mpc.estimator.MHE(model)
+
+        setup_mhe = {
+            "n_horizon": self.ctrl_horizon,
+            "t_step": 1.0,
+            # Define the objective function here
+            "store_full_solution": True,
+        }
+
+        mhe.set_param(**setup_mhe)
+
+        # Define the objective function for the estimator
+        P_v = np.diag(np.array([1,1,1]))
+        P_x = np.eye(8)
+        P_p = 10*np.eye(1)
+
+        mhe.set_default_objective(P_x, P_v, P_p)
