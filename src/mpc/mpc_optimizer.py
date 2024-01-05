@@ -327,11 +327,7 @@ class Controller:
         pred_horizon: int,
         ctrl_horizon: int,
         constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
-        delta_p: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE\
-        use_MHE: bool = True,
-        pv: np.ndarray = np.array([]),
-        px: np.ndarray = np.array([]),
-        pp: np.ndarray = np.array([]),
+        delta_p: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters

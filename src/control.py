@@ -227,6 +227,6 @@ for bioreactor, controller in zip(sim_bioreactors, controllers):
     # DOE_dict[bioreactor.vessel] = bioreactor.return_data()
 
 # Plot the in-silico Simulations
-# br_plots = MPCVisualizer(sim_bioreactors, controllers)
+br_plots = MPCVisualizer(sim_bioreactors, controllers)
 # br_plots.plot_simulations()
 # br_plots.output_table().to_clipboard()
