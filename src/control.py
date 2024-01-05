@@ -222,10 +222,11 @@ DOE_dict = {}
 for bioreactor, controller in zip(sim_bioreactors, controllers):
     for i in range(len(ts) - 1):
         controller.optimize(open_loop=False)
+        controller.mhe_2(3)
         bioreactor.next_day()
-    DOE_dict[bioreactor.vessel] = bioreactor.return_data()
+    # DOE_dict[bioreactor.vessel] = bioreactor.return_data()
 
 # Plot the in-silico Simulations
-br_plots = MPCVisualizer(sim_bioreactors, controllers)
-br_plots.plot_simulations()
+# br_plots = MPCVisualizer(sim_bioreactors, controllers)
+# br_plots.plot_simulations()
 # br_plots.output_table().to_clipboard()

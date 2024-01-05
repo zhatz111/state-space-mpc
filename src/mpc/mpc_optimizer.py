@@ -388,6 +388,8 @@ class Controller:
         self.ctrl_horizon = ctrl_horizon
         self.constr = constr
         self.delta_p = delta_p
+        self.delta_p_a = []
+        self.delta_p_b = []
 
         # Data snapshots (2023-10-22)
         self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
@@ -581,7 +583,8 @@ class Controller:
         x3_cost = np.sum(np.multiply(np.sum(np.square(x3_diff), axis=0), self.pv_wts))
         return u3_cost + x3_cost
 
-    def MHE(self):
+    def mhe(self):
+        """_summary_"""
         model = do_mpc.model.Model("continuous")
 
         # Define state variable
@@ -630,10 +633,12 @@ class Controller:
         # dy_dt = np.dot(C, x)
 
         # Setup the model equations
-        model.set_rhs("x", dx_dt, process_noise=False) # may want to change process noise to true if it will help simulation
+        model.set_rhs(
+            "x", dx_dt, process_noise=False
+        )  # may want to change process noise to true if it will help simulation
         model.setup()
 
-        mhe = do_mpc.estimator.MHE(model)
+        mhe = do_mpc.estimator.MHE(model, ["A", "B"])
 
         setup_mhe = {
             "n_horizon": self.ctrl_horizon,
@@ -645,8 +650,79 @@ class Controller:
         mhe.set_param(**setup_mhe)
 
         # Define the objective function for the estimator
-        P_v = np.diag(np.array([1,1,1]))
+        P_v = np.diag(np.array([1, 1, 1]))
         P_x = np.eye(8)
-        P_p = 10*np.eye(1)
+        P_p = 10 * np.eye(1)
 
         mhe.set_default_objective(P_x, P_v, P_p)
+
+    def mhe_2(self, mhe_horizon: int):
+        # get the last few state measurements based on the estimator horizon
+        sim_data = self.data_before_optim_dict[
+            self.curr_time
+        ]  # need to make sure I seperate the model predictions from the
+        # measurements that will be input into the excel sheet. Not sure if this is correct based on
+        # how the measurements will be input into the sheet.
+        measurement_data = self.bioreactor.data
+        self.curr_time = self.bioreactor.curr_time
+        is_in_ctrl_horizon = np.logical_and(
+            sim_data["Day"] <= self.curr_time,
+            sim_data["Day"] > (self.curr_time - mhe_horizon),
+        )
+
+        # initialize the parameters that need to be optimized into matrices
+        mv_matrix = sim_data.loc[is_in_ctrl_horizon, self.mv_names].values
+        measure_matrix = measurement_data.loc[is_in_ctrl_horizon, self.mv_names].values
+        a_matrix = self.bioreactor.process_model.a_matrix
+        b_matrix = self.bioreactor.process_model.b_matrix
+
+        self.delta_p_a.append(self.bioreactor.process_model.a_matrix)
+        self.delta_p_b.append(self.bioreactor.process_model.b_matrix)
+
+        # combine all optimization parameters into one flat matrix
+        mv_ab_matrix = np.concatenate(
+            [mv_matrix.flatten(), a_matrix.flatten(), b_matrix.flatten()]
+        )
+        matrix_len = len(mv_matrix.flatten()) + len(a_matrix.flatten()) + len(b_matrix.flatten())
+
+        def cost_function(mv_ab_matrix):
+            if len(mv_ab_matrix) > matrix_len:
+                mv_ab_matrix = mv_ab_matrix[:matrix_len]
+
+            mv_matrix_unrav = mv_ab_matrix[: len(mv_matrix.flatten())].reshape(
+                mv_matrix.shape[0], mv_matrix.shape[1]
+            )
+            print(len(mv_ab_matrix))
+            print(len(mv_matrix.flatten()))
+            a_matrix_unrav = mv_ab_matrix[
+                len(mv_matrix.flatten()) : len(a_matrix.flatten()) + 1
+            ].reshape(a_matrix.shape[0], a_matrix.shape[1])
+            b_matrix_unrav = mv_ab_matrix[len(a_matrix.flatten()) + 1 :].reshape(
+                b_matrix.shape[0], b_matrix.shape[1]
+            )
+            cost = np.nansum(np.square(mv_matrix_unrav - measure_matrix)) + (
+                np.nansum(np.square((a_matrix_unrav - self.delta_p_a[-1])))
+                + np.nansum(np.square((b_matrix_unrav - self.delta_p_b[-1])))
+            )
+            return cost
+
+        res = optimize.minimize(
+            fun=cost_function,
+            x0=mv_ab_matrix,
+            method="SLSQP",
+        )
+
+        states = res.x[: len(mv_matrix.flatten())].reshape(
+            mv_matrix.shape[0], mv_matrix.shape[1]
+        )
+
+        self.bioreactor.process_model.a_matrix = res.x[
+            len(mv_matrix.flatten()) : len(a_matrix.flatten())+1
+        ].reshape(a_matrix.shape[0], a_matrix.shape[1])
+
+        self.bioreactor.process_model.b_matrix = res.x[
+            len(a_matrix.flatten())+1 :
+        ].reshape(b_matrix.shape[0], b_matrix.shape[1])
+
+        print(f"State: {states}")
+        print(cost_function(mv_ab_matrix))
