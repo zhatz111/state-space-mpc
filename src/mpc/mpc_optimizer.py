@@ -219,7 +219,7 @@ class Bioreactor:
         ts = np.arange(u_matrix_cumulative.shape[0])
 
         # Solve
-        _, x_out = self.process_model.ssm_lsim(
+        x_out, _ = self.process_model.ssm_lsim(
             initial_state=self.state(), input_matrix=u_matrix_cumulative, time=ts
         )
 
@@ -521,7 +521,7 @@ class Controller:
         )
 
         # Sim
-        _, x_out = self.controller_model.ssm_lsim(
+        x_out, _ = self.controller_model.ssm_lsim(
             initial_state=self.bioreactor.state(),
             input_matrix=u_matrix_cumulative[
                 self.bioreactor.data["Day"] >= self.curr_time, :
@@ -667,10 +667,10 @@ class Controller:
         )
 
         # initialize the parameters that need to be optimized into matrices
-        mv_matrix = sim_data.loc[is_in_ctrl_horizon, self.mv_names].values
-        measure_matrix = measurement_data.loc[is_in_ctrl_horizon, self.mv_names].values
-        a_matrix = self.bioreactor.process_model.a_matrix
-        b_matrix = self.bioreactor.process_model.b_matrix
+        mv_matrix = sim_data.loc[is_in_ctrl_horizon, self.mv_names].values.copy()
+        measure_matrix = measurement_data.loc[is_in_ctrl_horizon, self.mv_names].values.copy()
+        a_matrix = self.bioreactor.process_model.a_matrix.copy()
+        b_matrix = self.bioreactor.process_model.b_matrix.copy()
 
         self.delta_p_a.append(self.bioreactor.process_model.a_matrix)
         self.delta_p_b.append(self.bioreactor.process_model.b_matrix)
@@ -679,32 +679,34 @@ class Controller:
         mv_ab_matrix = np.concatenate(
             [mv_matrix.flatten(), a_matrix.flatten(), b_matrix.flatten()]
         )
-        matrix_len = len(mv_matrix.flatten()) + len(a_matrix.flatten()) + len(b_matrix.flatten())
 
-        def cost_function(mv_ab_matrix):
-            if len(mv_ab_matrix) > matrix_len:
-                mv_ab_matrix = mv_ab_matrix[:matrix_len]
+        cost_mat = mv_ab_matrix.copy()
+        # matrix_len = len(mv_matrix.flatten()) + len(a_matrix.flatten()) + len(b_matrix.flatten())
 
-            mv_matrix_unrav = mv_ab_matrix[: len(mv_matrix.flatten())].reshape(
+        def cost_function(cost_matrix):
+
+            mv_matrix_unrav = cost_matrix[: len(mv_matrix.flatten())].reshape(
                 mv_matrix.shape[0], mv_matrix.shape[1]
             )
-            print(len(mv_ab_matrix))
-            print(len(mv_matrix.flatten()))
-            a_matrix_unrav = mv_ab_matrix[
-                len(mv_matrix.flatten()) : len(a_matrix.flatten()) + 1
+
+            a_matrix_unrav = cost_matrix[
+                len(mv_matrix.flatten()) : (len(a_matrix.flatten()) + len(mv_matrix.flatten()))
             ].reshape(a_matrix.shape[0], a_matrix.shape[1])
-            b_matrix_unrav = mv_ab_matrix[len(a_matrix.flatten()) + 1 :].reshape(
+
+            b_matrix_unrav = cost_matrix[(len(a_matrix.flatten()) + len(mv_matrix.flatten())) :].reshape(
                 b_matrix.shape[0], b_matrix.shape[1]
             )
+
             cost = np.nansum(np.square(mv_matrix_unrav - measure_matrix)) + (
                 np.nansum(np.square((a_matrix_unrav - self.delta_p_a[-1])))
                 + np.nansum(np.square((b_matrix_unrav - self.delta_p_b[-1])))
             )
+
             return cost
 
         res = optimize.minimize(
             fun=cost_function,
-            x0=mv_ab_matrix,
+            x0=cost_mat,
             method="SLSQP",
         )
 
@@ -713,12 +715,11 @@ class Controller:
         )
 
         self.bioreactor.process_model.a_matrix = res.x[
-            len(mv_matrix.flatten()) : len(a_matrix.flatten())+1
+            len(mv_matrix.flatten()) : (len(a_matrix.flatten()) + len(mv_matrix.flatten()))
         ].reshape(a_matrix.shape[0], a_matrix.shape[1])
 
         self.bioreactor.process_model.b_matrix = res.x[
-            len(a_matrix.flatten())+1 :
+            (len(a_matrix.flatten()) + len(mv_matrix.flatten())) :
         ].reshape(b_matrix.shape[0], b_matrix.shape[1])
 
-        print(f"State: {states}")
-        print(cost_function(mv_ab_matrix))
+        return states

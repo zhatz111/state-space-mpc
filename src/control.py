@@ -27,6 +27,7 @@ warnings.filterwarnings("ignore")
 SIM_FOLDER = "mpc-simulation"
 SIM_REFERENCE_DATA = "control_data"
 
+
 simulation_path = Path(
     "~/GSK/Biopharm Model Predictive Control - General/data/", SIM_FOLDER
 )
@@ -151,7 +152,7 @@ controller = Controller(
     pred_horizon=PRED_HORIZON,
     ctrl_horizon=CTRL_HORIZON,
     constr=MV_BOUNDS,
-    delta_p=np.ones((1,len(STATES)))*1.5
+    delta_p=np.ones((1,len(STATES)))
 )
 
 # Simulate a DoE to Determine what factors to test in-silico
@@ -228,5 +229,5 @@ for bioreactor, controller in zip(sim_bioreactors, controllers):
 
 # Plot the in-silico Simulations
 br_plots = MPCVisualizer(sim_bioreactors, controllers)
-# br_plots.plot_simulations()
+br_plots.plot_simulations()
 # br_plots.output_table().to_clipboard()
