@@ -219,7 +219,7 @@ class Bioreactor:
         ts = np.arange(u_matrix_cumulative.shape[0])
 
         # Solve
-        x_out, _ = self.process_model.ssm_lsim(
+        _, x_out = self.process_model.ssm_lsim(
             initial_state=self.state(), input_matrix=u_matrix_cumulative, time=ts
         )
 
@@ -413,15 +413,15 @@ class Controller:
             data["Day"] >= self.curr_time,
             data["Day"] < (self.curr_time + self.ctrl_horizon),
         )
-        mv_matrix = data.loc[is_in_ctrl_horizon, self.mv_names].values
+        state_matrix = data.loc[is_in_ctrl_horizon, self.mv_names].values
 
         # Flatten initial mv
-        mv_array = mv_matrix.flatten()
+        mv_array = state_matrix.flatten()
 
         # Create constraint matrix
-        constr_low_matrix = np.tile(self.constr[:, 0], (mv_matrix.shape[0], 1))
+        constr_low_matrix = np.tile(self.constr[:, 0], (state_matrix.shape[0], 1))
         constr_low_array = constr_low_matrix.flatten()
-        constr_high_matrix = np.tile(self.constr[:, 1], (mv_matrix.shape[0], 1))
+        constr_high_matrix = np.tile(self.constr[:, 1], (state_matrix.shape[0], 1))
         constr_high_array = constr_high_matrix.flatten()
         bounds = np.vstack((constr_low_array, constr_high_array)).transpose()
 
@@ -431,14 +431,14 @@ class Controller:
         data_before_optim.loc[
             data_before_optim["Day"] >= self.curr_time, self.controller_model.states
         ] = x_out_before_optim
-        data_before_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix
+        data_before_optim.loc[is_in_ctrl_horizon, self.mv_names] = state_matrix
         self.data_before_optim_dict[self.curr_time] = data_before_optim.copy()
 
         # Simulate after optimization
         if open_loop:
             # No change of inputs in open loop
             x_out_after_optim = x_out_before_optim
-            mv_matrix_star = mv_array.reshape([-1, len(self.mv_names)])
+            state_matrix_star = mv_array.reshape([-1, len(self.mv_names)])
         else:
             # Solve the optimization problem
             mv_array_star = optimize.minimize(
@@ -450,7 +450,7 @@ class Controller:
             )
 
             # Fold mv to 2D
-            mv_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
+            state_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
             _, x_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
 
         # Update post-optimization (or open loop) data record
@@ -458,11 +458,11 @@ class Controller:
         data_after_optim.loc[
             data_after_optim["Day"] >= self.curr_time, self.controller_model.states
         ] = x_out_after_optim
-        data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix_star
+        data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = state_matrix_star
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset
-        data.loc[is_in_ctrl_horizon, self.mv_names] = mv_matrix_star
+        data.loc[is_in_ctrl_horizon, self.mv_names] = state_matrix_star
 
     def obj_func_wrapper(self, mv_array):
         """
@@ -491,19 +491,19 @@ class Controller:
         )[0]
 
         # Fold mv_array to a 2D array
-        mv_matrix = mv_array.reshape([-1, len(self.mv_names)])
+        state_matrix = mv_array.reshape([-1, len(self.mv_names)])
 
         # Retrieve input from day 0 to EoR
         u_matrix_daily = self.bioreactor.data.loc[
             :, self.controller_model.inputs
         ].values
 
-        # Replace MVs with mv_matrix
+        # Replace MVs with state_matrix
         loc_mv_in_inputs = np.where(
             np.isin(self.controller_model.inputs, self.mv_names)
         )[0]
         u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where, :]
-        u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = mv_matrix
+        u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = state_matrix
         u_matrix_daily[ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon
         u_matrix_cumulative = u_matrix_daily
 
@@ -521,7 +521,7 @@ class Controller:
         )
 
         # Sim
-        x_out, _ = self.controller_model.ssm_lsim(
+        _, x_out = self.controller_model.ssm_lsim(
             initial_state=self.bioreactor.state(),
             input_matrix=u_matrix_cumulative[
                 self.bioreactor.data["Day"] >= self.curr_time, :
@@ -659,7 +659,7 @@ class Controller:
         ]  # need to make sure I seperate the model predictions from the
         # measurements that will be input into the excel sheet. Not sure if this is correct based on
         # how the measurements will be input into the sheet.
-        measurement_data = self.bioreactor.data
+        data = self.bioreactor.data
         self.curr_time = self.bioreactor.curr_time
         is_in_ctrl_horizon = np.logical_and(
             sim_data["Day"] <= self.curr_time,
@@ -667,8 +667,12 @@ class Controller:
         )
 
         # initialize the parameters that need to be optimized into matrices
-        mv_matrix = sim_data.loc[is_in_ctrl_horizon, self.mv_names].values.copy()
-        measure_matrix = measurement_data.loc[is_in_ctrl_horizon, self.mv_names].values.copy()
+        state_matrix = sim_data.loc[
+            is_in_ctrl_horizon, self.bioreactor.process_model.states
+        ].values.copy()
+        measure_matrix = data.loc[
+            is_in_ctrl_horizon, self.bioreactor.process_model.states
+        ].values.copy()
         a_matrix = self.bioreactor.process_model.a_matrix.copy()
         b_matrix = self.bioreactor.process_model.b_matrix.copy()
 
@@ -677,27 +681,28 @@ class Controller:
 
         # combine all optimization parameters into one flat matrix
         mv_ab_matrix = np.concatenate(
-            [mv_matrix.flatten(), a_matrix.flatten(), b_matrix.flatten()]
+            [state_matrix.flatten(), a_matrix.flatten(), b_matrix.flatten()]
         )
 
         cost_mat = mv_ab_matrix.copy()
-        # matrix_len = len(mv_matrix.flatten()) + len(a_matrix.flatten()) + len(b_matrix.flatten())
+        # matrix_len = len(state_matrix.flatten()) + len(a_matrix.flatten()) + len(b_matrix.flatten())
 
         def cost_function(cost_matrix):
-
-            mv_matrix_unrav = cost_matrix[: len(mv_matrix.flatten())].reshape(
-                mv_matrix.shape[0], mv_matrix.shape[1]
+            state_matrix_unrav = cost_matrix[: len(state_matrix.flatten())].reshape(
+                state_matrix.shape[0], state_matrix.shape[1]
             )
 
             a_matrix_unrav = cost_matrix[
-                len(mv_matrix.flatten()) : (len(a_matrix.flatten()) + len(mv_matrix.flatten()))
+                len(state_matrix.flatten()) : (
+                    len(a_matrix.flatten()) + len(state_matrix.flatten())
+                )
             ].reshape(a_matrix.shape[0], a_matrix.shape[1])
 
-            b_matrix_unrav = cost_matrix[(len(a_matrix.flatten()) + len(mv_matrix.flatten())) :].reshape(
-                b_matrix.shape[0], b_matrix.shape[1]
-            )
+            b_matrix_unrav = cost_matrix[
+                (len(a_matrix.flatten()) + len(state_matrix.flatten())) :
+            ].reshape(b_matrix.shape[0], b_matrix.shape[1])
 
-            cost = np.nansum(np.square(mv_matrix_unrav - measure_matrix)) + (
+            cost = np.nansum(np.square(state_matrix_unrav - measure_matrix)) + (
                 np.nansum(np.square((a_matrix_unrav - self.delta_p_a[-1])))
                 + np.nansum(np.square((b_matrix_unrav - self.delta_p_b[-1])))
             )
@@ -710,16 +715,24 @@ class Controller:
             method="SLSQP",
         )
 
-        states = res.x[: len(mv_matrix.flatten())].reshape(
-            mv_matrix.shape[0], mv_matrix.shape[1]
+        states = res.x[: len(state_matrix.flatten())].reshape(
+            state_matrix.shape[0], state_matrix.shape[1]
         )
 
+        self.bioreactor.data.loc[
+            is_in_ctrl_horizon, self.bioreactor.process_model.states
+        ] = states
+
         self.bioreactor.process_model.a_matrix = res.x[
-            len(mv_matrix.flatten()) : (len(a_matrix.flatten()) + len(mv_matrix.flatten()))
+            len(state_matrix.flatten()) : (
+                len(a_matrix.flatten()) + len(state_matrix.flatten())
+            )
         ].reshape(a_matrix.shape[0], a_matrix.shape[1])
 
         self.bioreactor.process_model.b_matrix = res.x[
-            (len(a_matrix.flatten()) + len(mv_matrix.flatten())) :
+            (len(a_matrix.flatten()) + len(state_matrix.flatten())) :
         ].reshape(b_matrix.shape[0], b_matrix.shape[1])
 
+        print(f"{self.bioreactor.vessel}, {self.curr_time}: {states}")
+        print("")
         return states

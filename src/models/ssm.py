@@ -86,9 +86,10 @@ class StateSpaceModel:
         Returns:
           the predicted trajectory of the system, represented by the variable xHat.
         """
-        # Warning: Remember that the time array needs to start at 0 with the initial condition at time 0
+        # Warning: Remember that the time array needs to start at 0 with the initial 
+        # condition at time 0
 
-        # Ensure X0 is 1d or 2d and reshape accordingly
+        # Check if X0 is 1d or 2d and reshape accordingly
         if initial_state.ndim == 1:
             x_row = initial_state.reshape(1, -1)
         elif initial_state.ndim == 2:
@@ -97,12 +98,12 @@ class StateSpaceModel:
             raise ValueError(
                 "Initial condition matrix X0 must have at least 1 dimension"
             )
-        
+
         # Default vector of ones
         if delta_p.size == 0:
             delta_p = np.ones((1,len(self.states)))
 
-        # Ensure U is 1d or 2d and reshape accordingly
+        # Check if U is 1d or 2d and reshape accordingly
         if input_matrix.ndim == 1:
             u_row = input_matrix.reshape(1, -1)
         elif input_matrix.ndim == 2:
