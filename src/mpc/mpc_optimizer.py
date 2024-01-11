@@ -36,9 +36,9 @@ def daily_to_cumulative_feed(model, u_matrix_daily):
       the modified U matrix with the daily feed column converted to cumulative feed.
     """
     u_matrix_cumulative = np.copy(u_matrix_daily)
-    cumulative_feed_loc = np.where(np.isin(model.inputs, "Cumulative_Normalized_Feed"))[
-        0
-    ]
+    cumulative_feed_loc = np.where(
+        np.isin(model.inputs, "CUMULATIVE_NORMALIZED_FEED")
+    )[0]
     u_matrix_cumulative[:, cumulative_feed_loc] = np.cumsum(
         u_matrix_cumulative[:, cumulative_feed_loc]
     ).reshape([-1, 1])
@@ -89,7 +89,8 @@ class Bioreactor:
             raise ValueError("Data set does not start on Day 0!")
 
         # Initialize other attributes
-        self.curr_time = 0
+        self.curr_time = 0 # this may need to be changed to evaluate the last data point in the csv and set the current day to that
+
         # self.state = self.data.filter(items=self.process_model.states)
         self.duration = self.data["Day"].values[-1]
 
@@ -102,9 +103,9 @@ class Bioreactor:
             raise ValueError("Data set is not in 1-day increments!")
 
         # Convert cumulative feed to daily feed
-        if np.isin("Cumulative_Normalized_Feed", self.data.columns):
-            self.data["Cumulative_Normalized_Feed"] = np.append(
-                np.diff(self.data.loc[:, "Cumulative_Normalized_Feed"]), 0
+        if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT--MV", self.data.columns):
+            self.data["CUMULATIVE_NORMALIZED_FEED--INPUT--MV"] = np.append(
+                np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT--MV"]), 0
             )
             self.has_cumulative_feed = True
             warnings.warn(
@@ -135,7 +136,7 @@ class Bioreactor:
         if self.has_cumulative_feed:
             data = self.data.copy(deep=True)
             data = data.rename(
-                columns={"Cumulative_Normalized_Feed": "Daily_Normalized_Feed"}
+                columns={"CUMULATIVE_NORMALIZED_FEED--INPUT--MV": "Daily_Normalized_Feed"}
             )
         else:
             data = self.data
@@ -152,7 +153,7 @@ class Bioreactor:
         if self.has_cumulative_feed:
             data = self.data.copy(deep=True)
             data = data.rename(
-                columns={"Cumulative_Normalized_Feed": "Daily_Normalized_Feed"}
+                columns={"CUMULATIVE_NORMALIZED_FEED--INPUT--MV": "Daily_Normalized_Feed"}
             )
         else:
             data = self.data
@@ -200,12 +201,12 @@ class Bioreactor:
 
     def state(self):
         return self.data.loc[
-            self.data["Day"] == self.curr_time, self.process_model.states
+            self.data["Day"] == self.curr_time, self.process_model.state_data_labels
         ].values[0]
 
     def sim_from_curr_day(self):
         # Get all inputs with daily feed
-        u_matrix_daily = self.data.loc[:, self.process_model.inputs].values
+        u_matrix_daily = self.data.loc[:, self.process_model.input_data_labels].values
 
         # Convert daily feed to cumulative feed
         u_matrix_cumulative = daily_to_cumulative_feed(
@@ -224,7 +225,7 @@ class Bioreactor:
         )
 
         # Create a DF
-        x_out_df = pd.DataFrame(x_out, columns=self.process_model.states)
+        x_out_df = pd.DataFrame(x_out, columns=self.process_model.state_data_labels)
         x_out_df.insert(0, "Day", ts + self.curr_time)
 
         # Check if the simulation starts from the current state
@@ -254,7 +255,7 @@ class Bioreactor:
         # Update state and time
         self.curr_time = self.curr_time + 1
         self.data.loc[
-            self.data["Day"] == self.curr_time, self.process_model.states
+            self.data["Day"] == self.curr_time, self.process_model.state_data_labels
         ] = x_out[1]
         self.tracking_dict[self.curr_time] = self.data.copy()
         return x_out_df
@@ -316,7 +317,7 @@ class Controller:
 
     def __init__(
         self,
-        controller_model,
+        controller_model: StateSpaceModel,
         bioreactor: Bioreactor,
         ts: np.ndarray,  # A 1D, length-T array of time
         pv_sps: np.ndarray,  # A T by P array (P process variables)
@@ -429,7 +430,7 @@ class Controller:
         _, x_out_before_optim = self.obj_func_wrapper(mv_array)
         data_before_optim = self.data_before_optim
         data_before_optim.loc[
-            data_before_optim["Day"] >= self.curr_time, self.controller_model.states
+            data_before_optim["Day"] >= self.curr_time, self.controller_model.state_data_labels
         ] = x_out_before_optim
         data_before_optim.loc[is_in_ctrl_horizon, self.mv_names] = state_matrix
         self.data_before_optim_dict[self.curr_time] = data_before_optim.copy()
@@ -456,7 +457,7 @@ class Controller:
         # Update post-optimization (or open loop) data record
         data_after_optim = self.data_after_optim
         data_after_optim.loc[
-            data_after_optim["Day"] >= self.curr_time, self.controller_model.states
+            data_after_optim["Day"] >= self.curr_time, self.controller_model.state_data_labels
         ] = x_out_after_optim
         data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = state_matrix_star
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
@@ -495,12 +496,12 @@ class Controller:
 
         # Retrieve input from day 0 to EoR
         u_matrix_daily = self.bioreactor.data.loc[
-            :, self.controller_model.inputs
+            :, self.controller_model.input_data_labels
         ].values
 
         # Replace MVs with state_matrix
         loc_mv_in_inputs = np.where(
-            np.isin(self.controller_model.inputs, self.mv_names)
+            np.isin(self.controller_model.input_data_labels, self.mv_names)
         )[0]
         u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where, :]
         u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = state_matrix
@@ -512,8 +513,6 @@ class Controller:
             u_matrix_cumulative = daily_to_cumulative_feed(
                 self.controller_model, u_matrix_daily
             )
-            # cumulative_feed_loc = np.where(np.isin(self.controller_model.inputs,'Cumulative_Normalized_Feed'))[0]
-            # u_matrix_cumulative[:,cumulative_feed_loc] = np.cumsum(u_matrix_daily[:,cumulative_feed_loc]).reshape([-1,1])
 
         # Time array
         ts = np.arange(
@@ -530,9 +529,11 @@ class Controller:
             delta_p=self.delta_p,
         )
 
+        #self.bioreactor.data.loc[self.bioreactor.data["Day"] == self.curr_time, self.bioreactor.process_model.state_mod_labels].values
+
         # Obj
-        pv_loc = np.where(np.isin(self.controller_model.states, list(self.pv_names)))[0]
-        mv_loc = np.where(np.isin(self.controller_model.inputs, list(self.mv_names)))[0]
+        pv_loc = np.where(np.isin(self.controller_model.state_data_labels, list(self.pv_names)))[0]
+        mv_loc = np.where(np.isin(self.controller_model.input_data_labels, list(self.mv_names)))[0]
         return (
             self.obj_func(
                 ts + self.curr_time,
@@ -652,7 +653,7 @@ class Controller:
 
         mhe.set_default_objective(P_x, P_v, P_p)
 
-    def mhe_2(self, mhe_horizon: int):
+    def mhe_2(self, N: int):
         # get the last few state measurements based on the estimator horizon
         sim_data = self.data_before_optim_dict[
             self.curr_time
@@ -663,76 +664,90 @@ class Controller:
         self.curr_time = self.bioreactor.curr_time
         is_in_ctrl_horizon = np.logical_and(
             sim_data["Day"] <= self.curr_time,
-            sim_data["Day"] > (self.curr_time - mhe_horizon),
+            sim_data["Day"] > (self.curr_time - N),
         )
 
         # initialize the parameters that need to be optimized into matrices
-        state_matrix = sim_data.loc[
-            is_in_ctrl_horizon, self.bioreactor.process_model.states
-        ].values.copy()
-        measure_matrix = data.loc[
-            is_in_ctrl_horizon, self.bioreactor.process_model.states
-        ].values.copy()
-        a_matrix = self.bioreactor.process_model.a_matrix.copy()
-        b_matrix = self.bioreactor.process_model.b_matrix.copy()
+        predictions = sim_data.loc[
+            is_in_ctrl_horizon, self.bioreactor.process_model.state_pred_labels
+        ].values
+        measurements = data.loc[
+            is_in_ctrl_horizon, self.bioreactor.process_model.state_data_labels
+        ].values
 
-        self.delta_p_a.append(self.bioreactor.process_model.a_matrix)
-        self.delta_p_b.append(self.bioreactor.process_model.b_matrix)
+        # self.delta_p_a.append(self.bioreactor.process_model.a_matrix)
+        # self.delta_p_b.append(self.bioreactor.process_model.b_matrix)
 
         # combine all optimization parameters into one flat matrix
-        mv_ab_matrix = np.concatenate(
-            [state_matrix.flatten(), a_matrix.flatten(), b_matrix.flatten()]
-        )
-
-        cost_mat = mv_ab_matrix.copy()
-        # matrix_len = len(state_matrix.flatten()) + len(a_matrix.flatten()) + len(b_matrix.flatten())
+        cost_matrix = self.delta_p.flatten()
 
         def cost_function(cost_matrix):
-            state_matrix_unrav = cost_matrix[: len(state_matrix.flatten())].reshape(
-                state_matrix.shape[0], state_matrix.shape[1]
-            )
 
-            a_matrix_unrav = cost_matrix[
-                len(state_matrix.flatten()) : (
-                    len(a_matrix.flatten()) + len(state_matrix.flatten())
+            state_matrix = data.loc[is_in_ctrl_horizon, self.mv_names].values
+
+            # Flatten initial mv
+            mv_array = state_matrix.flatten()
+            ctrl_horizon_where = np.where(
+                np.logical_and(
+                    self.bioreactor.data["Day"] >= self.curr_time,
+                    self.bioreactor.data["Day"] < (self.curr_time + self.ctrl_horizon),
                 )
-            ].reshape(a_matrix.shape[0], a_matrix.shape[1])
+            )[0]
 
-            b_matrix_unrav = cost_matrix[
-                (len(a_matrix.flatten()) + len(state_matrix.flatten())) :
-            ].reshape(b_matrix.shape[0], b_matrix.shape[1])
+             # Fold mv_array to a 2D array
+            state_matrix = mv_array.reshape([-1, len(self.mv_names)])
 
-            cost = np.nansum(np.square(state_matrix_unrav - measure_matrix)) + (
-                np.nansum(np.square((a_matrix_unrav - self.delta_p_a[-1])))
-                + np.nansum(np.square((b_matrix_unrav - self.delta_p_b[-1])))
+            # Retrieve input from day 0 to EoR
+            u_matrix_daily = self.bioreactor.data.loc[
+                :, self.controller_model.input_data_labels
+            ].values
+            loc_mv_in_inputs = np.where(
+                np.isin(self.controller_model.input_data_labels, self.mv_names)
+            )[0]
+            u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where, :]
+            u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = state_matrix
+            u_matrix_daily[ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon
+            u_matrix_cumulative = u_matrix_daily
+
+            ts = np.arange(
+                u_matrix_daily[self.bioreactor.data["Day"] >= self.curr_time, :].shape[0]
             )
+            _, x_out = self.controller_model.ssm_lsim(
+                initial_state=self.bioreactor.state(),
+                input_matrix=u_matrix_cumulative[
+                    self.bioreactor.data["Day"] >= self.curr_time, :
+                ],
+                time=ts,
+                delta_p=self.delta_p,
+            )
+            # we shouldnt inlcude the data as a variable in the cost function
+            # this will be dependent on P so we should only have P as the variable we can change
+            delta_p = cost_matrix[: len(self.delta_p.flatten())].reshape(
+                self.delta_p.shape[0], self.delta_p.shape[1]
+            )
+
+            # meas = cost_matrix[
+            #     len(predictions.flatten()) : (
+            #         len(measurements.flatten()) + len(predictions.flatten())
+            #     )
+            # ].reshape(measurements.shape[0], measurements.shape[1])
+
+            # delta_p = cost_matrix[
+            #     (len(measurements.flatten()) + len(predictions.flatten())) :
+            # ].reshape(self.delta_p.shape[0], self.delta_p.shape[1])
+
+            cost = np.nansum(np.square(predictions - measurements) + np.square(delta_p - 1))
 
             return cost
 
         res = optimize.minimize(
             fun=cost_function,
-            x0=cost_mat,
+            x0=cost_matrix,
             method="SLSQP",
         )
 
-        states = res.x[: len(state_matrix.flatten())].reshape(
-            state_matrix.shape[0], state_matrix.shape[1]
+        self.delta_p = res.x[: len(self.delta_p.flatten())].reshape(
+            self.delta_p.shape[0], self.delta_p.shape[1]
         )
 
-        self.bioreactor.data.loc[
-            is_in_ctrl_horizon, self.bioreactor.process_model.states
-        ] = states
-
-        self.bioreactor.process_model.a_matrix = res.x[
-            len(state_matrix.flatten()) : (
-                len(a_matrix.flatten()) + len(state_matrix.flatten())
-            )
-        ].reshape(a_matrix.shape[0], a_matrix.shape[1])
-
-        self.bioreactor.process_model.b_matrix = res.x[
-            (len(a_matrix.flatten()) + len(state_matrix.flatten())) :
-        ].reshape(b_matrix.shape[0], b_matrix.shape[1])
-
-        print(f"{self.bioreactor.vessel}, {self.curr_time}: {states}")
-        print("")
         return states

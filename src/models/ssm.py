@@ -60,6 +60,18 @@ class StateSpaceModel:
         self.d_matrix = np.zeros([len(states), len(inputs)])
         self.name = name
 
+        data_suffix = "--STATE_DATA"
+        xhat_suffix = "--STATE_EST"
+        yhat_suffix = "--STATE_PRED"
+        p_suffix = "--STATE_MOD"
+        input_suffix = "--INPUT"
+
+        self.state_data_labels = [x + data_suffix for x in self.states]
+        self.state_est_labels = [x + xhat_suffix for x in self.states]
+        self.state_pred_labels = [x + yhat_suffix for x in self.states]
+        self.state_mod_labels = [x + p_suffix for x in self.states]
+        self.input_data_labels = [x + input_suffix for x in self.inputs]
+
     def ssm_lsim(
         self, initial_state: np.ndarray, input_matrix: np.ndarray, time: np.ndarray,
         delta_p = np.array([])
