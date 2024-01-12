@@ -64,7 +64,7 @@ class StateSpaceModel:
         xhat_suffix = "--STATE_EST"
         yhat_suffix = "--STATE_PRED"
         p_suffix = "--STATE_MOD"
-        input_suffix = "--INPUT"
+        input_suffix = "--INPUT_DATA"
 
         self.state_data_labels = [x + data_suffix for x in self.states]
         self.state_est_labels = [x + xhat_suffix for x in self.states]

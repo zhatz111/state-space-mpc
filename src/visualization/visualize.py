@@ -175,9 +175,6 @@ class MPCVisualizer:
                     self.bioreactor[count].open_loop_df[
                         self.controller[count].pv_names
                     ],
-                    # self.controller[count].data_before_optim_dict[before_keys[0]][
-                    #     self.controller[count].pv_names
-                    # ],
                     "b-",
                     label="Open Loop",
                 )
@@ -193,16 +190,6 @@ class MPCVisualizer:
                     "r-",
                     label="Closed Loop MPC",
                 )
-                # ax.plot(
-                #     self.controller[count].data_after_optim_dict[before_keys[-1]][
-                #         "Day"
-                #     ],
-                #     self.controller[count].data_after_optim_dict[before_keys[-1]][
-                #         self.controller[count].pv_names
-                #     ],
-                #     "r-",
-                #     label="Closed Loop MPC",
-                # )
                 ax.title.set_text(self.bioreactor[count].vessel)
             if ax == axes.flatten()[0]:
                 ax.legend()
