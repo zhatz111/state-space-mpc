@@ -580,80 +580,7 @@ class Controller:
         x3_cost = np.sum(np.multiply(np.sum(np.square(x3_diff), axis=0), self.pv_wts))
         return u3_cost + x3_cost
 
-    def mhe(self):
-        """_summary_"""
-        model = do_mpc.model.Model("continuous")
-
-        # Define state variable
-        x = model.set_variable(
-            var_type="_x",
-            var_name="x",
-            shape=(
-                self.bioreactor.process_model.a_matrix.shape[0],
-                1,
-            ),
-        )
-
-        # Define input variable
-        u = model.set_variable(
-            var_type="_u",
-            var_name="u",
-            shape=(
-                self.bioreactor.process_model.b_matrix.shape[1],
-                1,
-            ),
-        )
-
-        # Define the parameters
-        A = model.set_variable(
-            var_type="_p",
-            var_name="A",
-            shape=(
-                self.bioreactor.process_model.a_matrix.shape[0],
-                self.bioreactor.process_model.a_matrix.shape[1],
-            ),
-        )
-        B = model.set_variable(
-            var_type="_p",
-            var_name="B",
-            shape=(
-                self.bioreactor.process_model.b_matrix.shape[0],
-                self.bioreactor.process_model.b_matrix.shape[1],
-            ),
-        )
-
-        # C = np.identity(self.bioreactor.process_model.a_matrix.shape[0])
-        # D = np.zeros([self.bioreactor.process_model.a_matrix.shape[0], self.bioreactor.process_model.b_matrix.shape[1]])
-
-        # Define the system equations
-        dx_dt = np.dot(A, x) + np.dot(B, u)
-        # dy_dt = np.dot(C, x)
-
-        # Setup the model equations
-        model.set_rhs(
-            "x", dx_dt, process_noise=False
-        )  # may want to change process noise to true if it will help simulation
-        model.setup()
-
-        mhe = do_mpc.estimator.MHE(model, ["A", "B"])
-
-        setup_mhe = {
-            "n_horizon": self.ctrl_horizon,
-            "t_step": 1.0,
-            # Define the objective function here
-            "store_full_solution": True,
-        }
-
-        mhe.set_param(**setup_mhe)
-
-        # Define the objective function for the estimator
-        P_v = np.diag(np.array([1, 1, 1]))
-        P_x = np.eye(8)
-        P_p = 10 * np.eye(1)
-
-        mhe.set_default_objective(P_x, P_v, P_p)
-
-    def mhe_2(self, N: int):
+    def estimator(self, N: int):
         # get the last few state measurements based on the estimator horizon
         sim_data = self.data_before_optim_dict[
             self.curr_time
@@ -749,5 +676,3 @@ class Controller:
         self.delta_p = res.x[: len(self.delta_p.flatten())].reshape(
             self.delta_p.shape[0], self.delta_p.shape[1]
         )
-
-        return states

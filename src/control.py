@@ -138,7 +138,6 @@ contains_PV = reference_data.columns.str.contains("state--sp",case=False)
 contains_MV = reference_data.columns.str.contains("input--ref", case=False)
 
 # Construct a controller object
-
 PRED_HORIZON = 30
 CTRL_HORIZON = 3
 CURR_TIME = 0
@@ -235,7 +234,7 @@ DOE_dict = {}
 for bioreactor, controller in zip(sim_bioreactors, controllers):
     for i in range(len(ts) - 1):
         controller.optimize(open_loop=False)
-        controller.mhe_2(3)
+        controller.estimator(3)
         bioreactor.next_day()
     # DOE_dict[bioreactor.vessel] = bioreactor.return_data()
 
