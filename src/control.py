@@ -10,6 +10,7 @@
 # Standard Library Imports
 import warnings
 from pathlib import Path
+from datetime import datetime
 
 # 3rd Party Library Imports
 import joblib
@@ -22,6 +23,8 @@ from visualization.visualize import MPCVisualizer
 from models.ssm import StateSpaceModel
 
 warnings.filterwarnings("ignore")
+
+todays_date = datetime.today().strftime('%Y-%m-%d')
 
 # Load an example dataset
 SIM_FOLDER = "mpc-simulation"
@@ -131,10 +134,12 @@ simulation_model = StateSpaceModel(
 )
 
 # Construct a bioreactor object
-bioreactor = Bioreactor(vessel="BR1-MPC", process_model=simulation_model, data=reference_data)
+bioreactor = Bioreactor(
+    vessel="BR1-MPC", process_model=simulation_model, data=reference_data
+)
 
 # Parse the PV and MV names from the reference data csv file
-contains_PV = reference_data.columns.str.contains("state_sp",case=False)
+contains_PV = reference_data.columns.str.contains("state_sp", case=False)
 contains_MV = reference_data.columns.str.contains("input_ref", case=False)
 
 # Construct a controller object
@@ -170,7 +175,7 @@ controller = Controller(
     pred_horizon=PRED_HORIZON,
     ctrl_horizon=CTRL_HORIZON,
     constr=MV_BOUNDS,
-    delta_p=np.ones((1,len(STATES)))
+    delta_p=np.ones((1, len(STATES))),
 )
 
 # Simulate a DoE to Determine what factors to test in-silico
@@ -212,14 +217,13 @@ controllers = [
         pred_horizon=PRED_HORIZON,
         ctrl_horizon=CTRL_HORIZON,
         constr=MV_BOUNDS,
-        delta_p=controller.delta_p
+        delta_p=controller.delta_p,
     )
     for count, _ in enumerate(sim_bioreactors)
 ]
 
 # Change bioreactor data based on DoE setpoints
 for count, bioreactor in enumerate(sim_bioreactors):
-
     # Change day 0's iVCC setpoints
     bioreactor.data["VCC--STATE_DATA"].iloc[0] = DOE_FACTOR_LEVELS[count][0]
 
@@ -242,7 +246,9 @@ for bioreactor, controller in zip(sim_bioreactors, controllers):
         controller.estimator(3)
         bioreactor.next_day()
     DOE_dict[bioreactor.vessel] = bioreactor.return_data()
-    bioreactor.return_data().to_csv(simulation_path / "daily_control_files" / f"20240112_{bioreactor.vessel}.csv")
+    bioreactor.return_data().to_csv(
+        simulation_path / "daily_control_files" / f"{todays_date}_{bioreactor.vessel}.csv"
+    )
 
 # Plot the in-silico Simulations
 br_plots = MPCVisualizer(sim_bioreactors, controllers)
