@@ -10,6 +10,7 @@
 # Standard Library Imports
 import warnings
 from pathlib import Path
+from datetime import datetime
 
 # 3rd Party Library Imports
 import joblib
@@ -23,14 +24,16 @@ from models.ssm import StateSpaceModel
 
 warnings.filterwarnings("ignore")
 
+todays_date = datetime.today().strftime('%Y-%m-%d')
+
 # Load an example dataset
 SIM_FOLDER = "mpc-simulation"
-SIM_REFERENCE_DATA = "control_data"
+SIM_REFERENCE_DATA = "control_data_template"
 
 simulation_path = Path(
     "~/GSK/Biopharm Model Predictive Control - General/data/", SIM_FOLDER
 )
-reference_data = pd.read_csv(Path(simulation_path, rf"{SIM_REFERENCE_DATA}.csv"))
+reference_data = pd.read_csv(Path(simulation_path, f"{SIM_REFERENCE_DATA}.csv"))
 
 # Create output folder
 batch_sheet_path = Path(simulation_path.expanduser(), SIM_REFERENCE_DATA)
@@ -40,21 +43,29 @@ batch_sheet_path.mkdir(parents=True, exist_ok=True)
 CONTROL_MATRIX_FOLDER_EXT = "Control_Model_Matrices"
 SIM_MATRIX_FOLDER_EXT = "Sim_Model_Matrices"
 
-STATES = [
-    "IGG",
-    "VCC",
-    "Viability",
-    "Lactate",
-    "Osmo",
-    "pCO2_at_Temp",
-]
+# Parse the states from the reference data csv file
+contains_state_data = reference_data.columns.str.contains("--STATE_DATA")
+contains_input = reference_data.columns.str.contains("--INPUT_DATA")
 
-INPUTS = [
-    "Cumulative_Normalized_Feed",
-    "Temperature",
-    "pH_setpoint",
-    "DO",
-]
+# store the states and inputs as a list
+STATES = [x.split("--")[0] for x in reference_data.columns[contains_state_data]]
+INPUTS = [x.split("--")[0] for x in reference_data.columns[contains_input]]
+
+# STATES = [
+#     "IGG",
+#     "VCC",
+#     "Viability",
+#     "Lactate",
+#     "Osmo",
+#     "pCO2_at_Temp",
+# ]
+
+# INPUTS = [
+#     "Cumulative_Normalized_Feed",
+#     "Temperature",
+#     "pH_setpoint",
+#     "DO",
+# ]
 
 # Controller Matrices: Import matrices and scaler (worse model)
 controller_model_scaler = joblib.load(
@@ -113,7 +124,7 @@ controller_model = StateSpaceModel(
     b_matrix=control_B_matrix,
 )
 
-# Create a state space model for sim
+# Create a state space model for simulation
 simulation_model = StateSpaceModel(
     states=STATES,
     inputs=INPUTS,
@@ -123,21 +134,35 @@ simulation_model = StateSpaceModel(
 )
 
 # Construct a bioreactor object
-bioreactor = Bioreactor(vessel="BR1-MPC", process_model=simulation_model, data=reference_data)
+bioreactor = Bioreactor(
+    vessel="BR1-MPC", process_model=simulation_model, data=reference_data
+)
+
+# Parse the PV and MV names from the reference data csv file
+contains_PV = reference_data.columns.str.contains("state_sp", case=False)
+contains_MV = reference_data.columns.str.contains("input_ref", case=False)
 
 # Construct a controller object
 PRED_HORIZON = 30
 CTRL_HORIZON = 3
 CURR_TIME = 0
 ts = np.array(reference_data["Day"])
-PV_NAMES = ["IGG"]
+
+# Define the PV and MV names using the parsing from csv file
+PV_NAMES = [x.split("--")[0] for x in reference_data.columns[contains_PV]]
+MV_NAMES = [x.split("--")[0] for x in reference_data.columns[contains_MV]]
+
 PV_WTS = np.array([1 / (1000) ** 2])
-pv_sps = reference_data[PV_NAMES].values
-MV_NAMES = ["Cumulative_Normalized_Feed"]
+EST_WTS = np.array([2.59074E-07, 0.078638189, 0.033750463, 2.614604943, 0.006617413, 0.018507072])
+
 MV_WTS = np.array([1 / (0.01) ** 2])
 MV_BOUNDS = np.array([[0, 0.1]])  # feed
 
-mv_matrix = reference_data[MV_NAMES].values
+# Define the suffix after each MV name and index the matrix with these names
+PV_SUFFIX = "--STATE_SP"
+MV_SUFFIX = "--INPUT_REF"
+pv_sps = reference_data[[mv + PV_SUFFIX for mv in PV_NAMES]].values
+mv_matrix = reference_data[[mv + MV_SUFFIX for mv in MV_NAMES]].values
 
 controller = Controller(
     controller_model=controller_model,
@@ -151,6 +176,8 @@ controller = Controller(
     pred_horizon=PRED_HORIZON,
     ctrl_horizon=CTRL_HORIZON,
     constr=MV_BOUNDS,
+    delta_p=np.ones((1, len(STATES))),
+    est_wts=EST_WTS,
 )
 
 # Simulate a DoE to Determine what factors to test in-silico
@@ -192,36 +219,44 @@ controllers = [
         pred_horizon=PRED_HORIZON,
         ctrl_horizon=CTRL_HORIZON,
         constr=MV_BOUNDS,
+        delta_p=controller.delta_p,
+        est_wts=EST_WTS,
     )
     for count, _ in enumerate(sim_bioreactors)
 ]
 
 # Change bioreactor data based on DoE setpoints
 for count, bioreactor in enumerate(sim_bioreactors):
-    # bioreactor.data["pH_setpoint"].iloc[3:] = DOE_setpoints[count][0]
-    # bioreactor.data["Temperature"].iloc[3:] = DOE_setpoints[count][1]
-
     # Change day 0's iVCC setpoints
-    bioreactor.data["VCC"].iloc[0] = DOE_FACTOR_LEVELS[count][0]
+    bioreactor.data["VCC--STATE_DATA"].iloc[0] = DOE_FACTOR_LEVELS[count][0]
 
     # Change day 3's pH and Temp setpoints
-    bioreactor.data["pH_setpoint"].iloc[3] = DOE_FACTOR_LEVELS[count][1]
-    bioreactor.data["Temperature"].iloc[3] = DOE_FACTOR_LEVELS[count][2]
+    bioreactor.data["PH_SETPOINT--INPUT_DATA"].iloc[3] = DOE_FACTOR_LEVELS[count][1]
+    bioreactor.data["TEMPERATURE--INPUT_DATA"].iloc[3] = DOE_FACTOR_LEVELS[count][2]
 
     # Change day 9's pH and Temp setpoints
-    bioreactor.data["pH_setpoint"].iloc[9] = DOE_FACTOR_LEVELS[count][1]
-    bioreactor.data["Temperature"].iloc[9] = DOE_FACTOR_LEVELS[count][2]
+    bioreactor.data["PH_SETPOINT--INPUT_DATA"].iloc[9] = DOE_FACTOR_LEVELS[count][1]
+    bioreactor.data["TEMPERATURE--INPUT_DATA"].iloc[9] = DOE_FACTOR_LEVELS[count][2]
 
     # Open loop simulation
     _, bioreactor.open_loop_df = bioreactor.sim_from_curr_day()
 
 # Simulate all the bioreactors and each controller and get a dictionary output
 DOE_dict = {}
+CURR_DAY = 3
+
 for bioreactor, controller in zip(sim_bioreactors, controllers):
-    for i in range(len(ts) - 1):
-        controller.optimize(open_loop=False)
-        bioreactor.next_day()
+    controller.curr_time = CURR_DAY
+    bioreactor.curr_time = CURR_DAY
+    controller.estimator(3)
+    controller.curr_time = CURR_DAY + 1
+    bioreactor.curr_time = CURR_DAY + 1
+    controller.optimize(open_loop=False)
+    # bioreactor.next_day()
     DOE_dict[bioreactor.vessel] = bioreactor.return_data()
+    bioreactor.return_data().to_csv(
+        simulation_path / "daily_control_files" / f"{todays_date}_{bioreactor.vessel}.csv"
+    )
 
 # Plot the in-silico Simulations
 br_plots = MPCVisualizer(sim_bioreactors, controllers)

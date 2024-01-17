@@ -271,7 +271,7 @@ class Bioreactor:
 
 class Controller:
     """
-    The `Controller` class represents a controller object that is used to control a 
+    The `Controller` class represents a controller object that is used to control a
     bioreactor system by optimizing the manipulated variables based on setpoints and weights.
     """
 
@@ -289,6 +289,7 @@ class Controller:
         ctrl_horizon: int,
         constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
         delta_p: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE
+        est_wts: np.ndarray,
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters
@@ -339,6 +340,7 @@ class Controller:
         self.pv_sps = pv_sps
 
         self.pv_wts = pv_wts
+        self.est_wts = est_wts
 
         self.mv_wts = mv_wts
         self.pred_horizon = pred_horizon
@@ -565,7 +567,7 @@ class Controller:
         # measurements that will be input into the excel sheet. Not sure if this is correct based on
         # how the measurements will be input into the sheet.
 
-        print(f"{self.bioreactor.vessel}: Estimating Day {self.curr_time} State...")
+        print(f"{self.bioreactor.vessel}: Estimating Day {self.curr_time + 1} State...")
         # store the bioreactor data
         data = self.bioreactor.data
         # ensure curr_time is set to the time of the bioreactor
@@ -622,8 +624,16 @@ class Controller:
                 ].shape[0]
             )
 
+            if self.curr_time - N < 0:
+                start_of_horizon = 0
+            else:
+                start_of_horizon = self.curr_time - N
+
             x_out, y_out = self.controller_model.ssm_lsim(
-                initial_state=self.bioreactor.state(),
+                initial_state=data.loc[
+                    data["Day"] == start_of_horizon,
+                    self.bioreactor.process_model.state_est_labels,
+                ].values[0],
                 input_matrix=u_matrix_daily[
                     self.bioreactor.data["Day"] >= self.curr_time - N, :
                 ],
@@ -660,7 +670,7 @@ class Controller:
 
             # Cost function
             cost = np.nansum(
-                np.square(predictions - measurements)
+                np.multiply(np.square(predictions - measurements), self.est_wts)
                 + np.square(delta_p - 1)
                 + np.sum(
                     np.square(
