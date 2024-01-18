@@ -7,6 +7,12 @@ The main reasons for starting this project are:
 - Prediciting future cell dynamics based on previous data
 - Generating process knowledge for future experimentation
 
+## Changelog
+
+- 2024-01-18
+  - estimation.py: specify CURR_TIME and VESSEL in the beginning of the code; use the master sheet's file name as output folder's name; only use the correct vessel/bioreactor in the reference data; same model for bioreactor and controller; added verification checks to compare weights and pvs/mvs lengths; user can specify and override the mod values; follow the estimate, next_day, optimize, return_data order
+  - ssm.py: renamed delta_p as output_mods 
+  - mpc_optimizer.py: added a boolean to return either total or daily feed in return_data(); removed log_sample(); use data as estimated state on Day 0 in state(); separated x and y in sim outputs; corrected a few cases where STATE_DATA was used instead of STATE_EST or STATE_PRED; added est_horizon as a controller attribute; in estimate(), use existing estimated state without re-running simulation; fixed an error where cost was calculated incorrectly (arrays were added instead of appended)
 
 ## Table of Contents
 
