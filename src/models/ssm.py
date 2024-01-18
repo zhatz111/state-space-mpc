@@ -74,7 +74,7 @@ class StateSpaceModel:
 
     def ssm_lsim(
         self, initial_state: np.ndarray, input_matrix: np.ndarray, time: np.ndarray,
-        delta_p = np.array([])
+        output_mods = np.array([])
     ):
         """
         Created by ZH (zach.a.hatzenbeller@gsk.com)
@@ -112,8 +112,8 @@ class StateSpaceModel:
             )
 
         # Default vector of ones
-        if delta_p.size == 0:
-            delta_p = np.ones((1,len(self.states)))
+        if output_mods.size == 0:
+            output_mods = np.ones((1,len(self.states)))
 
         # Check if U is 1d or 2d and reshape accordingly
         if input_matrix.ndim == 1:
@@ -160,7 +160,7 @@ class StateSpaceModel:
         ]
 
         # Modify measurement based on the correction factor delta_p (diagonal of the C matrix)
-        delta_p_matrix = np.tile(delta_p,(x_hat.shape[0],1))
-        y_hat = np.multiply(x_hat,delta_p_matrix)
+        # delta_p_matrix = np.tile(output_mods,(x_hat.shape[0],1))
+        y_hat = np.multiply(x_hat,output_mods)
 
         return x_hat,y_hat
