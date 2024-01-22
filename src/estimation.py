@@ -160,6 +160,8 @@ if len(PV_WTS) != len(pv_names):
     raise ValueError("Wrong PV weights dimension!")
 if len(MV_WTS) != len(mv_names):
     raise ValueError("Wrong PV weights dimension!")
+if [x.upper() for x in sim_model_scaler.get_feature_names_out()] != STATES + INPUTS:
+    raise ValueError("Model and CSV do not match!")
 
 controller = Controller(
     controller_model=controller_model,
