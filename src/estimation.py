@@ -48,7 +48,7 @@ batch_sheet_path.mkdir(parents=True, exist_ok=True)
 SIM_MATRIX_FOLDER_EXT = "Sim_Model_Matrices"
 
 # Parse the states from the reference data csv file
-reference_data_this_vessel = reference_data_all.loc[reference_data_all["Bioreactor"] == VESSEL,]
+reference_data_this_vessel = reference_data_all.loc[reference_data_all["Bioreactor"] == VESSEL, :]
 contains_state_data = reference_data_this_vessel.columns.str.contains("--STATE_DATA")
 contains_input = reference_data_this_vessel.columns.str.contains("--INPUT_DATA")
 
@@ -124,7 +124,7 @@ simulation_model = StateSpaceModel(
 
 # Construct a bioreactor object
 bioreactor = Bioreactor(
-    vessel=VESSEL, process_model=simulation_model, data=reference_data_this_vessel
+    vessel=str(VESSEL), process_model=simulation_model, data=reference_data_this_vessel
 )
 
 # Parse the PV and MV names from the reference data csv file

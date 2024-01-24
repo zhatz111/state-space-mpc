@@ -146,7 +146,7 @@ class Bioreactor:
         print(data)
         print("")
 
-    def return_data(self,show_daily_feed:bool):
+    def return_data(self, show_daily_feed: bool):
         """
         The function `return_data` returns the dataset for a bioreactor, with accurate column names.
         """
@@ -161,7 +161,7 @@ class Bioreactor:
                 )
             else:
                 feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]
-                feed_total = np.append(0,np.cumsum(feed_daily[0:-1]))
+                feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
                 data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = feed_total
         else:
             data = self.data
@@ -210,13 +210,13 @@ class Bioreactor:
     def state(self):
         if self.curr_time == 0:
             state_labels = self.process_model.state_data_labels
-            self.data.loc[self.data["Day"] == 0, self.process_model.state_est_labels] = self.data.loc[self.data["Day"] == 0, state_labels].values
+            self.data.loc[
+                self.data["Day"] == 0, self.process_model.state_est_labels
+            ] = self.data.loc[self.data["Day"] == 0, state_labels].values
         else:
             state_labels = self.process_model.state_est_labels
-        
-        return self.data.loc[
-            self.data["Day"] == self.curr_time, state_labels
-        ].values[0]
+
+        return self.data.loc[self.data["Day"] == self.curr_time, state_labels].values[0]
 
     def sim_from_curr_day(self):
         # Get all inputs with daily feed
@@ -273,7 +273,7 @@ class Bioreactor:
         """
 
         # Simulate from the current date
-        x_out,_,_,_ = self.sim_from_curr_day()
+        x_out, _, _, _ = self.sim_from_curr_day()
 
         # Update estimated state for next day (YL@2024-01-18)
         self.curr_time = self.curr_time + 1
@@ -374,8 +374,8 @@ class Controller:
         self.ctrl_horizon = ctrl_horizon
         self.constr = constr
 
-        self.output_mods_est = np.array([]) # p estimated from data
-        self.output_mods_user = output_mods_user # p specified by user
+        self.output_mods_est = np.array([])  # p estimated from data
+        self.output_mods_user = output_mods_user  # p specified by user
         # self.delta_p_a = []
         # self.delta_p_b = []
         self.est_horizon = est_horizon
@@ -470,7 +470,11 @@ class Controller:
         data.loc[is_in_ctrl_horizon, self.mv_names] = control_matrix_star
 
         # Update the dataset with new predictions
-        data.loc[is_in_pred_horizon, self.controller_model.state_pred_labels] = data_after_optim.loc[is_in_pred_horizon, self.controller_model.state_pred_labels]
+        data.loc[
+            is_in_pred_horizon, self.controller_model.state_pred_labels
+        ] = data_after_optim.loc[
+            is_in_pred_horizon, self.controller_model.state_pred_labels
+        ]
 
     def obj_func_wrapper(self, mv_array):
         """
@@ -608,18 +612,24 @@ class Controller:
 
         # Point to the bioreactor data
         data = self.bioreactor.data
-        
+
         # ensure curr_time is set to the time of the bioreactor
         self.curr_time = self.bioreactor.curr_time
-        print(f"{self.bioreactor.vessel}: Estimating Day {self.curr_time}'s output modifiers ...")
-        
-        
+        print(
+            f"{self.bioreactor.vessel}: Estimating Day {self.curr_time}'s output modifiers ..."
+        )
+
         # Use the previous output_mods if available
         if self.output_mods_user.size == 0:
             if self.curr_time == 0:
-                self.output_mods_est = np.ones((1,len(self.controller_model.state_mod_labels)))
+                self.output_mods_est = np.ones(
+                    (1, len(self.controller_model.state_mod_labels))
+                )
             else:
-                self.output_mods_est = self.bioreactor.data.loc[self.bioreactor.data["Day"] == self.curr_time - 1,self.controller_model.state_mod_labels].values
+                self.output_mods_est = self.bioreactor.data.loc[
+                    self.bioreactor.data["Day"] == self.curr_time - 1,
+                    self.controller_model.state_mod_labels,
+                ].values
         else:
             self.output_mods_est = self.output_mods_user
 
@@ -633,11 +643,13 @@ class Controller:
         )
 
         def est_obj_func(p_array):
-            
             # Apply the output modifiers to the stored states
-            predictions = np.multiply(data.loc[
-                is_in_est_horizon, self.bioreactor.process_model.state_est_labels
-            ].values,p_array)
+            predictions = np.multiply(
+                data.loc[
+                    is_in_est_horizon, self.bioreactor.process_model.state_est_labels
+                ].values,
+                p_array,
+            )
 
             # Retrieve measurements
             measurements = data.loc[
@@ -736,8 +748,13 @@ class Controller:
             #         )
             #     )
             # )
-            cost = np.nansum(np.multiply(np.square(predictions - measurements), self.est_wts)) 
-            + np.nansum(np.square(p_array - 1)) + np.nansum(np.square(p_array - self.output_mods_est))
+            cost = (
+                np.nansum(
+                    np.multiply(np.square(predictions - measurements), self.est_wts)
+                )
+                + np.nansum(np.square(p_array - 1))
+                + np.nansum(np.square(p_array - self.output_mods_est))
+            )
 
             return cost
 
@@ -748,8 +765,8 @@ class Controller:
         )
 
         # Unravel final delta_p matrix back to correct shape
-        self.output_mods_est = res.x #[: len(self.output_mods.flatten())].reshape(
-            # self.output_mods.shape[0], self.output_mods.shape[1]
+        self.output_mods_est = res.x  # [: len(self.output_mods.flatten())].reshape(
+        # self.output_mods.shape[0], self.output_mods.shape[1]
         # )
 
         # Store the new delta_p matrix into the dataframe
