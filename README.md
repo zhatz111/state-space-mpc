@@ -9,6 +9,9 @@ The main reasons for starting this project are:
 
 ## Changelog
 
+- 2024-01-24
+  - estimation.py: adjusted the weights on estimated states 
+  - mpc_optimizer.py: state() now has an optional argument to retrieve the state on a specific day; sim_from_day() simulates future state trajectory from a specific day or from the current day if the optional argument is not provided; new attribute filter_wt_on_data for Controller to put a weight on measurement and 1 - weight on model predicted states; added an extra step to filter states based on data before estimating the output modifiers; added a column-wise average before sum to account for missing data
 - 2024-01-18
   - estimation.py: specify CURR_TIME and VESSEL in the beginning of the code; use the master sheet's file name as output folder's name; only use the correct vessel/bioreactor in the reference data; same model for bioreactor and controller; added verification checks to compare weights and pvs/mvs lengths; user can specify and override the mod values; follow the estimate, next_day, optimize, return_data order
   - ssm.py: renamed delta_p as output_mods 

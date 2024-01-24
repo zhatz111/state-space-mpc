@@ -207,8 +207,14 @@ class Bioreactor:
                 self.data["Day"] == input_days[i], input_var_names
             ] = input_var_vals[i, :]
 
-    def state(self):
-        if self.curr_time == 0:
+    def state(self,day = -1):
+
+        if day >= 0:
+            curr_time = day
+        else:
+            curr_time = self.curr_time
+
+        if curr_time == 0:
             state_labels = self.process_model.state_data_labels
             self.data.loc[
                 self.data["Day"] == 0, self.process_model.state_est_labels
@@ -219,9 +225,22 @@ class Bioreactor:
         else:
             state_labels = self.process_model.state_est_labels
 
-        return self.data.loc[self.data["Day"] == self.curr_time, state_labels].values[0]
+        return self.data.loc[self.data["Day"] == curr_time, state_labels].values[0]
 
-    def sim_from_curr_day(self):
+    def sim_from_day(self,day=-1,initial_state = np.array([])):
+
+        # If not from current day
+        if day >= 0:
+            curr_time = day
+        else:
+            curr_time = self.curr_time
+
+        # Initial state
+        if initial_state.size == 0:
+            x0 = self.state(curr_time)
+        else:
+            x0 = initial_state
+
         # Get all inputs with daily feed
         u_matrix_daily = self.data.loc[:, self.process_model.input_data_labels].values
 
@@ -231,14 +250,14 @@ class Bioreactor:
         )
 
         # Filter future inputs
-        u_matrix_cumulative = u_matrix_cumulative[self.data["Day"] >= self.curr_time, :]
+        u_matrix_cumulative = u_matrix_cumulative[self.data["Day"] >= curr_time, :]
 
         # Get time array
         ts = np.arange(u_matrix_cumulative.shape[0])
 
         # Solve
         x_out, y_out = self.process_model.ssm_lsim(
-            initial_state=self.state(),
+            initial_state=x0, # self.state(curr_time),
             input_matrix=u_matrix_cumulative,
             time=ts,
             # delta_p=self.data.loc[
@@ -248,15 +267,15 @@ class Bioreactor:
 
         # Create a DF for the predicted states
         x_out_df = pd.DataFrame(x_out, columns=self.process_model.state_est_labels)
-        x_out_df.insert(0, "Day", ts + self.curr_time)
+        x_out_df.insert(0, "Day", ts + curr_time)
 
         # Create a DF for the predicted outputs
         y_out_df = pd.DataFrame(x_out, columns=self.process_model.state_pred_labels)
-        y_out_df.insert(0, "Day", ts + self.curr_time)
+        y_out_df.insert(0, "Day", ts + curr_time)
 
         # Check if the simulation starts from the current state
         if (
-            max(abs(self.state() - x_out[0])) > 1e-10
+            max(abs(x0 - x_out[0])) > 1e-10
         ):  # ~np.all(self.state == x_out[0]):
             raise ValueError("Simulation did not start from the current state!")
 
@@ -276,7 +295,7 @@ class Bioreactor:
         """
 
         # Simulate from the current date
-        x_out, _, _, _ = self.sim_from_curr_day()
+        x_out, _, _, _ = self.sim_from_day()
 
         # Update estimated state for next day (YL@2024-01-18)
         self.curr_time = self.curr_time + 1
@@ -318,6 +337,7 @@ class Controller:
         ctrl_horizon: int,
         constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
         output_mods_user: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE (user specified)
+        filter_wt_on_data: float, # wt on measurement and 1-wt on model predictions
         est_wts: np.ndarray,
         est_horizon: int,
     ):
@@ -371,6 +391,7 @@ class Controller:
 
         self.pv_wts = pv_wts
         self.est_wts = est_wts
+        self.filter_wt_on_data = filter_wt_on_data
 
         self.mv_wts = mv_wts
         self.pred_horizon = pred_horizon
@@ -622,6 +643,58 @@ class Controller:
             f"{self.bioreactor.vessel}: Estimating Day {self.curr_time}'s output modifiers ..."
         )
 
+        # select days in the MHE horizon
+        is_in_est_horizon = np.logical_and(
+            data["Day"] <= self.curr_time,
+            data["Day"] > (self.curr_time - N),
+        )
+
+        def est_x_obj_func(x):
+            # Retrieve measurements
+            measurements = data.loc[
+                is_in_est_horizon, self.bioreactor.process_model.state_data_labels
+                ].values
+
+            previous_estimates = data.loc[
+                is_in_est_horizon, self.bioreactor.process_model.state_est_labels
+                ].values
+
+
+            # Simulate
+            x_out, _, _, _ = self.bioreactor.sim_from_day(day=t0,initial_state=x)
+
+            # Estimates
+            new_estimates = x_out[0:sum(is_in_est_horizon),]
+
+            cost = (
+                np.nansum(
+                    np.nanmean(
+                        np.multiply(np.square(new_estimates - measurements), self.est_wts),
+                    axis=0)
+                )*self.filter_wt_on_data +
+                np.nansum(
+                    np.nanmean(
+                        np.multiply(np.square(new_estimates - previous_estimates), self.est_wts),
+                    axis=0)
+                )*(1 - self.filter_wt_on_data)
+            )
+
+            return cost            
+
+
+        # Re-estimate the initial state of the horizon
+        t0 = data.loc[is_in_est_horizon,"Day"].values[0]
+        x0 = self.bioreactor.state(t0)
+        res1 = optimize.minimize(
+            fun=est_x_obj_func,
+            x0=x0,
+            method="SLSQP",
+        )
+        x_star = res1.x
+        x_out, _, _, _ = self.bioreactor.sim_from_day(day=t0,initial_state=x_star)
+        new_estimates = x_out[0:sum(is_in_est_horizon),]
+        data.loc[is_in_est_horizon, self.bioreactor.process_model.state_est_labels] = new_estimates
+
         # Use the previous output_mods if available
         if self.output_mods_user.size == 0:
             if self.curr_time == 0:
@@ -636,16 +709,7 @@ class Controller:
         else:
             self.output_mods_est = self.output_mods_user
 
-        # flatten the optimization parameters
-        p_array0 = self.output_mods_est.flatten()
-
-        # select days in the MHE horizon
-        is_in_est_horizon = np.logical_and(
-            data["Day"] <= self.curr_time,
-            data["Day"] > (self.curr_time - N),
-        )
-
-        def est_obj_func(p_array):
+        def est_mod_obj_func(p_array):
             # Apply the output modifiers to the stored states
             predictions = np.multiply(
                 data.loc[
@@ -658,6 +722,47 @@ class Controller:
             measurements = data.loc[
                 is_in_est_horizon, self.bioreactor.process_model.state_data_labels
             ].values
+
+            cost = (
+                np.nansum(
+                    np.nanmean(
+                        np.multiply(np.square(predictions - measurements), self.est_wts),
+                    axis=0)
+                )
+                + np.nansum(np.square(p_array - 1))
+                + np.nansum(np.square(p_array - self.output_mods_est))
+            )
+
+            return cost
+
+        # flatten the optimization parameters
+        p_array0 = self.output_mods_est.flatten()
+
+        res2 = optimize.minimize(
+            fun=est_mod_obj_func,
+            x0=p_array0,
+            method="SLSQP",
+        )
+
+        # Unravel final delta_p matrix back to correct shape
+        self.output_mods_est = res2.x  # [: len(self.output_mods.flatten())].reshape(
+        # self.output_mods.shape[0], self.output_mods.shape[1]
+        # )
+
+        # Store the new delta_p matrix into the dataframe
+        data.loc[
+            data["Day"] == self.curr_time,
+            self.bioreactor.process_model.state_mod_labels,
+        ] = self.output_mods_est        
+
+
+
+
+
+
+
+
+        
 
             # # create a matrix with values in control horizon
             # control_matrix = data.loc[is_in_est_horizon, self.mv_names].values
@@ -750,30 +855,4 @@ class Controller:
             #             # )
             #         )
             #     )
-            # )
-            cost = (
-                np.nansum(
-                    np.multiply(np.square(predictions - measurements), self.est_wts)
-                )
-                + np.nansum(np.square(p_array - 1))
-                + np.nansum(np.square(p_array - self.output_mods_est))
-            )
-
-            return cost
-
-        res = optimize.minimize(
-            fun=est_obj_func,
-            x0=p_array0,
-            method="SLSQP",
-        )
-
-        # Unravel final delta_p matrix back to correct shape
-        self.output_mods_est = res.x  # [: len(self.output_mods.flatten())].reshape(
-        # self.output_mods.shape[0], self.output_mods.shape[1]
-        # )
-
-        # Store the new delta_p matrix into the dataframe
-        data.loc[
-            data["Day"] == self.curr_time,
-            self.bioreactor.process_model.state_mod_labels,
-        ] = self.output_mods_est
+            # )        

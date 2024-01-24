@@ -213,7 +213,7 @@ for count, bioreactor in enumerate(sim_bioreactors):
     bioreactor.data["Temperature"].iloc[9] = DOE_FACTOR_LEVELS[count][2]
 
     # Open loop simulation
-    _, bioreactor.open_loop_df = bioreactor.sim_from_curr_day()
+    _, bioreactor.open_loop_df = bioreactor.sim_from_day()
 
 # Simulate all the bioreactors and each controller and get a dictionary output
 DOE_dict = {}
