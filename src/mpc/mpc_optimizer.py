@@ -211,6 +211,7 @@ class Bioreactor:
         if self.curr_time == 0:
             state_labels = self.process_model.state_data_labels
             self.data.loc[self.data["Day"] == 0, self.process_model.state_est_labels] = self.data.loc[self.data["Day"] == 0, state_labels].values
+            self.data.loc[self.data["Day"] == 0, self.process_model.state_pred_labels] = self.data.loc[self.data["Day"] == 0, state_labels].values
         else:
             state_labels = self.process_model.state_est_labels
         

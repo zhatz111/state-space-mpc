@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore")
 todays_date = datetime.today().strftime('%Y-%m-%d')
 
 # Specify the current time and vessel
-CURR_TIME = 2
+CURR_TIME = 0
 VESSEL = 1
 
 # Load an example read-only "master" sheet
@@ -189,10 +189,10 @@ bioreactor.next_day() # Update bioreactor.data>STATE_EST (curr day + 1)
 controller.optimize(open_loop=False) # Update bioreactor.data>STATE_PRED (curr day + 1:end of pred horizon)
 
 bioreactor.return_data(show_daily_feed=True).to_csv(
-    batch_sheet_path / f"{bioreactor.vessel}_daily_feed_D{CURR_TIME}-{todays_date}.csv"
+    batch_sheet_path / f"BR{bioreactor.vessel:02d}_daily_feed_D{CURR_TIME}-{todays_date}.csv"
 )
 bioreactor.return_data(show_daily_feed=False).to_csv(
-    batch_sheet_path / f"{bioreactor.vessel}_total_feed_D{CURR_TIME}-{todays_date}.csv"
+    batch_sheet_path / f"BR{bioreactor.vessel:02d}_total_feed_D{CURR_TIME}-{todays_date}.csv"
 )
 
 # # Plot the in-silico Simulations
