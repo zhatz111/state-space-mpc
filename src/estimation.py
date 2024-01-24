@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore")
 todays_date = datetime.today().strftime('%Y-%m-%d')
 
 # Specify the current time and vessel
-CURR_TIME = 0
+CURR_TIME = 2
 VESSEL = 1
 
 # Load an example read-only "master" sheet
@@ -124,7 +124,7 @@ simulation_model = StateSpaceModel(
 
 # Construct a bioreactor object
 bioreactor = Bioreactor(
-    vessel=str(VESSEL), process_model=simulation_model, data=reference_data_this_vessel
+    vessel=VESSEL, process_model=simulation_model, data=reference_data_this_vessel
 )
 
 # Parse the PV and MV names from the reference data csv file
@@ -142,7 +142,14 @@ pv_names = [x.split("--")[0] for x in reference_data_this_vessel.columns[contain
 mv_names = [x.split("--")[0] for x in reference_data_this_vessel.columns[contains_MV]]
 
 PV_WTS = np.array([1 / (1000) ** 2])
-EST_WTS = np.array([2.59074E-07, 0.078638189, 0.033750463, 2.614604943, 0.006617413, 0.018507072])
+EST_WTS = np.array([
+    2.5E-07,    # IGG
+    0.08,       # VCC
+    0.03,       # Viability
+    0.05,       # Lactate
+    0.007,      # OSMO
+    0.001       # CO2
+    ])
 
 MV_WTS = np.array([1 / (0.01) ** 2])
 MV_BOUNDS = np.array([[0, 0.1]])  # feed
@@ -176,6 +183,7 @@ controller = Controller(
     ctrl_horizon=CTRL_HORIZON,
     constr=MV_BOUNDS,
     output_mods_user=np.array([]),
+    filter_wt_on_data=0.75,
     est_wts=EST_WTS,
     est_horizon=EST_HORIZON,
 )
