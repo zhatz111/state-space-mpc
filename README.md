@@ -9,6 +9,8 @@ The main reasons for starting this project are:
 
 ## Changelog
 
+- 2024-01-29
+  - mpc_optimizer.py: change the names/values of both the --INPUT_DATA and --INPUT_REF columns of the feed
 - 2024-01-24
   - estimation.py: adjusted the weights on estimated states 
   - mpc_optimizer.py: state() now has an optional argument to retrieve the state on a specific day; sim_from_day() simulates future state trajectory from a specific day or from the current day if the optional argument is not provided; new attribute filter_wt_on_data for Controller to put a weight on measurement and 1 - weight on model predicted states; added an extra step to filter states based on data before estimating the output modifiers; added a column-wise average before sum to account for missing data

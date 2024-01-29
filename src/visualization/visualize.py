@@ -138,7 +138,7 @@ class MPCVisualizer:
             except KeyError:
                 ax[1].step(
                     plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                    plot_data[self.bioreactor.daily_var_name].loc[
+                    plot_data[self.bioreactor.daily_feed_name_data].loc[
                         plot_data["Day"] <= self.bioreactor.curr_time
                     ],
                     "k-",
@@ -146,7 +146,7 @@ class MPCVisualizer:
                 )
                 ax[1].step(
                     plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
-                    plot_data[self.bioreactor.daily_var_name].loc[
+                    plot_data[self.bioreactor.daily_feed_name_data].loc[
                         plot_data["Day"] >= self.bioreactor.curr_time
                     ],
                     "r-",

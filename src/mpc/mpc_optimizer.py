@@ -102,18 +102,31 @@ class Bioreactor:
         if any(np.diff(self.data["Day"]) != 1):
             raise ValueError("Data set is not in 1-day increments!")
 
-        # Convert cumulative feed to daily feed
+        # Convert cumulative feed (data) to daily feed
         if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT_DATA", self.data.columns):
             self.data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = np.append(
                 np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]), 0
             )
-            self.has_cumulative_feed = True
+            self.has_cumulative_feed_data = True
             warnings.warn(
-                "Cumulative feed was converted to daily feed (variable name is unchanged)!"
+                "Cumulative feed (data) was converted to daily feed (variable name is unchanged)!"
             )
         else:
-            self.has_cumulative_feed = False
-        self.daily_var_name = "DAILY_NORMALIZED_FEED"
+            self.has_cumulative_feed_data = False
+        self.daily_feed_name_data = "DAILY_NORMALIZED_FEED--INPUT_DATA"
+
+        # Convert cumulative feed (reference) to daily feed
+        if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT_REF", self.data.columns):
+            self.data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] = np.append(
+                np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]), 0
+            )
+            self.has_cumulative_feed_ref = True
+            warnings.warn(
+                "Cumulative feed (reference) was converted to daily feed (variable name is unchanged)!"
+            )
+        else:
+            self.has_cumulative_feed_ref = False
+        self.daily_feed_name_ref = "DAILY_NORMALIZED_FEED--INPUT_REF"
 
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)
@@ -134,11 +147,11 @@ class Bioreactor:
         The function `show_data` prints the dataset for a bioreactor, with accurate column names.
         """
 
-        if self.has_cumulative_feed:
+        if self.has_cumulative_feed_data:
             data = self.data.copy(deep=True)
             data = data.rename(
                 columns={
-                    "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_var_name
+                    "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_feed_name_data
                 }
             )
         else:
@@ -153,18 +166,25 @@ class Bioreactor:
         The function `return_data` returns the dataset for a bioreactor, with accurate column names.
         """
 
-        if self.has_cumulative_feed:
+        if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:
             data = self.data.copy(deep=True)
             if show_daily_feed:
                 data = data.rename(
                     columns={
-                        "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_var_name
+                        "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_feed_name_data,
+                        "CUMULATIVE_NORMALIZED_FEED--INPUT_REF": self.daily_feed_name_ref
                     }
                 )
             else:
-                feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]
-                feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-                data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = feed_total
+                if self.has_cumulative_feed_data:
+                    feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]
+                    feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
+                    data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = feed_total
+                
+                if self.has_cumulative_feed_ref:
+                    feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]
+                    feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
+                    data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] = feed_total
         else:
             data = self.data
 
@@ -542,7 +562,7 @@ class Controller:
         u_matrix_cumulative = u_matrix_daily
 
         # Convert daily feed to cumulative feed
-        if self.bioreactor.has_cumulative_feed:
+        if self.bioreactor.has_cumulative_feed_data:
             u_matrix_cumulative = daily_to_cumulative_feed(
                 self.controller_model, u_matrix_daily
             )
