@@ -204,6 +204,7 @@ bioreactor.return_data(show_daily_feed=False).to_csv(
 )
 
 # # Plot the in-silico Simulations
-# br_plots = MPCVisualizer(sim_bioreactors, controllers)
+br_plots = MPCVisualizer(bioreactor, controller)
+br_plots.mpc_daily_plot()
 # br_plots.plot_simulations()
 # # br_plots.output_table().to_clipboard()
