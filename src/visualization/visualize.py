@@ -12,6 +12,7 @@ from typing import Union
 # Imports from 3rd party library
 # import numpy as np
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Imports from Classes in Repository
@@ -81,11 +82,18 @@ class MPCVisualizer:
             MV_REF_SUFFIX = "--INPUT_REF"
 
             plot_data = self.bioreactor.return_data(show_daily_feed=True)
-            _, ax = plt.subplots(1, 2, figsize=(12,6))
+            _, ax = plt.subplots(1, 2, figsize=(10, 5))
 
             # Plot the Bioreactor Data
+
+            # Create a mask for NaN Values
+            y_measured_mask = np.isfinite(plot_data[y_var + PV_SUFFIX])
+
             ax[0].plot(
-                plot_data["Day"], plot_data[y_var + PV_SUFFIX], "k-o", label="Measured Output"
+                plot_data["Day"][y_measured_mask],
+                plot_data[y_var + PV_SUFFIX][y_measured_mask],
+                "k-o",
+                label="Measured Output",
             )
             ax[0].plot(
                 plot_data["Day"],
@@ -135,6 +143,7 @@ class MPCVisualizer:
                     "g--",
                     label="Historical Input Reference",
                 )
+                ax[1].set_title(input_var)
             except KeyError:
                 ax[1].step(
                     plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
@@ -154,11 +163,11 @@ class MPCVisualizer:
                 )
                 ax[1].step(
                     plot_data["Day"],
-                    plot_data[input_var + MV_REF_SUFFIX],
+                    plot_data[self.bioreactor.daily_feed_name_data],
                     "g--",
                     label="Historical Input Reference",
                 )
-            ax[1].set_title(input_var)
+                ax[1].set_title(self.bioreactor.daily_feed_name_data.strip("--")[0])
             ax[1].legend()
             plt.show()
 
