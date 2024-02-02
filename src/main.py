@@ -208,7 +208,7 @@ model_optimize = ModelOptimizer(
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 first_model_train.train_test_model(
     fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
-    test_label="Viability",
+    test_label="IGG",
     iterations=10,
     first_train=False,
 )

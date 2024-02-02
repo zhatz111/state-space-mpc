@@ -52,7 +52,7 @@ class MPCVisualizer:
         else:
             raise ValueError("Provided inputs to class are not correct.")
 
-    def mpc_daily_plot(self, PV: str = "", MV: str = ""):
+    def mpc_daily_plot(self, PV: str = ""): #MV: str = ""
         # I want this function to plot the trajectory of the process variable on any given day with
         # the STATE_DATA, STATE_EST, and STATE_PRED, graphed together for comparison, I want everything
         # after the curr_time of the bioreactor class to be a different color (red) and everything
@@ -67,12 +67,12 @@ class MPCVisualizer:
             else:
                 y_var = PV
 
-            if not MV:
-                MV = self.controller.mv_names[0]
-                input_var = MV.split("--")[0]
-                # input_var = "DAILY_NORMALIZED_FEED"
-            else:
-                input_var = MV
+            # if not MV:
+            #     MV = self.controller.mv_names[0]
+            #     input_var = MV.split("--")[0]
+            #     # input_var = "DAILY_NORMALIZED_FEED"
+            # else:
+            #     input_var = MV
 
             PV_SP_SUFFIX = "--STATE_SP"
             PV_SUFFIX = "--STATE_DATA"
@@ -82,93 +82,127 @@ class MPCVisualizer:
             MV_REF_SUFFIX = "--INPUT_REF"
 
             plot_data = self.bioreactor.return_data(show_daily_feed=True)
-            _, ax = plt.subplots(1, 2, figsize=(10, 5))
+            _, ax = plt.subplots(3, 3, figsize=(10, 5))
 
             # Plot the Bioreactor Data
 
             # Create a mask for NaN Values
-            y_measured_mask = np.isfinite(plot_data[y_var + PV_SUFFIX])
 
-            ax[0].plot(
-                plot_data["Day"][y_measured_mask],
-                plot_data[y_var + PV_SUFFIX][y_measured_mask],
-                "k-o",
-                label="Measured Output",
-            )
-            ax[0].plot(
-                plot_data["Day"],
-                plot_data[y_var + PRED_SUFFIX],
-                "r-o",
-                label="Predicted Output (Model)",
-            )
-            ax[0].plot(
-                plot_data["Day"],
-                plot_data[y_var + EST_SUFFIX],
-                "b-o",
-                label="Predicted Output (Estimator)",
-            )
-            try:
-                ax[0].plot(
-                    plot_data["Day"],
-                    plot_data[y_var + PV_SP_SUFFIX],
-                    "g--",
-                    label="Reference Trajectory (setpoint)",
-                )
-            except KeyError:
-                pass
-            ax[0].set_title(y_var)
-            ax[0].legend()
+            last_ax_used = 0
+            sub_ax = ax.flatten()
+            for count, state in enumerate(self.bioreactor.process_model.states):
+                if state == y_var:
+                    measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
+                    sub_ax[count].plot(
+                        plot_data["Day"][measured_mask],
+                        plot_data[state + PV_SUFFIX][measured_mask],
+                        "k-o",
+                        label="Measured Output",
+                    )
+                    sub_ax[count].plot(
+                        plot_data["Day"],
+                        plot_data[state + PRED_SUFFIX],
+                        "r-o",
+                        label="Predicted Output (Model)",
+                    )
+                    sub_ax[count].plot(
+                        plot_data["Day"],
+                        plot_data[state + EST_SUFFIX],
+                        "b-o",
+                        label="Predicted Output (Estimator)",
+                    )
+                    try:
+                        sub_ax[count].plot(
+                            plot_data["Day"],
+                            plot_data[state + PV_SP_SUFFIX],
+                            "g--",
+                            label="Reference Trajectory (setpoint)",
+                        )
+                    except KeyError:
+                        pass
+                    sub_ax[count].set_title(f"{state} (PV)")
+                    sub_ax[count].legend(prop={'size': 6})
+                else:
+                    measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
+                    sub_ax[count].plot(
+                        plot_data["Day"][measured_mask],
+                        plot_data[state + PV_SUFFIX][measured_mask],
+                        "k-o",
+                        label="Measured Output",
+                    )
+                    sub_ax[count].plot(
+                        plot_data["Day"],
+                        plot_data[state + PRED_SUFFIX],
+                        "r-o",
+                        label="Predicted Output (Model)",
+                    )
+                    sub_ax[count].plot(
+                        plot_data["Day"],
+                        plot_data[state + EST_SUFFIX],
+                        "b-o",
+                        label="Predicted Output (Estimator)",
+                    )
+                    sub_ax[count].set_title(state)
+                    sub_ax[count].legend(prop={'size': 6})
+                last_ax_used = count
 
             # Plot the Controller Actions
-            try:
-                ax[1].step(
-                    plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                    plot_data[input_var + MV_SUFFIX].loc[
-                        plot_data["Day"] <= self.bioreactor.curr_time
-                    ],
-                    "k-",
-                    label="Predicted Control Input",
-                )
-                ax[1].step(
-                    plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
-                    plot_data[input_var + MV_SUFFIX].loc[
-                        plot_data["Day"] >= self.bioreactor.curr_time
-                    ],
-                    "r-",
-                    label="Past Control Input",
-                )
-                ax[1].step(
-                    plot_data["Day"],
-                    plot_data[input_var + MV_REF_SUFFIX],
-                    "g--",
-                    label="Historical Input Reference",
-                )
-                ax[1].set_title(input_var)
-            except KeyError:
-                ax[1].step(
-                    plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                    plot_data[self.bioreactor.daily_feed_name_data].loc[
-                        plot_data["Day"] <= self.bioreactor.curr_time
-                    ],
-                    "k-",
-                    label="Predicted Control Input",
-                )
-                ax[1].step(
-                    plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
-                    plot_data[self.bioreactor.daily_feed_name_data].loc[
-                        plot_data["Day"] >= self.bioreactor.curr_time
-                    ],
-                    "r-",
-                    label="Past Control Input",
-                )
-                ax[1].step(
-                    plot_data["Day"],
-                    plot_data[self.bioreactor.daily_feed_name_data],
-                    "g--",
-                    label="Historical Input Reference",
-                )
-                ax[1].set_title(self.bioreactor.daily_feed_name_data.strip("--")[0])
-            ax[1].legend()
+            for count, inputs in enumerate(self.bioreactor.process_model.inputs, start=last_ax_used+1):
+                if count != len(sub_ax):
+                    try:
+                        sub_ax[count].step(
+                            plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                            plot_data[inputs + MV_SUFFIX].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                            "k-",
+                            label="Predicted Control Input",
+                        )
+                        sub_ax[count].step(
+                            plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
+                            plot_data[inputs + MV_SUFFIX].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
+                            ],
+                            "r-",
+                            label="Past Control Input",
+                        )
+                        try:
+                            sub_ax[count].step(
+                                plot_data["Day"],
+                                plot_data[inputs + MV_REF_SUFFIX],
+                                "g--",
+                                label="Historical Input Reference",
+                            )
+                        except KeyError:
+                            pass
+                        sub_ax[count].set_title(inputs)
+                    except KeyError:
+                        sub_ax[count].step(
+                            plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                            plot_data[self.bioreactor.daily_feed_name_data].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                            "k-",
+                            label="Predicted Control Input",
+                        )
+                        sub_ax[count].step(
+                            plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
+                            plot_data[self.bioreactor.daily_feed_name_data].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
+                            ],
+                            "r-",
+                            label="Past Control Input",
+                        )
+                        sub_ax[count].step(
+                            plot_data["Day"],
+                            plot_data[self.bioreactor.daily_feed_name_data],
+                            "g--",
+                            label="Historical Input Reference",
+                        )
+                        sub_ax[count].set_title(f"{self.bioreactor.daily_feed_name_data.split('--')[0]} (MV)")
+                    sub_ax[count].legend(prop={'size': 6})
+
+            plt.tight_layout(pad=0.3)
             plt.show()
 
         else:

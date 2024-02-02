@@ -20,7 +20,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 warnings.filterwarnings("ignore")
-ScalerType = Union[MinMaxScaler, StandardScaler]
+
 
 # The ModelTraining class is used for training state space models.
 class ModelTraining:
@@ -38,12 +38,12 @@ class ModelTraining:
         inputs: list[str],
         pv_wghts: list,
         num_days: int,
-        scaler: ScalerType,
+        scaler: Union[MinMaxScaler, StandardScaler],
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
         as attributes of the class.
-        
+
         Args:
           train_data (pd.DataFrame): The `train_data` parameter is a pandas DataFrame that contains the
         training data for your model. It should have the necessary columns and rows to train your model.
@@ -87,7 +87,7 @@ class ModelTraining:
         """
         The function `first_pass_training` performs linear regression on the training data to generate a
         regression matrix.
-        
+
         Returns:
           a regression matrix, which is a 2D numpy array containing the coefficients of the linear
         regression models for each state variable.
@@ -112,7 +112,7 @@ class ModelTraining:
         """
         The `train_model` function trains a system model using the provided training data and saves the
         resulting A and B matrices to CSV files.
-        
+
         Args:
           save_path: The `save_path` parameter is the directory path where the A_Matrix.csv and
         B_Matrix.csv files will be saved.
@@ -135,11 +135,19 @@ class ModelTraining:
             d_matrix = np.zeros([self.state_len, self.input_len])
 
         # Check to make sure matrices are correct dimensions, if not create a random matrix of values
-        if (self.a_matrix.shape[0] != self.state_len) or (self.a_matrix.shape[1] != self.state_len):
-            self.a_matrix = np.random.random([self.state_len, self.state_len])
-        
-        if (self.b_matrix.shape[0] != self.state_len) or (self.b_matrix.shape[1] != self.input_len):
-            self.b_matrix = np.random.random([self.state_len, self.input_len])
+        if (self.a_matrix.shape[0] != self.state_len) or (
+            self.a_matrix.shape[1] != self.state_len
+        ):
+            raise ValueError(
+                f"The A Matrix should be {self.state_len}x{self.state_len} but instead is {self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}"
+            )
+
+        if (self.b_matrix.shape[0] != self.state_len) or (
+            self.b_matrix.shape[1] != self.input_len
+        ):
+            raise ValueError(
+                f"The B Matrix should be {self.state_len}x{self.input_len} but instead is {self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}"
+            )
 
         a_sim = self.a_matrix.reshape(-1, 1)
         b_sim = self.b_matrix.reshape(-1, 1)
@@ -149,7 +157,7 @@ class ModelTraining:
             """
             The `objective_func` function calculates the error between actual and simulated data for a
             given set of A and B matrices.
-            
+
             Args:
               mat: The parameter `mat` is a 1-dimensional numpy array that contains the values of the
             matrices `a_matrix` and `b_matrix`. The first `self.state_len**2` elements of `mat`
@@ -158,7 +166,7 @@ class ModelTraining:
             optimization process. It is used to keep track of the number of function evaluations
             (Nfeval) and can be used to store any other relevant information during the optimization
             process.
-            
+
             Returns:
               the value of the objective function, which is the sum of squared errors between the actual
             and simulated values of the system.
@@ -169,10 +177,10 @@ class ModelTraining:
             y_actual_all = np.zeros([self.num_days, self.state_len])
 
             for _, group in train_grouped:
-                of_x0 = np.array(group.filter(self.states).iloc[0, :])
-                of_u = np.array(group.filter(self.inputs))
-                of_y = np.array(group.filter(self.states))
-                time = np.arange(0, len(of_u), 1)
+                objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
+                objfunc_u = np.array(group.filter(self.inputs))
+                objfunc_y = np.array(group.filter(self.states))
+                time = np.arange(0, len(objfunc_u), 1)
                 a_matrix = mat[: (self.state_len**2)].reshape(
                     self.state_len, self.state_len
                 )
@@ -180,29 +188,30 @@ class ModelTraining:
                     self.state_len, self.input_len
                 )
                 state = signal.StateSpace(a_matrix, b_matrix, c_matrix, d_matrix)
-                _, of_yout, _ = signal.lsim(state, of_u, time, of_x0)
+                _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0)
 
                 if iter_counter == 0:
-                    y_sim_all = np.array(of_yout, dtype=np.float64)
-                    y_actual_all = np.array(of_y, dtype=np.float64)
+                    y_sim_all = np.array(objfunc_yout, dtype=np.float64)
+                    y_actual_all = np.array(objfunc_y, dtype=np.float64)
                 else:
-                    y_sim_all = np.vstack([y_sim_all, of_yout])
-                    y_actual_all = np.vstack([y_actual_all, of_y])
+                    y_sim_all = np.vstack([y_sim_all, objfunc_yout])
+                    y_actual_all = np.vstack([y_actual_all, objfunc_y])
                 iter_counter += 1
 
             # y_diff = y_actual_all - y_sim_all
             # rmse_scaled = np.hstack([np.array(y_diff),np.zeros([len(y_actual_all),self.input_len])])
-            
 
             cost_list = []
             for count, _ in enumerate(self.states):
                 y_diff = y_actual_all - y_sim_all
-                cost = np.sqrt(np.square(y_diff[:,count]).mean())
+                cost = np.sqrt(np.square(y_diff[:, count]).mean())
                 cost_list.append(cost)
 
-            rmse_scaled = np.hstack([np.array(cost_list),np.zeros(self.input_len)]).reshape(1,-1)
+            rmse_scaled = np.hstack(
+                [np.array(cost_list), np.zeros(self.input_len)]
+            ).reshape(1, -1)
             rmse_unscaled = self.scaler.inverse_transform(rmse_scaled)
-            cost_func = sum(np.array(cost_list)*np.array(self.pv_wghts))
+            cost_func = sum(np.array(cost_list) * np.array(self.pv_wghts))
             value = np.sum(np.square(y_actual_all - y_sim_all))
 
             if info["Nfeval"] % 25 == 0:
@@ -218,7 +227,7 @@ class ModelTraining:
         res = optimize.minimize(
             fun=objective_func,
             x0=combined_mat,
-            bounds=[(-1,1)]*len(combined_mat),
+            bounds=[(-1, 1)] * len(combined_mat),
             method="SLSQP",
             args=({"Nfeval": 0},),
             options={"maxiter": iterations, "disp": False, "ftol": 1e-09},
@@ -245,11 +254,11 @@ class ModelTraining:
         """
         The `get_model_data_dict` function takes in a data aggregation parameter and returns two
         dictionaries containing simulation data and train/test data.
-        
+
         Args:
           data_agg: The parameter `data_agg` is used to specify which data to aggregate. It can take one
         of three values:. Defaults to both
-        
+
         Returns:
           a tuple containing two dictionaries. The first dictionary, `simulation_data_dict`, contains
         the simulation data for each batch, where the keys are the batch names and the values are pandas
@@ -282,7 +291,9 @@ class ModelTraining:
                 system=bioreactor, U=u_matrix, T=time, X0=x0_matrix
             )
             simulation_data = pd.DataFrame(
-                data=np.array(self.scaler.inverse_transform(np.hstack((y_out, u_matrix)))),
+                data=np.array(
+                    self.scaler.inverse_transform(np.hstack((y_out, u_matrix)))
+                ),
                 columns=self.scaler.get_feature_names_out(),
             )
             simulation_data_dict[name] = pd.DataFrame(
@@ -298,7 +309,7 @@ class ModelTraining:
     def plot_test_data(self, test_label: str, ylim=None):
         """
         The function `plot_test_data` plots simulated and experimental data for a given test label.
-        
+
         Args:
           test_label (str): The `test_label` parameter is a string that represents the label of the data
         to be plotted. It is used to access the specific data from the `simulation_dict` and
@@ -310,7 +321,7 @@ class ModelTraining:
         cols = 4
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="test")
         rows = math.floor(len(simulation_dict) / cols)
-        fig, axes = plt.subplots(rows, cols, figsize=(9,7), squeeze=False)
+        fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
         fig.subplots_adjust(top=0.8)
         dict_keys = list(simulation_dict.keys())
         for count, ax_test in enumerate(axes.reshape(-1)):
@@ -336,9 +347,9 @@ class ModelTraining:
             ax_test.set_title(key, size="medium", weight="bold")
             if ylim is not None:
                 ax_test.set_ylim(0, ylim)
-        fig.suptitle("Testing Data Set", size= "x-large", weight= "bold", y=0.98)
-        fig.supxlabel("Day", size= "x-large", weight= "bold")
-        fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
+        fig.suptitle("Testing Data Set", size="x-large", weight="bold", y=0.98)
+        fig.supxlabel("Day", size="x-large", weight="bold")
+        fig.supylabel(f"{test_label}", size="x-large", weight="bold")
         fig.tight_layout()
         plt.legend(loc="best")
         plt.show()
@@ -347,7 +358,7 @@ class ModelTraining:
         """
         The function `plot_train_data` plots simulated and experimental data, as well as a parity plot
         comparing the two.
-        
+
         Args:
           test_label (str): The `test_label` parameter is a string that represents the label or variable
         you want to plot in the graphs. It is used to access the corresponding data in the
@@ -365,17 +376,25 @@ class ModelTraining:
             rows = math.floor(len(simulation_dict) / cols)
 
         fig, axes = plt.subplots(
-            rows, cols, figsize=(10,8), squeeze=False, #sharex=True, sharey=True
+            rows,
+            cols,
+            figsize=(10, 8),
+            squeeze=False,  # sharex=True, sharey=True
         )
         fig.subplots_adjust(top=0.8)
 
         fig2, axes2 = plt.subplots(
-            rows, cols, figsize=(10,8), squeeze=False, #sharex=True, sharey=True
+            rows,
+            cols,
+            figsize=(10, 8),
+            squeeze=False,  # sharex=True, sharey=True
         )
         fig2.subplots_adjust(top=0.8)
 
         dict_keys = list(simulation_dict.keys())
-        random_nums = [random.randint(0, len(dict_keys)) for _, _ in enumerate(dict_keys)]
+        random_nums = [
+            random.randint(0, len(dict_keys)) for _, _ in enumerate(dict_keys)
+        ]
 
         for count, ax_test in enumerate(axes.reshape(-1)):
             if random_plots:
@@ -403,9 +422,9 @@ class ModelTraining:
                 ax_test.set_ylim(0, ylim)
 
         axes[rows - 1][cols - 1].legend()
-        fig.suptitle("Training Data Set", size= "x-large", weight= "bold", y=0.98)
-        fig.supxlabel("Day", size= "x-large", weight= "bold")
-        fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
+        fig.suptitle("Training Data Set", size="x-large", weight="bold", y=0.98)
+        fig.supxlabel("Day", size="x-large", weight="bold")
+        fig.supylabel(f"{test_label}", size="x-large", weight="bold")
         fig.tight_layout()
 
         for count, ax_test in enumerate(axes2.reshape(-1)):
@@ -427,22 +446,22 @@ class ModelTraining:
                 ax_test.set_xlim(0, ylim)
 
         plt.legend()
-        fig2.supxlabel("Measurement", size= "x-large", weight= "bold")
-        fig2.supylabel("Prediction", size= "x-large", weight= "bold")
-        fig2.suptitle("Parity Plot", size= "x-large", weight= "bold", y=0.98)
+        fig2.supxlabel("Measurement", size="x-large", weight="bold")
+        fig2.supylabel("Prediction", size="x-large", weight="bold")
+        fig2.suptitle("Parity Plot", size="x-large", weight="bold", y=0.98)
         fig2.tight_layout()
         plt.show()
-    
+
     def generate_report(
-            self,
-            output_pdf: str,
-            scaler_df: pd.DataFrame,
-            metadata_path: str,
-            figures_filepath: str,
-            logo_filepath: str,
-            xlim=None,
-            ylim=True,
-        ):
+        self,
+        output_pdf: str,
+        scaler_df: pd.DataFrame,
+        metadata_path: str,
+        figures_filepath: str,
+        logo_filepath: str,
+        xlim=None,
+        ylim=True,
+    ):
         """
         Save multiple plots to a PDF file, organized in a 4x4 matrix on each page.
 
@@ -454,27 +473,29 @@ class ModelTraining:
         dict_keys = list(simulation_dict.keys())
         COLS = 2
         ROWS = 4
-        ppg = ROWS*COLS
+        ppg = ROWS * COLS
         now = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         # Plotting the table and removing all axes
-        fig_table, ax = plt.subplots(figsize=(6, 2)) # set the size that you'd like (width, height)
-        ax.axis('off')
+        fig_table, ax = plt.subplots(
+            figsize=(6, 2)
+        )  # set the size that you'd like (width, height)
+        ax.axis("off")
 
         tbl = ax.table(
-                cellText = scaler_df.values,
-                colLabels=list(scaler_df.columns),
-                cellLoc='center',
-                loc='center'
-            )
+            cellText=scaler_df.values,
+            colLabels=list(scaler_df.columns),
+            cellLoc="center",
+            loc="center",
+        )
 
         # Create the table and scale it to fit the fig
         for (i, j), cell in tbl.get_celld().items():
             if i == 0:  # header cells
-                cell.set_text_props(weight='bold', color='white')
+                cell.set_text_props(weight="bold", color="white")
                 cell.set_facecolor("#F25D18")
 
         d = {}
-        with open(metadata_path,encoding="utf-8") as f:
+        with open(metadata_path, encoding="utf-8") as f:
             for line in f:
                 data = line.split(sep=":")
                 d[data[0]] = data[1]
@@ -482,29 +503,31 @@ class ModelTraining:
         tbl.auto_set_font_size(False)
         tbl.set_fontsize(20)
         tbl.scale(2, 4)  # may need to adjust this for your data
-        plt.savefig(rf"{figures_filepath}\table_image.png", dpi=200, bbox_inches='tight')
+        plt.savefig(
+            rf"{figures_filepath}\table_image.png", dpi=200, bbox_inches="tight"
+        )
         plt.close(fig_table)
 
-        pdf = FPDF(format="A4") # A4 (210 by 297 mm)
+        pdf = FPDF(format="A4")  # A4 (210 by 297 mm)
         pdf.add_page()
-        pdf.set_font("helvetica", "B",8)
-        pdf.image(logo_filepath, w=30,h=10,x=170,y=10)
-        pdf.image(logo_filepath, w=30,h=10,x=10,y=277)
+        pdf.set_font("helvetica", "B", 8)
+        pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
+        pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
 
         # Set the title of the document
-        pdf.set_font('helvetica', 'B', 24)
+        pdf.set_font("helvetica", "B", 24)
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.ln(15)
         pdf.write(5, "BDSD State Space Model Report")
 
         # Specify the reference number of document
-        pdf.set_font('helvetica', 'B', 18)
+        pdf.set_font("helvetica", "B", 18)
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.ln(15)
         pdf.write(5, f"IDBS Reference: {d['IDBS']}")
 
         # Write other data to the front cover
-        pdf.set_font('helvetica', '', 16)
+        pdf.set_font("helvetica", "", 16)
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.set_text_color(r=0, g=0, b=0)
         pdf.ln(13)
@@ -516,14 +539,14 @@ class ModelTraining:
         pdf.ln(6)
         pdf.write(7, f"Inputs in Model: {(', ').join(self.inputs)}")
 
-        pdf.set_font('helvetica', 'B', 18)
+        pdf.set_font("helvetica", "B", 18)
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.ln(15)
         pdf.write(7, f"Table of Scaler Values from {d['scaler_type']}")
 
-        pdf.image(rf"{figures_filepath}\table_image.png", w=160,h=100,x=25,y=120)
+        pdf.image(rf"{figures_filepath}\table_image.png", w=160, h=100, x=25, y=120)
 
-        pdf.set_font('helvetica', 'I', 16)
+        pdf.set_font("helvetica", "I", 16)
         pdf.set_text_color(r=0, g=0, b=0)
         pdf.ln(132)
         pdf.write(7, f"Report Author: {d['Author']}")
@@ -533,12 +556,12 @@ class ModelTraining:
         pdf.write(7, f"This report was generated on {now}")
 
         pdf.add_page()
-        pdf.set_font("helvetica", "B",8)
-        pdf.image(logo_filepath, w=30,h=10,x=170,y=10)
-        pdf.image(logo_filepath, w=30,h=10,x=10,y=277)
+        pdf.set_font("helvetica", "B", 8)
+        pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
+        pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
 
         # Set the title of the document
-        pdf.set_font('helvetica', 'B', 24)
+        pdf.set_font("helvetica", "B", 24)
         pdf.set_text_color(r=242, g=93, b=24)
         pdf.ln(127)
         pdf.write(5, "Model Training Dataset")
@@ -546,10 +569,10 @@ class ModelTraining:
         df_train_concat = pd.concat(train_test_dict.values(), ignore_index=True)
         for test_label in self.states:
             pdf.add_page()
-            pdf.image(logo_filepath, w=30,h=10,x=170,y=10)
-            pdf.image(logo_filepath, w=30,h=10,x=10,y=277)
+            pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
+            pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
             # Set the title of the document
-            pdf.set_font('helvetica', 'B', 24)
+            pdf.set_font("helvetica", "B", 24)
             pdf.set_text_color(r=242, g=93, b=24)
             pdf.ln(5)
             pdf.write(5, f"State: {test_label}")
@@ -566,14 +589,14 @@ class ModelTraining:
             for i in range(0, len(simulation_dict.keys()), ppg):
                 if i != 0:
                     pdf.add_page()
-                    pdf.image(logo_filepath, w=30,h=10,x=170,y=10)
-                    pdf.image(logo_filepath, w=30,h=10,x=10,y=277)
-                fig, axs = plt.subplots(ROWS, COLS, figsize=(8,10), squeeze=False)
+                    pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
+                    pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
+                fig, axs = plt.subplots(ROWS, COLS, figsize=(8, 10), squeeze=False)
                 fig.subplots_adjust(top=0.8)
 
                 for count, ax_test in enumerate(axs.reshape(-1)):
-                    if count+i < len(simulation_dict.keys()):
-                        key = dict_keys[count+i]
+                    if count + i < len(simulation_dict.keys()):
+                        key = dict_keys[count + i]
                         time = np.arange(0, len(simulation_dict[key][test_label]), 1)
                         ax_test.plot(
                             time,
@@ -593,9 +616,12 @@ class ModelTraining:
                         ax_test.grid()
                         if ylim:
                             if min_value > 200:
-                                ax_test.set_ylim(min_value-(min_value*.2), max_value+(max_value*.2))
+                                ax_test.set_ylim(
+                                    min_value - (min_value * 0.2),
+                                    max_value + (max_value * 0.2),
+                                )
                             else:
-                                ax_test.set_ylim(0, max_value+(max_value*.2))
+                                ax_test.set_ylim(0, max_value + (max_value * 0.2))
                         if xlim is not None:
                             ax_test.set_xlim(-1.5, xlim)
                     else:
@@ -612,13 +638,19 @@ class ModelTraining:
                 # else:
                 #     axs[math.ceil((len(simulation_dict.keys()) - i)/COLS) - 1][COLS - 1].legend()
                 # fig.suptitle("Training Data Set", size= "x-large", weight= "bold", y=0.98)
-                fig.supxlabel("Day", size= "x-large", weight= "bold")
-                fig.supylabel(f"{test_label}", size= "x-large", weight= "bold")
+                fig.supxlabel("Day", size="x-large", weight="bold")
+                fig.supylabel(f"{test_label}", size="x-large", weight="bold")
                 fig.tight_layout()
 
                 plt.savefig(rf"{figures_filepath}\{test_label}_{i}.png", dpi=200)
                 plt.close(fig)
-                pdf.image(rf"{figures_filepath}\{test_label}_{i}.png", w=190,h=250,x=10,y=22)
+                pdf.image(
+                    rf"{figures_filepath}\{test_label}_{i}.png",
+                    w=190,
+                    h=250,
+                    x=10,
+                    y=22,
+                )
 
         pdf.output(output_pdf)
 
@@ -626,7 +658,7 @@ class ModelTraining:
         """
         The function `get_rmse_table` calculates the root mean square error (RMSE) for each state in
         each batch of data and returns a DataFrame with the results.
-        
+
         Returns:
           a pandas DataFrame object containing the root mean square error (RMSE) values for each batch
         and state. The DataFrame has columns "Batch" and the names of the states, and the index is
@@ -655,7 +687,7 @@ class ModelTraining:
         """
         The function `get_r2_table` calculates the R-squared values for a given set of true and
         predicted values and returns them in a pandas DataFrame.
-        
+
         Returns:
           a pandas DataFrame object, df_r2.
         """
@@ -680,7 +712,7 @@ class ModelTraining:
         """
         The function `get_corrcoef_table` calculates the correlation coefficient between predicted and
         true values for each state in each batch of data and returns the results in a pandas DataFrame.
-        
+
         Returns:
           a pandas DataFrame object, df_corr, which contains the correlation coefficients between the
         predicted and true values for each state in each batch. The DataFrame has columns for "Batch"
@@ -709,7 +741,7 @@ class ModelTraining:
         """
         The function trains a model, saves it to a specified path, and then plots test data using the
         trained model.
-        
+
         Args:
           save_path: The save_path parameter is the file path where the trained model will be saved.
           test_label (str): A string that represents the label or name of the test data.
@@ -735,7 +767,7 @@ class ModelTraining:
         """
         The function `single_batch_test` plots simulated and actual data for a given test label using
         matplotlib.
-        
+
         Args:
           test_label: The `test_label` parameter is a string that represents the label or variable you
         want to plot in the graph. It is used to access the corresponding data in the `simulation_dict`
