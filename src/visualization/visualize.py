@@ -8,6 +8,7 @@
 import math
 import warnings
 from typing import Union
+from pathlib import Path
 
 # Imports from 3rd party library
 # import numpy as np
@@ -52,7 +53,7 @@ class MPCVisualizer:
         else:
             raise ValueError("Provided inputs to class are not correct.")
 
-    def mpc_daily_plot(self, PV: str = ""): #MV: str = ""
+    def mpc_daily_plot(self, save_path: Union[str, Path, None] = None, metadata: Union[dict, None] = None, PV: str = ""):  # MV: str = ""
         # I want this function to plot the trajectory of the process variable on any given day with
         # the STATE_DATA, STATE_EST, and STATE_PRED, graphed together for comparison, I want everything
         # after the curr_time of the bioreactor class to be a different color (red) and everything
@@ -82,12 +83,11 @@ class MPCVisualizer:
             MV_REF_SUFFIX = "--INPUT_REF"
 
             plot_data = self.bioreactor.return_data(show_daily_feed=True)
-            _, ax = plt.subplots(3, 3, figsize=(10, 5))
+            fig, ax = plt.subplots(3, 3, figsize=(19.2, 10.8))
 
             # Plot the Bioreactor Data
 
             # Create a mask for NaN Values
-
             last_ax_used = 0
             sub_ax = ax.flatten()
             for count, state in enumerate(self.bioreactor.process_model.states):
@@ -121,7 +121,7 @@ class MPCVisualizer:
                     except KeyError:
                         pass
                     sub_ax[count].set_title(f"{state} (PV)")
-                    sub_ax[count].legend(prop={'size': 6})
+                    sub_ax[count].legend(prop={"size": 9})
                 else:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
                     sub_ax[count].plot(
@@ -143,27 +143,33 @@ class MPCVisualizer:
                         label="Predicted Output (Estimator)",
                     )
                     sub_ax[count].set_title(state)
-                    sub_ax[count].legend(prop={'size': 6})
+                    sub_ax[count].legend(prop={"size": 9})
                 last_ax_used = count
 
             # Plot the Controller Actions
-            for count, inputs in enumerate(self.bioreactor.process_model.inputs, start=last_ax_used+1):
+            for count, inputs in enumerate(
+                self.bioreactor.process_model.inputs, start=last_ax_used + 1
+            ):
                 if count != len(sub_ax):
                     try:
                         sub_ax[count].step(
-                            plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                            plot_data[inputs + MV_SUFFIX].loc[
-                                plot_data["Day"] <= self.bioreactor.curr_time
+                            plot_data["Day"].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
                             ],
-                            "k-",
-                            label="Predicted Control Input",
-                        )
-                        sub_ax[count].step(
-                            plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
                             plot_data[inputs + MV_SUFFIX].loc[
                                 plot_data["Day"] >= self.bioreactor.curr_time
                             ],
                             "r-",
+                            label="Predicted Control Input",
+                        )
+                        sub_ax[count].step(
+                            plot_data["Day"].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                            plot_data[inputs + MV_SUFFIX].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                            "k-",
                             label="Past Control Input",
                         )
                         try:
@@ -178,31 +184,44 @@ class MPCVisualizer:
                         sub_ax[count].set_title(inputs)
                     except KeyError:
                         sub_ax[count].step(
-                            plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                            plot_data[self.bioreactor.daily_feed_name_data].loc[
-                                plot_data["Day"] <= self.bioreactor.curr_time
+                            plot_data["Day"].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
                             ],
-                            "k-",
-                            label="Predicted Control Input",
-                        )
-                        sub_ax[count].step(
-                            plot_data["Day"].loc[plot_data["Day"] >= self.bioreactor.curr_time],
                             plot_data[self.bioreactor.daily_feed_name_data].loc[
                                 plot_data["Day"] >= self.bioreactor.curr_time
                             ],
                             "r-",
+                            label="Predicted Control Input",
+                        )
+                        sub_ax[count].step(
+                            plot_data["Day"].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                            plot_data[self.bioreactor.daily_feed_name_data].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                            "k-",
                             label="Past Control Input",
                         )
                         sub_ax[count].step(
                             plot_data["Day"],
-                            plot_data[self.bioreactor.daily_feed_name_data],
+                            plot_data[self.bioreactor.daily_feed_name_ref],
                             "g--",
                             label="Historical Input Reference",
                         )
-                        sub_ax[count].set_title(f"{self.bioreactor.daily_feed_name_data.split('--')[0]} (MV)")
-                    sub_ax[count].legend(prop={'size': 6})
+                        sub_ax[count].set_title(
+                            f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)"
+                        )
+                    sub_ax[count].legend(prop={"size": 9})
 
             plt.tight_layout(pad=0.3)
+
+            # Save the figure if the arguments passed are the correct instances
+            if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
+                fig.savefig(fname=save_path, metadata=metadata)
+            elif isinstance(save_path, (str, Path)):
+                fig.savefig(fname=save_path)
+
             plt.show()
 
         else:
