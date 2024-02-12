@@ -33,12 +33,12 @@ top_dir = Path().absolute()
 
 # Specify the study number, current time and vessel
 EXP_NUM = "AR24-005"
-CURR_TIME = 2
+CURR_TIME = 3
 VESSEL = 1  # want to eliminate this and add a for loop for all reactors
 
 # Specify names for batch sheet parent folder and master sheet
 SIM_FOLDER = "mpc-simulation"
-SIM_REFERENCE_DATA = f"master_sheet_example-D{CURR_TIME}"
+SIM_REFERENCE_DATA = "master_sheet_example-D2"
 
 # Specify batch sheet path and load the read-only "master" sheet
 simulation_path = Path(
@@ -186,14 +186,43 @@ controller.optimize(open_loop=False)
 # -------------------------------------------------------------------------------------
 # BIOREACTOR DATA SAVED
 
-bioreactor.return_data(show_daily_feed=True).to_csv(
-    batch_sheet_path
-    / f"BR{bioreactor.vessel:02d}_daily_feed_D{CURR_TIME}-{todays_date}.csv"
-)
-bioreactor.return_data(show_daily_feed=False).to_csv(
-    batch_sheet_path
-    / f"BR{bioreactor.vessel:02d}_total_feed_D{CURR_TIME}-{todays_date}.csv"
-)
+try:
+    df_br_daily = pd.read_csv(
+        batch_sheet_path / f"{EXP_NUM}-BR{bioreactor.vessel:02d}-daily_feed.csv"
+    )
+    if todays_date in df_br_daily["Simulation_Date"].unique():
+        df_br_daily.loc[
+            df_br_daily["Simulation_Date"] == todays_date, :
+        ] = bioreactor.return_data(show_daily_feed=True, sim_date_col=True)
+    else:
+        df_new = bioreactor.return_data(show_daily_feed=False, sim_date_col=True)
+        df_br_daily = pd.concat([df_br_daily, df_new])
+    df_br_daily.to_csv(
+        batch_sheet_path / f"{EXP_NUM}-BR{bioreactor.vessel:02d}-daily_feed.csv",
+    )
+except FileNotFoundError:
+    bioreactor.return_data(show_daily_feed=True, sim_date_col=True).to_csv(
+        batch_sheet_path / f"{EXP_NUM}-BR{bioreactor.vessel:02d}-daily_feed.csv"
+    )
+
+try:
+    df_br_total = pd.read_csv(
+        batch_sheet_path / f"{EXP_NUM}-BR{bioreactor.vessel:02d}-total_feed.csv"
+    )
+    if todays_date in df_br_total["Simulation_Date"].unique():
+        df_br_total.loc[
+            df_br_total["Simulation_Date"] == todays_date, :
+        ] = bioreactor.return_data(show_daily_feed=False, sim_date_col=True)
+    else:
+        df_new = bioreactor.return_data(show_daily_feed=False, sim_date_col=True)
+        df_br_total = pd.concat([df_br_total, df_new])
+    df_br_total.to_csv(
+        batch_sheet_path / f"{EXP_NUM}-BR{bioreactor.vessel:02d}-total_feed.csv"
+    )
+except FileNotFoundError:
+    bioreactor.return_data(show_daily_feed=False, sim_date_col=True).to_csv(
+        batch_sheet_path / f"{EXP_NUM}-BR{bioreactor.vessel:02d}-total_feed.csv"
+    )
 
 # -------------------------------------------------------------------------------------
 # GENERATED PLOTS SAVED

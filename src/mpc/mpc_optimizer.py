@@ -10,6 +10,7 @@
 # Standard Library Imports
 import warnings
 from typing import Union
+from datetime import datetime
 
 # 3rd Party Library Imports
 import numpy as np
@@ -161,13 +162,18 @@ class Bioreactor:
         print(data)
         print("")
 
-    def return_data(self, show_daily_feed: bool):
+    def return_data(self, show_daily_feed: bool, sim_date_col: bool = False):
         """
         The function `return_data` returns the dataset for a bioreactor, with accurate column names.
         """
 
         if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:
             data = self.data.copy(deep=True)
+            if sim_date_col:
+                data["Simulation_Date"] = datetime.today().strftime("%Y-%m-%d")
+                cols = data.columns.tolist()
+                data = data[cols[-1:] + cols[:-1]].copy(deep=True)
+
             if show_daily_feed:
                 data = data.rename(
                     columns={
