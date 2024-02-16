@@ -199,7 +199,9 @@ if any(item in filenames for item in dir_paths):
     df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
     df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
 
-    df_final_daily = df_combined_daily.drop_duplicates(subset=["Code_Run_Date", "Bioreactor", "Day"], keep='last')
+    df_final_daily = df_combined_daily.drop_duplicates(
+        subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    )
     df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
     df_final_daily.to_csv(batch_sheet_path / filenames[0], index=False)
 
@@ -207,7 +209,9 @@ if any(item in filenames for item in dir_paths):
     df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
     df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
 
-    df_final_total = df_combined_total.drop_duplicates(subset=["Code_Run_Date", "Bioreactor", "Day"], keep='last')
+    df_final_total = df_combined_total.drop_duplicates(
+        subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    )
     df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
     df_final_total.to_csv(batch_sheet_path / filenames[1], index=False)
 else:
