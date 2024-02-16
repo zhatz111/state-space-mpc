@@ -33,7 +33,7 @@ top_dir = Path().absolute()
 
 # Specify the study number, current time and vessel
 EXP_NUM = "AR24-005"
-CURR_TIME = 4
+CURR_TIME = 6
 VESSEL = 1  # want to eliminate this and add a for loop for all reactors
 
 # Specify names for batch sheet parent folder and master sheet
@@ -186,45 +186,30 @@ controller.optimize(open_loop=False)
 # -------------------------------------------------------------------------------------
 # BIOREACTOR DATA SAVED
 
-# Save the sheet with Daily Feed as a column
-
-# check if file is in directory
-# if not then create file based on data
-
+# Search if files are in directory
 filenames = [f"{EXP_NUM}-daily_feed.csv", f"{EXP_NUM}-total_feed.csv"]
 dir_paths = [x.name for x in list(batch_sheet_path.iterdir())]
 
 if any(item in filenames for item in dir_paths):
+    # Read in CSV files
     df_br_daily = pd.read_csv(batch_sheet_path / filenames[0])
     df_br_total = pd.read_csv(batch_sheet_path / filenames[1])
 
     # Daily feed csv
     df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
-    date_and_reactor_in_daily = np.logical_and(
-        df_br_daily["Code_Run_Date"] == todays_date,
-        df_br_daily["Bioreactor"] == VESSEL,
-    )
-    if any(date_and_reactor_in_daily):
-        df_br_daily.loc[date_and_reactor_in_daily, :] = bioreactor.return_data(
-            show_daily_feed=True, exec_date=True
-        )
-    else:
-        df_br_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
-    df_br_daily.to_csv(batch_sheet_path / filenames[0], index=False)
+    df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
+
+    df_final_daily = df_combined_daily.drop_duplicates(subset=["Code_Run_Date", "Bioreactor", "Day"], keep='last')
+    df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    df_final_daily.to_csv(batch_sheet_path / filenames[0], index=False)
 
     # Total feed csv
     df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
-    date_and_reactor_in_total = np.logical_and(
-        df_br_total["Code_Run_Date"] == todays_date,
-        df_br_total["Bioreactor"] == VESSEL,
-    )
-    if any(date_and_reactor_in_total):
-        df_br_total.loc[date_and_reactor_in_total, :] = bioreactor.return_data(
-            show_daily_feed=False, exec_date=True
-        )
-    else:
-        df_br_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
-    df_br_total.to_csv(batch_sheet_path / filenames[1], index=False)
+    df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
+
+    df_final_total = df_combined_total.drop_duplicates(subset=["Code_Run_Date", "Bioreactor", "Day"], keep='last')
+    df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    df_final_total.to_csv(batch_sheet_path / filenames[1], index=False)
 else:
     # If no file exist currently
     bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
@@ -233,45 +218,6 @@ else:
     bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
         batch_sheet_path / filenames[1], index=False
     )
-
-# try:
-#     df_br_daily = pd.read_csv(batch_sheet_path / f"{EXP_NUM}-daily_feed.csv")
-#     if todays_date in df_br_daily["Code_Run_Date"].unique():
-#         date_and_reactor_in_file = np.logical_and(
-#             df_br_daily["Code_Run_Date"] == todays_date,
-#             df_br_daily["Bioreactor"] == VESSEL,
-#         )
-#         df_br_daily.loc[date_and_reactor_in_file, :] = bioreactor.return_data(
-#             show_daily_feed=True, exec_date=True
-#         )
-#     else:
-#         df_new = bioreactor.return_data(show_daily_feed=False, exec_date=True)
-#         df_br_daily = pd.concat([df_br_daily, df_new], ignore_index=True)
-#     df_br_daily.to_csv(batch_sheet_path / f"{EXP_NUM}-daily_feed.csv", index=False)
-# except FileNotFoundError:
-#     bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
-#         batch_sheet_path / f"{EXP_NUM}-daily_feed.csv", index=False
-#     )
-
-# # Save the sheet with Total Feed as a column
-# try:
-#     df_br_total = pd.read_csv(batch_sheet_path / f"{EXP_NUM}-total_feed.csv")
-#     if todays_date in df_br_total["Code_Run_Date"].unique():
-#         date_and_reactor_in_file = np.logical_and(
-#             df_br_total["Code_Run_Date"] == todays_date,
-#             df_br_total["Bioreactor"] == VESSEL,
-#         )
-#         df_br_total.loc[date_and_reactor_in_file, :] = bioreactor.return_data(
-#             show_daily_feed=False, exec_date=True
-#         )
-#     else:
-#         df_new = bioreactor.return_data(show_daily_feed=False, exec_date=True)
-#         df_br_total = pd.concat([df_br_total, df_new], ignore_index=True)
-#     df_br_total.to_csv(batch_sheet_path / f"{EXP_NUM}-total_feed.csv", index=False)
-# except FileNotFoundError:
-#     bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
-#         batch_sheet_path / f"{EXP_NUM}-total_feed.csv", index=False
-#     )
 
 # -------------------------------------------------------------------------------------
 # GENERATED PLOTS SAVED
