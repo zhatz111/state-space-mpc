@@ -214,8 +214,14 @@ class MPCVisualizer:
                         )
                     sub_ax[count].legend(prop={"size": 9})
 
+            # font = {
+            #     'family': 'serif',
+            #     'color':  'black',
+            #     'weight': 'normal',
+            #     'size': 40,
+            # }
+            plt.annotate("ar24-005_prod/BR01/BR01_D1-240219", (0.5, 0.5), horizontalalignment='center', verticalalignment='center', rotation="vertical")
             plt.tight_layout(pad=0.3)
-
             # Save the figure if the arguments passed are the correct instances
             if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
                 fig.savefig(fname=save_path, metadata=metadata)
