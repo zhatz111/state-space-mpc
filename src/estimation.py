@@ -25,13 +25,25 @@ from models.ssm import StateSpaceModel, json_toscaler
 warnings.filterwarnings("ignore")
 
 # Store todays date and the top level directory in variables
-todays_date = datetime.today().strftime("%Y-%m-%d")
+todays_date = datetime.today().strftime("%y%m%d")
 top_dir = Path().absolute()
 
 # -------------------------------------------------------------------------------------
 # USER SPECIFIED DATA
 
-# Specify the study number, current time and vessel
+# Specify the study number, measurement units, current time and vessel
+# Units list contents must equal exactly the number of graphs being plotted
+units_list = [
+    "(mg/L)",
+    "(MM cells/mL)",
+    "(%)",
+    "(g/L)",
+    "(mOsm/kg)",
+    "(mmHg)",
+    "",
+    "(\N{DEGREE SIGN}C)",
+    "",
+]
 EXP_NUM = "AR24-005"
 CURR_TIME = 6
 VESSEL = 1  # want to eliminate this and add a for loop for all reactors
@@ -231,6 +243,8 @@ br_plots = MPCVisualizer(bioreactor, controller)
 br_plots.mpc_daily_plot(
     save_path=batch_sheet_path
     / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
+    identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
+    unit_list=units_list,
     metadata={
         "Title": f"{EXP_NUM}-D{CURR_TIME}",
         "Author": "Zach Hatzenbeller, Yu Luo",

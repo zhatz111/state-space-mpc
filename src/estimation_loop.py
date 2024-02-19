@@ -32,10 +32,22 @@ top_dir = Path().absolute()
 # -------------------------------------------------------------------------------------
 # USER SPECIFIED DATA
 
-# Specify the study number, current time and vessel
+# Specify the study number, measurement units, current time and vessel
+# Units list contents must equal exactly the number of graphs being plotted
+units_list = [
+    "(mg/L)",
+    "(MM cells/mL)",
+    "(%)",
+    "(g/L)",
+    "(mOsm/kg)",
+    "(mmHg)",
+    "",
+    "(\N{DEGREE SIGN}C)",
+    "",
+]
 EXP_NUM = "AR24-005"
 CURR_TIME = 0
-VESSELS = [3,6,18,999] # [3,5,6,9,13,15,18,20] or np.arange(1,25)
+VESSELS = [3, 6, 18, 999]  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
 SIM_FOLDER = "mpc-simulation"
@@ -89,14 +101,19 @@ for curr_vessel in VESSELS:
     reference_data_this_vessel = reference_data_all.loc[
         reference_data_all["Bioreactor"] == curr_vessel, :
     ]
-    contains_state_data = reference_data_this_vessel.columns.str.contains("--STATE_DATA")
+    contains_state_data = reference_data_this_vessel.columns.str.contains(
+        "--STATE_DATA"
+    )
     contains_input = reference_data_this_vessel.columns.str.contains("--INPUT_DATA")
 
     # store the states and inputs as a list
     STATES = [
-        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_state_data]
+        x.split("--")[0]
+        for x in reference_data_this_vessel.columns[contains_state_data]
     ]
-    INPUTS = [x.split("--")[0] for x in reference_data_this_vessel.columns[contains_input]]
+    INPUTS = [
+        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_input]
+    ]
 
     # Parse the PV and MV names from the reference data csv file
     PV_SUFFIX = "--STATE_SP"
@@ -105,8 +122,12 @@ for curr_vessel in VESSELS:
     contains_MV = reference_data_this_vessel.columns.str.contains(MV_SUFFIX, case=False)
 
     # Define the PV and MV names using the parsing from csv file
-    pv_names = [x.split("--")[0] for x in reference_data_this_vessel.columns[contains_PV]]
-    mv_names = [x.split("--")[0] for x in reference_data_this_vessel.columns[contains_MV]]
+    pv_names = [
+        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_PV]
+    ]
+    mv_names = [
+        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_MV]
+    ]
 
     # Define the suffix after each MV name and index the matrix with these names
     pv_sps = reference_data_this_vessel[[mv + PV_SUFFIX for mv in pv_names]].values
@@ -126,7 +147,9 @@ for curr_vessel in VESSELS:
 
     # Construct a bioreactor object
     bioreactor = Bioreactor(
-        vessel=curr_vessel, process_model=controller_model, data=reference_data_this_vessel
+        vessel=curr_vessel,
+        process_model=controller_model,
+        data=reference_data_this_vessel,
     )
 
     # Construct a controller object
@@ -237,8 +260,10 @@ for curr_vessel in VESSELS:
     # Plot the MPC Controller for each Bioreactor
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
-        save_path=batch_figure_path
+        save_path=batch_sheet_path
         / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
+        identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
+        unit_list=units_list,
         metadata={
             "Title": f"{EXP_NUM}-D{CURR_TIME}",
             "Author": "Zach Hatzenbeller, Yu Luo",

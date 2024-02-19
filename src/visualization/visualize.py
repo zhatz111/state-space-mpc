@@ -53,7 +53,15 @@ class MPCVisualizer:
         else:
             raise ValueError("Provided inputs to class are not correct.")
 
-    def mpc_daily_plot(self, save_path: Union[str, Path, None] = None, metadata: Union[dict, None] = None, PV: str = "", display = False):  # MV: str = ""
+    def mpc_daily_plot(
+        self,
+        save_path: Union[str, Path, None] = None,
+        metadata: Union[dict, None] = None,
+        unit_list: Union[list, None] = None,
+        PV: str = "",
+        identifier: str = "",
+        display=False,
+    ):
         # I want this function to plot the trajectory of the process variable on any given day with
         # the STATE_DATA, STATE_EST, and STATE_PRED, graphed together for comparison, I want everything
         # after the curr_time of the bioreactor class to be a different color (red) and everything
@@ -120,7 +128,10 @@ class MPCVisualizer:
                         )
                     except KeyError:
                         pass
-                    sub_ax[count].set_title(f"{state} (PV)")
+                    if isinstance(unit_list, list):
+                        sub_ax[count].set_title(f"{state} (PV) {unit_list[count]}", fontweight="bold")
+                    else:
+                        sub_ax[count].set_title(f"{state} (PV)", fontweight="bold")
                     sub_ax[count].legend(prop={"size": 9})
                 else:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
@@ -142,7 +153,10 @@ class MPCVisualizer:
                         "b-o",
                         label="Predicted Output (Estimator)",
                     )
-                    sub_ax[count].set_title(state)
+                    if isinstance(unit_list, list):
+                        sub_ax[count].set_title(f"{state} {unit_list[count]}", fontweight="bold")
+                    else:
+                        sub_ax[count].set_title(f"{state}", fontweight="bold")
                     sub_ax[count].legend(prop={"size": 9})
                 last_ax_used = count
 
@@ -181,7 +195,10 @@ class MPCVisualizer:
                             )
                         except KeyError:
                             pass
-                        sub_ax[count].set_title(inputs)
+                        if isinstance(unit_list, list):
+                            sub_ax[count].set_title(f"{inputs} {unit_list[count]}", fontweight="bold")
+                        else:
+                            sub_ax[count].set_title(f"{inputs}", fontweight="bold")
                     except KeyError:
                         sub_ax[count].step(
                             plot_data["Day"].loc[
@@ -209,19 +226,36 @@ class MPCVisualizer:
                             "g--",
                             label="Historical Input Reference",
                         )
-                        sub_ax[count].set_title(
-                            f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)"
-                        )
+                        if isinstance(unit_list, list):
+                            sub_ax[count].set_title(
+                                f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV) {unit_list[count]}",
+                                fontweight="bold"
+                            )
+                        else:
+                            sub_ax[count].set_title(
+                                f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)",
+                                fontweight="bold"
+                            )
                     sub_ax[count].legend(prop={"size": 9})
 
-            # font = {
-            #     'family': 'serif',
-            #     'color':  'black',
-            #     'weight': 'normal',
-            #     'size': 40,
-            # }
-            plt.annotate("ar24-005_prod/BR01/BR01_D1-240219", (0.5, 0.5), horizontalalignment='center', verticalalignment='center', rotation="vertical")
-            plt.tight_layout(pad=0.3)
+            font = {
+                "family": "sans-serif",
+                "color": "gray",
+                "weight": "normal",
+                "size": 20,
+            }
+            fig.text(
+                0.977,
+                0.5,
+                identifier,
+                fontdict=font,
+                va="center",
+                ha="center",
+                rotation="vertical",
+            )
+            plt.tight_layout(pad=1, h_pad=1, w_pad=1)
+            plt.subplots_adjust(right=0.95, left=0.04, top=0.96, bottom=0.04)
+
             # Save the figure if the arguments passed are the correct instances
             if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
                 fig.savefig(fname=save_path, metadata=metadata)
