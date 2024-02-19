@@ -167,12 +167,25 @@ class Bioreactor:
         The function `return_data` returns the dataset for a bioreactor, with accurate column names.
         """
 
+        # loc_mv_in_inputs = np.where(
+        #     np.isin(np.array(self.controller_model.input_data_labels), self.mv_names)
+        # )[0]
+
+        data = self.data.copy(deep=True)
+        if exec_date:
+            data["Code_Run_Date"] = datetime.today().strftime("%Y-%m-%d")
+            cols = np.array(data.columns.tolist())
+            new_cols = cols[np.concatenate((
+                np.where(np.isin(cols,"Code_Run_Date"))[0],
+                np.where(~np.isin(cols,"Code_Run_Date"))[0]),dtype=int)]
+            data = data[new_cols].copy(deep=True)
+
         if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:
-            data = self.data.copy(deep=True)
-            if exec_date:
-                data["Code_Run_Date"] = datetime.today().strftime("%Y-%m-%d")
-                cols = data.columns.tolist()
-                data = data[cols[-1:] + cols[:-1]].copy(deep=True)
+            # data = self.data.copy(deep=True)
+            # if exec_date:
+            #     data["Code_Run_Date"] = datetime.today().strftime("%Y-%m-%d")
+            #     cols = data.columns.tolist()
+            #     data = data[cols[-1:] + cols[:-1]].copy(deep=True)
 
             if show_daily_feed:
                 data = data.rename(
@@ -191,8 +204,8 @@ class Bioreactor:
                     feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]
                     feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
                     data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] = feed_total
-        else:
-            data = self.data
+        # else:
+        #     data = self.data
 
         return data
 
