@@ -53,7 +53,7 @@ class MPCVisualizer:
         else:
             raise ValueError("Provided inputs to class are not correct.")
 
-    def mpc_daily_plot(self, save_path: Union[str, Path, None] = None, metadata: Union[dict, None] = None, PV: str = ""):  # MV: str = ""
+    def mpc_daily_plot(self, save_path: Union[str, Path, None] = None, metadata: Union[dict, None] = None, PV: str = "", display = False):  # MV: str = ""
         # I want this function to plot the trajectory of the process variable on any given day with
         # the STATE_DATA, STATE_EST, and STATE_PRED, graphed together for comparison, I want everything
         # after the curr_time of the bioreactor class to be a different color (red) and everything
@@ -222,7 +222,8 @@ class MPCVisualizer:
             elif isinstance(save_path, (str, Path)):
                 fig.savefig(fname=save_path)
 
-            plt.show()
+            if display:
+                plt.show()
 
         else:
             raise ValueError(
