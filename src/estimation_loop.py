@@ -260,7 +260,7 @@ for curr_vessel in VESSELS:
     # Plot the MPC Controller for each Bioreactor
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
-        save_path=batch_sheet_path
+        save_path=batch_figure_path
         / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
         identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
         unit_list=units_list,
