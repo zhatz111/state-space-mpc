@@ -46,19 +46,20 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 4
-VESSELS = [999] # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
+CURR_TIME = 0
+VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
 SIM_FOLDER = "mpc-simulation"
 SIM_REFERENCE_DATA = "ar24-005-mpc"
 
 # Specify batch sheet path and load the read-only "master" sheet
-simulation_path = Path(
+fig_path_lv1 = Path(
     "~/GSK/Biopharm Model Predictive Control - General/data/", SIM_FOLDER
 )
+data_path = Path(top_dir, f"data/simulation/{EXP_NUM}")
 reference_data_all = pd.read_csv(
-    Path(top_dir, f"data/simulation/{EXP_NUM}", f"{SIM_REFERENCE_DATA}.csv")
+    Path(data_path, f"{SIM_REFERENCE_DATA}.csv")
 )
 
 # -------------------------------------------------------------------------------------
@@ -86,16 +87,16 @@ sim_B_matrix = np.array(
 # -------------------------------------------------------------------------------------
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
 
-# Create output folder
-batch_sheet_path = Path(simulation_path.expanduser(), SIM_REFERENCE_DATA)
-batch_sheet_path.mkdir(parents=True, exist_ok=True)
+# Create figure output folder
+fig_path_lv2 = Path(fig_path_lv1.expanduser(), SIM_REFERENCE_DATA)
+fig_path_lv2.mkdir(parents=True, exist_ok=True)
 
 for curr_vessel in VESSELS:
     # curr_vessel = 1  # want to eliminate this and add a for loop for all reactors
 
     # Create figure folder
-    batch_figure_path = Path(batch_sheet_path.expanduser(), f"BR{curr_vessel:02d}")
-    batch_figure_path.mkdir(parents=True, exist_ok=True)
+    fig_path_lv3 = Path(fig_path_lv2.expanduser(), f"BR{curr_vessel:02d}")
+    fig_path_lv3.mkdir(parents=True, exist_ok=True)
 
     # Parse the states from the reference data csv file
     reference_data_this_vessel = reference_data_all.loc[
@@ -220,12 +221,12 @@ for curr_vessel in VESSELS:
 
     # Search if files are in directory
     filenames = [f"{EXP_NUM}-daily_feed.csv", f"{EXP_NUM}-total_feed.csv"]
-    dir_paths = [x.name for x in list(batch_sheet_path.iterdir())]
+    dir_paths = [x.name for x in list(data_path.iterdir())]
 
     if any(item in filenames for item in dir_paths):
         # Read in CSV files
-        df_br_daily = pd.read_csv(batch_sheet_path / filenames[0])
-        df_br_total = pd.read_csv(batch_sheet_path / filenames[1])
+        df_br_daily = pd.read_csv(data_path / filenames[0])
+        df_br_total = pd.read_csv(data_path / filenames[1])
 
         # Daily feed csv
         df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
@@ -235,7 +236,7 @@ for curr_vessel in VESSELS:
             subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
         )
         df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_daily.to_csv(batch_sheet_path / filenames[0], index=False)
+        df_final_daily.to_csv(data_path / filenames[0], index=False)
 
         # Total feed csv
         df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
@@ -245,14 +246,14 @@ for curr_vessel in VESSELS:
             subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
         )
         df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_total.to_csv(batch_sheet_path / filenames[1], index=False)
+        df_final_total.to_csv(data_path / filenames[1], index=False)
     else:
         # If no file exist currently
         bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
-            batch_sheet_path / filenames[0], index=False
+            data_path / filenames[0], index=False
         )
         bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
-            batch_sheet_path / filenames[1], index=False
+            data_path / filenames[1], index=False
         )
 
     # -------------------------------------------------------------------------------------
@@ -261,7 +262,7 @@ for curr_vessel in VESSELS:
     # Plot the MPC Controller for each Bioreactor
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
-        save_path=batch_figure_path
+        save_path=fig_path_lv3
         / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
         identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
         unit_list=units_list,
