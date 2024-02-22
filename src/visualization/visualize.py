@@ -99,25 +99,39 @@ class MPCVisualizer:
             last_ax_used = 0
             sub_ax = ax.flatten()
             for count, state in enumerate(self.bioreactor.process_model.states):
+
+                # Retrieve the latest modifier
+                modifiers = plot_data[state + '--STATE_MOD'].values
+                latest_modifier = modifiers[~np.isnan(modifiers)][-1]
+
                 if state == y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
                     sub_ax[count].plot(
                         plot_data["Day"][measured_mask],
                         plot_data[state + PV_SUFFIX][measured_mask],
-                        "k-o",
+                        "ks",
                         label="Measured Output",
+                        # markersize=10
                     )
                     sub_ax[count].plot(
-                        plot_data["Day"],
-                        plot_data[state + PRED_SUFFIX],
+                        plot_data["Day"].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
+                            ],
+                        plot_data[state + PRED_SUFFIX].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
+                            ],
                         "r-o",
-                        label="Predicted Output (Model)",
+                        label="Predicted Output",
                     )
                     sub_ax[count].plot(
-                        plot_data["Day"],
-                        plot_data[state + EST_SUFFIX],
+                        plot_data["Day"].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                        plot_data[state + EST_SUFFIX].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ]*latest_modifier,
                         "b-o",
-                        label="Predicted Output (Estimator)",
+                        label="Estimated Output",
                     )
                     try:
                         sub_ax[count].plot(
@@ -138,20 +152,28 @@ class MPCVisualizer:
                     sub_ax[count].plot(
                         plot_data["Day"][measured_mask],
                         plot_data[state + PV_SUFFIX][measured_mask],
-                        "k-o",
+                        "ks",
                         label="Measured Output",
                     )
                     sub_ax[count].plot(
-                        plot_data["Day"],
-                        plot_data[state + PRED_SUFFIX],
+                        plot_data["Day"].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
+                            ],
+                        plot_data[state + PRED_SUFFIX].loc[
+                                plot_data["Day"] >= self.bioreactor.curr_time
+                            ],
                         "r-o",
-                        label="Predicted Output (Model)",
+                        label="Predicted Output",
                     )
                     sub_ax[count].plot(
-                        plot_data["Day"],
-                        plot_data[state + EST_SUFFIX],
+                        plot_data["Day"].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ],
+                        plot_data[state + EST_SUFFIX].loc[
+                                plot_data["Day"] <= self.bioreactor.curr_time
+                            ]*latest_modifier,
                         "b-o",
-                        label="Predicted Output (Estimator)",
+                        label="Estimated Output",
                     )
                     if isinstance(unit_list, list):
                         sub_ax[count].set_title(f"{state} {unit_list[count]}", fontweight="bold")
@@ -175,6 +197,7 @@ class MPCVisualizer:
                             ],
                             "r-",
                             label="Predicted Control Input",
+                            where="post"
                         )
                         sub_ax[count].step(
                             plot_data["Day"].loc[
@@ -185,6 +208,7 @@ class MPCVisualizer:
                             ],
                             "k-",
                             label="Past Control Input",
+                            where="post"
                         )
                         try:
                             sub_ax[count].step(
@@ -192,6 +216,7 @@ class MPCVisualizer:
                                 plot_data[inputs + MV_REF_SUFFIX],
                                 "g--",
                                 label="Historical Input Reference",
+                                where="post"
                             )
                         except KeyError:
                             pass
@@ -209,6 +234,7 @@ class MPCVisualizer:
                             ],
                             "r-",
                             label="Predicted Control Input",
+                            where="post"
                         )
                         sub_ax[count].step(
                             plot_data["Day"].loc[
@@ -219,12 +245,14 @@ class MPCVisualizer:
                             ],
                             "k-",
                             label="Past Control Input",
+                            where="post"
                         )
                         sub_ax[count].step(
                             plot_data["Day"],
                             plot_data[self.bioreactor.daily_feed_name_ref],
                             "g--",
                             label="Historical Input Reference",
+                            where="post"
                         )
                         if isinstance(unit_list, list):
                             sub_ax[count].set_title(
@@ -343,6 +371,7 @@ class MPCVisualizer:
                         ],
                         "k--",
                         label="Target Trajectory",
+                        where="post"
                     )
                     ax.step(
                         self.controller[count].data_before_optim_dict[key]["Day"],
@@ -351,6 +380,7 @@ class MPCVisualizer:
                         ],
                         "b-",
                         label="Un-optimized",
+                        where="post"
                     )
                     ax.step(
                         self.controller[count].data_after_optim_dict[key]["Day"],
@@ -359,6 +389,7 @@ class MPCVisualizer:
                         ],
                         "r-",
                         label="Optimized",
+                        where="post"
                     )
                     ax.title.set_text(f"Day: {key}")
                 tup[0].supxlabel("Day", size="x-large", weight="bold")
@@ -445,6 +476,7 @@ class MPCVisualizer:
                         ],
                         "k--",
                         label="Target Trajectory",
+                        where="post"
                     )
 
                     # Line for Open Loop MPC
@@ -457,6 +489,7 @@ class MPCVisualizer:
                         ],
                         "b-",
                         label="Open Loop MPC",
+                        where="post"
                     )
 
                     # Line for Closed Loop MPC
@@ -469,6 +502,7 @@ class MPCVisualizer:
                         ],
                         "r-",
                         label="Closed Loop MPC",
+                        where="post"
                     )
 
                     ax.title.set_text(self.bioreactor[count].vessel)

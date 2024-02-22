@@ -46,8 +46,8 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 0
-VESSELS = [3, 6, 18, 999]  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
+CURR_TIME = 4
+VESSELS = [999] # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
 SIM_FOLDER = "mpc-simulation"
@@ -155,7 +155,7 @@ for curr_vessel in VESSELS:
     # Construct a controller object
     PRED_HORIZON = 30
     CTRL_HORIZON = 3
-    EST_HORIZON = 2
+    EST_HORIZON = 3
     ts = np.array(reference_data_this_vessel["Day"])
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
@@ -170,6 +170,7 @@ for curr_vessel in VESSELS:
             0.001,  # CO2
         ]
     )
+    EST_FILTER_WT_ON_DATA = 0.75
 
     # Verify dimensions (YL@2024-01-18)
     if len(EST_WTS) != len(STATES):
@@ -194,7 +195,7 @@ for curr_vessel in VESSELS:
         ctrl_horizon=CTRL_HORIZON,
         constr=MV_BOUNDS,
         output_mods_user=np.array([]),
-        filter_wt_on_data=0.75,
+        filter_wt_on_data=EST_FILTER_WT_ON_DATA,
         est_wts=EST_WTS,
         est_horizon=EST_HORIZON,
     )
@@ -260,7 +261,7 @@ for curr_vessel in VESSELS:
     # Plot the MPC Controller for each Bioreactor
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
-        save_path=batch_sheet_path
+        save_path=batch_figure_path
         / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
         identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
         unit_list=units_list,
@@ -272,4 +273,5 @@ for curr_vessel in VESSELS:
             "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "Software": f"Python v{sys.version}",
         },
+        display=False
     )
