@@ -50,7 +50,7 @@ CURR_TIME = 0
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
-SIM_FOLDER = "mpc-simulation"
+SIM_FOLDER = "AR24-005_MPC_DoE"
 SIM_REFERENCE_DATA = "ar24-005-mpc"
 
 # Specify batch sheet path and load the read-only "master" sheet
