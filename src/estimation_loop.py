@@ -46,8 +46,8 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 4
-VESSELS = [999] # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
+CURR_TIME = 0
+VESSELS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24] # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
 SIM_FOLDER = "mpc-simulation"
