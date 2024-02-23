@@ -46,20 +46,20 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 0
+CURR_TIME = 1
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
-SIM_FOLDER = "AR24-005_MPC_DoE"
-SIM_REFERENCE_DATA = "ar24-005-mpc"
+RAW_DATA_PATH = "AR24-005_MPC_DoE"
+MASTER_DATA_TABLE = "ar24-005-mpc"
 
 # Specify batch sheet path and load the read-only "master" sheet
 fig_path_lv1 = Path(
-    "~/GSK/Biopharm Model Predictive Control - General/data/", SIM_FOLDER
+    "~/GSK/Biopharm Model Predictive Control - General/data/", RAW_DATA_PATH
 )
 data_path = Path(top_dir, f"data/simulation/{EXP_NUM}")
 reference_data_all = pd.read_csv(
-    Path(data_path, f"{SIM_REFERENCE_DATA}.csv")
+    Path(data_path, f"{MASTER_DATA_TABLE}.csv")
 )
 
 # -------------------------------------------------------------------------------------
@@ -88,7 +88,7 @@ sim_B_matrix = np.array(
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
 
 # Create figure output folder
-fig_path_lv2 = Path(fig_path_lv1.expanduser(), SIM_REFERENCE_DATA)
+fig_path_lv2 = Path(fig_path_lv1.expanduser(), MASTER_DATA_TABLE)
 fig_path_lv2.mkdir(parents=True, exist_ok=True)
 
 for curr_vessel in VESSELS:
@@ -161,16 +161,30 @@ for curr_vessel in VESSELS:
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
     MV_BOUNDS = np.array([[0, 0.1]])  # feed
+    
+    # 2024-02-22: original weights
+    # EST_WTS = np.array(
+    #     [
+    #         2.5e-07,  # IGG
+    #         0.08,  # VCC
+    #         0.03,  # Viability
+    #         0.05,  # Lactate
+    #         0.007,  # OSMO
+    #         0.001,  # CO2
+    #     ]
+    # )
+
+    # 2024-02-23: increased lactate's weight
     EST_WTS = np.array(
         [
             2.5e-07,  # IGG
             0.08,  # VCC
             0.03,  # Viability
-            0.05,  # Lactate
+            50,  # Lactate
             0.007,  # OSMO
             0.001,  # CO2
         ]
-    )
+    )    
     EST_FILTER_WT_ON_DATA = 0.75
 
     # Verify dimensions (YL@2024-01-18)
