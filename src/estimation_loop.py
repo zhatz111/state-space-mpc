@@ -46,7 +46,7 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 2
+CURR_TIME = 3
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
@@ -158,6 +158,8 @@ for curr_vessel in VESSELS:
     CTRL_HORIZON = 3
     EST_HORIZON = 3
     ts = np.array(reference_data_this_vessel["Day"])
+    
+    # 2024-02-25: original controller settings
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
     MV_BOUNDS = np.array([[0, 0.1]])  # feed
@@ -175,16 +177,29 @@ for curr_vessel in VESSELS:
     # )
 
     # 2024-02-23: increased lactate's weight
+    # EST_WTS = np.array(
+    #     [
+    #         2.5e-07,  # IGG
+    #         0.08,  # VCC
+    #         0.03,  # Viability
+    #         50,  # Lactate
+    #         0.007,  # OSMO
+    #         0.001,  # CO2
+    #     ]
+    # )   
+
+    # 2024-02-25: increased IGG and VCC's weights
     EST_WTS = np.array(
         [
-            2.5e-07,  # IGG
-            0.08,  # VCC
+            1e-06,  # IGG
+            0.4,  # VCC
             0.03,  # Viability
             50,  # Lactate
             0.007,  # OSMO
             0.001,  # CO2
         ]
     )    
+
     EST_FILTER_WT_ON_DATA = 0.75
 
     # Verify dimensions (YL@2024-01-18)
