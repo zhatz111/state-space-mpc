@@ -1,7 +1,7 @@
 """Main code for simulating closed-loop MPC
     Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2024-02-19
+    Modified: 2024-02-26
 """
 
 # pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
@@ -46,7 +46,7 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 3
+CURR_TIME = 4
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
@@ -91,12 +91,16 @@ sim_B_matrix = np.array(
 fig_path_lv2 = Path(fig_path_lv1.expanduser(), MASTER_DATA_TABLE)
 fig_path_lv2.mkdir(parents=True, exist_ok=True)
 
+# Create a daily folder of all reactors
+fig_path_lv3a = Path(fig_path_lv2.expanduser(), f"D{CURR_TIME}-{todays_date}")
+fig_path_lv3a.mkdir(parents=True, exist_ok=True)
+
 for curr_vessel in VESSELS:
     # curr_vessel = 1  # want to eliminate this and add a for loop for all reactors
 
     # Create figure folder
-    fig_path_lv3 = Path(fig_path_lv2.expanduser(), f"BR{curr_vessel:02d}")
-    fig_path_lv3.mkdir(parents=True, exist_ok=True)
+    fig_path_lv3b = Path(fig_path_lv2.expanduser(), f"BR{curr_vessel:02d}")
+    fig_path_lv3b.mkdir(parents=True, exist_ok=True)
 
     # Parse the states from the reference data csv file
     reference_data_this_vessel = reference_data_all.loc[
@@ -291,7 +295,7 @@ for curr_vessel in VESSELS:
     # Plot the MPC Controller for each Bioreactor
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
-        save_path=fig_path_lv3
+        save_path=fig_path_lv3b
         / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
         identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
         unit_list=units_list,
@@ -305,3 +309,18 @@ for curr_vessel in VESSELS:
         },
         display=False
     )
+    br_plots.mpc_daily_plot(
+        save_path=fig_path_lv3a
+        / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
+        identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
+        unit_list=units_list,
+        metadata={
+            "Title": f"{EXP_NUM}-D{CURR_TIME}",
+            "Author": "Zach Hatzenbeller, Yu Luo",
+            "Description": f"MPC plot for {EXP_NUM}. Developed within GSK R&D in BDSD",
+            "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
+            "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            "Software": f"Python v{sys.version}",
+        },
+        display=False
+    )    
