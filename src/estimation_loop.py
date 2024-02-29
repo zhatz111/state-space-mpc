@@ -46,7 +46,7 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 6
+CURR_TIME = 7
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
@@ -158,20 +158,27 @@ for curr_vessel in VESSELS:
     )
 
     # Construct a controller object
+    ts = np.array(reference_data_this_vessel["Day"])
+
+    # 2024-02-28: original horizons
     PRED_HORIZON = 30
     CTRL_HORIZON = 3
     EST_HORIZON = 3
-    ts = np.array(reference_data_this_vessel["Day"])
-    
+
     # # 2024-02-25: original controller settings
     # PV_WTS = np.array([1 / (1000) ** 2])
     # MV_WTS = np.array([1 / (0.01) ** 2])
     # MV_BOUNDS = np.array([[0, 0.1]])  # feed
 
-    # 2024-02-28: increased the lower bound
+    # # 2024-02-28: increased the lower bound
+    # PV_WTS = np.array([1 / (1000) ** 2])
+    # MV_WTS = np.array([1 / (0.01) ** 2])
+    # MV_BOUNDS = np.array([[0.002, 0.1]])  # feed    
+
+    # 2024-02-29: decreased the upper bound
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
-    MV_BOUNDS = np.array([[0.002, 0.1]])  # feed    
+    MV_BOUNDS = np.array([[0.002, 0.03]])  # feed        
     
     # 2024-02-22: original weights
     # EST_WTS = np.array(
