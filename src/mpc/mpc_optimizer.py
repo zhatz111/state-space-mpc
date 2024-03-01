@@ -537,6 +537,11 @@ class Controller:
             is_in_pred_horizon, self.controller_model.state_pred_labels
         ]
 
+        # Print final PV (2024-03-01)
+        pred_names = [x.replace("--STATE_DATA","--STATE_PRED") for x in self.pv_names]
+        sp_names = [x.replace("--STATE_DATA","--STATE_SP") for x in self.pv_names]
+        print(data.loc[data["Day"] == max(data["Day"]),["Day","Bioreactor"] + sp_names + pred_names])
+
     def obj_func_wrapper(self, mv_array):
         """
         The `obj_func_wrapper` function is a wrapper for an objective function that takes in an array of
@@ -676,9 +681,9 @@ class Controller:
 
         # ensure curr_time is set to the time of the bioreactor
         self.curr_time = self.bioreactor.curr_time
-        print(
-            f"{self.bioreactor.vessel}: Estimating Day {self.curr_time}'s output modifiers ..."
-        )
+        # print(
+        #     f"{self.bioreactor.vessel}: Estimating Day {self.curr_time}'s output modifiers ..."
+        # )
 
         # select days in the MHE horizon
         is_in_est_horizon = np.logical_and(
