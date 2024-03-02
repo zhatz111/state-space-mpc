@@ -46,7 +46,7 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 8
+CURR_TIME = 9
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
@@ -184,6 +184,11 @@ for curr_vessel in VESSELS:
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
     MV_BOUNDS = np.array([[0.001, 0.03]])  # feed    
+
+    # 2024-03-02: brought the lower bound back to 0.002
+    PV_WTS = np.array([1 / (1000) ** 2])
+    MV_WTS = np.array([1 / (0.01) ** 2])
+    MV_BOUNDS = np.array([[0.002, 0.03]])  # feed        
     
     # 2024-02-22: original weights
     # EST_WTS = np.array(
