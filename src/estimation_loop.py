@@ -46,7 +46,7 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 9
+CURR_TIME = 10
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
@@ -180,15 +180,20 @@ for curr_vessel in VESSELS:
     # MV_WTS = np.array([1 / (0.01) ** 2])
     # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed        
 
-    # 2024-03-01: decreased the lower bound
-    PV_WTS = np.array([1 / (1000) ** 2])
-    MV_WTS = np.array([1 / (0.01) ** 2])
-    MV_BOUNDS = np.array([[0.001, 0.03]])  # feed    
+    # # 2024-03-01: decreased the lower bound
+    # PV_WTS = np.array([1 / (1000) ** 2])
+    # MV_WTS = np.array([1 / (0.01) ** 2])
+    # MV_BOUNDS = np.array([[0.001, 0.03]])  # feed    
 
-    # 2024-03-02: brought the lower bound back to 0.002
+    # # 2024-03-02: brought the lower bound back to 0.002
+    # PV_WTS = np.array([1 / (1000) ** 2])
+    # MV_WTS = np.array([1 / (0.01) ** 2])
+    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed  
+
+    # 2024-03-03: changed the upper bound to 0.05
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
-    MV_BOUNDS = np.array([[0.002, 0.03]])  # feed        
+    MV_BOUNDS = np.array([[0.002, 0.05]])  # feed            
     
     # 2024-02-22: original weights
     # EST_WTS = np.array(
@@ -214,19 +219,35 @@ for curr_vessel in VESSELS:
     #     ]
     # )   
 
-    # 2024-02-25: increased IGG and VCC's weights
+    # # 2024-02-25: increased IGG and VCC's weights
+    # EST_WTS = np.array(
+    #     [
+    #         1e-06,  # IGG
+    #         0.4,  # VCC
+    #         0.03,  # Viability
+    #         50,  # Lactate
+    #         0.007,  # OSMO
+    #         0.001,  # CO2
+    #     ]
+    # )    
+
+    # 2024-03-03: increased IGG and VCC's weights
     EST_WTS = np.array(
         [
-            1e-06,  # IGG
-            0.4,  # VCC
-            0.03,  # Viability
+            1e-05,  # IGG
+            2,  # VCC
+            10,  # Viability
             50,  # Lactate
             0.007,  # OSMO
             0.001,  # CO2
         ]
-    )    
+    )        
 
-    EST_FILTER_WT_ON_DATA = 0.75
+    # # 2024-03-02: original weight
+    # EST_FILTER_WT_ON_DATA = 0.75
+
+    # 2024-03-03: increased weight
+    EST_FILTER_WT_ON_DATA = 0.9
 
     # Verify dimensions (YL@2024-01-18)
     if len(EST_WTS) != len(STATES):
