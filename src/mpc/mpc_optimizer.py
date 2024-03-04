@@ -309,7 +309,7 @@ class Bioreactor:
         x_out_df.insert(0, "Day", ts + curr_time)
 
         # Create a DF for the predicted outputs
-        y_out_df = pd.DataFrame(x_out, columns=self.process_model.state_pred_labels)
+        y_out_df = pd.DataFrame(y_out, columns=self.process_model.state_pred_labels)
         y_out_df.insert(0, "Day", ts + curr_time)
 
         # Check if the simulation starts from the current state
@@ -479,6 +479,21 @@ class Controller:
             data["Day"] >= self.curr_time,
             data["Day"] < (self.curr_time + self.pred_horizon),
         )
+
+        # Do not run MPC on EoR
+        pred_names = [x.replace("--STATE_DATA","--STATE_PRED") for x in self.pv_names]
+        sp_names = [x.replace("--STATE_DATA","--STATE_SP") for x in self.pv_names]
+        if not(np.any(is_in_ctrl_horizon)):
+
+            # Update pred horizon
+            data.loc[is_in_pred_horizon, self.controller_model.state_pred_labels] = np.multiply(
+                data.loc[is_in_pred_horizon, self.controller_model.state_est_labels].values,
+                self.output_mods_est)
+
+            # Update command line output
+            print(data.loc[data["Day"] == max(data["Day"]),["Day","Bioreactor"] + sp_names + pred_names])
+            return
+
         control_matrix = data.loc[is_in_ctrl_horizon, self.mv_names].values
 
         # Flatten initial mv
@@ -540,8 +555,6 @@ class Controller:
         ]
 
         # Print final PV (2024-03-01)
-        pred_names = [x.replace("--STATE_DATA","--STATE_PRED") for x in self.pv_names]
-        sp_names = [x.replace("--STATE_DATA","--STATE_SP") for x in self.pv_names]
         print(data.loc[data["Day"] == max(data["Day"]),["Day","Bioreactor"] + sp_names + pred_names])
 
     def obj_func_wrapper(self, mv_array):

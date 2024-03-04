@@ -46,7 +46,7 @@ units_list = [
     "",
 ]
 EXP_NUM = "AR24-005"
-CURR_TIME = 10
+CURR_TIME = 11
 VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
