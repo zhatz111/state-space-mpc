@@ -470,9 +470,11 @@ class Controller:
         data = self.bioreactor.data
         self.curr_time = self.bioreactor.curr_time
         is_in_ctrl_horizon = np.logical_and(
-            data["Day"] >= self.curr_time,
-            data["Day"] < (self.curr_time + self.ctrl_horizon),
-        )
+            np.logical_and(
+                data["Day"] >= self.curr_time,
+                data["Day"] < (self.curr_time + self.ctrl_horizon)),
+                data["Day"] < max(data["Day"])
+                )
         is_in_pred_horizon = np.logical_and(
             data["Day"] >= self.curr_time,
             data["Day"] < (self.curr_time + self.pred_horizon),
