@@ -15,6 +15,8 @@ sns.set_style("ticks")
 data_path = Path(
     "~/GSK/Biopharm Model Predictive Control - General/data/AR24-005_MPC_DoE/AR24-005_MasterDataTable_2.xlsx",
 )
+fig_path = Path(data_path.parent,"mpc-performance-figs").expanduser()
+fig_path.mkdir(parents=True, exist_ok=True)
 df_data = pd.read_excel(data_path, skiprows=[0])
 df_data["Temp"] = df_data["Temp"].astype(int)
 df_data["Bioreactor"] = [int(x[-3:]) for x in df_data["Batch"].values]
@@ -40,22 +42,58 @@ df_joined["% Difference from Setpoint"] = (df_joined["IGG"] - df_joined["Setpoin
 # day_list = [5, 7]
 # df_data = df_data[~df_data["Day"].isin(day_list)]
 
-# Setpoint tracking (all)
-sns.pointplot(
-    x="Day",
-    y="Measured",
-    hue="Controller",
-    hue_order=["Julia", "Python", "No MPC"],
-    palette=["C0", "C1", "k"],
-    capsize=0.2,
-    linewidth=2,
-    data=df_joined,
-    errorbar="ci",
+# # Setpoint tracking (all)
+# sns.pointplot(
+#     x="Day",
+#     y="Measured",
+#     hue="Controller",
+#     hue_order=["Julia", "Python", "No MPC"],
+#     palette=["C0", "C1", "k"],
+#     capsize=0.2,
+#     linewidth=2,
+#     data=df_joined,
+#     errorbar="ci",
+# )
+# plt.plot(df_joined["Day"], df_joined["Setpoint"], "r--")
+# plt.grid(axis="x", linestyle="--", color="gray")
+# plt.grid(axis="y", linestyle="--", color="gray")
+# plt.show()
+
+# Setpoint tracking (Controller)
+g = sns.FacetGrid(
+    df_joined,
+    col="Controller",
+    height=4,
+    sharex=False,
+    sharey=True,
+    despine=False,
 )
-plt.plot(df_joined["Day"], df_joined["Setpoint"], "r--")
-plt.grid(axis="x", linestyle="--", color="gray")
-plt.grid(axis="y", linestyle="--", color="gray")
-plt.show()
+
+
+def sp_grp_by_ctrl(data, **kwargs):
+    sns.lineplot(
+        x="Day",
+        y="Measured",
+        hue="iVCC",
+        marker="o",
+        hue_order=[12, 15, 18],
+        palette=["r", "k", "g"],
+        markersize=8,
+        err_style="bars",
+        err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+        errorbar="ci",
+        data=data,
+        **kwargs,
+    )
+    plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
+    plt.grid(axis="x", linestyle="--", color="gray")
+    plt.grid(axis="y", linestyle="--", color="gray")
+
+
+g.map_dataframe(sp_grp_by_ctrl)
+g.add_legend(title="iVCC")
+# plt.show()
+plt.savefig(fname=Path(fig_path,"sp_grp_by_ctrl.png"))
 
 # Setpoint tracking (iVCC)
 g = sns.FacetGrid(
@@ -68,7 +106,7 @@ g = sns.FacetGrid(
 )
 
 
-def boxplot(data, **kwargs):
+def sp_grp_by_ivcc(data, **kwargs):
     sns.lineplot(
         x="Day",
         y="Measured",
@@ -83,32 +121,71 @@ def boxplot(data, **kwargs):
         data=data,
         **kwargs,
     )
-    plt.plot(df_joined["Day"], df_joined["Setpoint"], "r--")
+    plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
     plt.grid(axis="x", linestyle="--", color="gray")
     plt.grid(axis="y", linestyle="--", color="gray")
 
 
-g.map_dataframe(boxplot)
+g.map_dataframe(sp_grp_by_ivcc)
 g.add_legend(title="MPC Controller")
-plt.show()
+# plt.show()
+plt.savefig(fname=Path(fig_path,"sp_grp_by_ivcc.png"))
 
-# Setpoint deviation (all)
-sns.pointplot(
-    x="Day",
-    y="% Difference from Setpoint",
-    hue="Controller",
-    hue_order=["Julia", "Python", "No MPC"],
-    palette=["C0", "C1", "k"],
-    capsize=0.2,
-    linewidth=2,
-    data=df_joined,
-    errorbar="ci",
+# # Setpoint deviation (all)
+# sns.pointplot(
+#     x="Day",
+#     y="% Difference from Setpoint",
+#     hue="Controller",
+#     hue_order=["Julia", "Python", "No MPC"],
+#     palette=["C0", "C1", "k"],
+#     capsize=0.2,
+#     linewidth=2,
+#     data=df_joined,
+#     errorbar="ci",
+# )
+# plt.axhline(y=0, color="r", linestyle="--")
+# plt.grid(axis="x", linestyle="--", color="gray")
+# plt.grid(axis="y", linestyle="--", color="gray")
+# plt.ylim(-30, 30)
+# plt.show()
+
+# Setpoint deviation (Controller)
+g = sns.FacetGrid(
+    df_joined,
+    col="Controller",
+    height=4,
+    sharex=False,
+    sharey=True,
+    despine=False,
+    ylim=(-30, 30),
 )
-plt.axhline(y=0, color="r", linestyle="--")
-plt.grid(axis="x", linestyle="--", color="gray")
-plt.grid(axis="y", linestyle="--", color="gray")
-plt.ylim(-30, 30)
-plt.show()
+sns.set_style("white")
+
+
+def dev_grp_by_ctrl(data, **kwargs):
+    sns.lineplot(
+        x="Day",
+        y="% Difference from Setpoint",
+        hue="iVCC",
+        marker="o",
+        hue_order=[12,15,18],
+        palette=["r", "k", "g"],
+        markersize=10,
+        err_style="bars",
+        err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+        errorbar="ci",
+        data=data,
+        **kwargs,
+    )
+    plt.axhline(y=0, color="b", linestyle="-.")
+    plt.grid(axis="x", linestyle="--", color="gray")
+    plt.grid(axis="y", linestyle="--", color="gray")
+
+
+g.map_dataframe(dev_grp_by_ctrl)
+g.add_legend(title="iVCC")
+# plt.show()
+plt.savefig(fname=Path(fig_path,"dev_grp_by_ctrl.png"))
 
 # Setpoint deviation (iVCC)
 g = sns.FacetGrid(
@@ -123,7 +200,7 @@ g = sns.FacetGrid(
 sns.set_style("white")
 
 
-def boxplot_2(data, **kwargs):
+def dev_grp_by_ivcc(data, **kwargs):
     sns.lineplot(
         x="Day",
         y="% Difference from Setpoint",
@@ -138,48 +215,49 @@ def boxplot_2(data, **kwargs):
         data=data,
         **kwargs,
     )
-    plt.axhline(y=0, color="r", linestyle="-.")
+    plt.axhline(y=0, color="b", linestyle="-.")
     plt.grid(axis="x", linestyle="--", color="gray")
     plt.grid(axis="y", linestyle="--", color="gray")
 
 
-g.map_dataframe(boxplot_2)
-g.add_legend(title="MPC Controller")
-plt.show()
+g.map_dataframe(dev_grp_by_ivcc)
+g.add_legend(title="iVCC")
+# plt.show()
+plt.savefig(fname=Path(fig_path,"dev_grp_by_ivcc.png"))
 
-# Setpoint deviation (Temp/pH)
-g = sns.FacetGrid(
-    df_joined,
-    col="Temp/pH",
-    height=4,
-    sharex=False,
-    sharey=True,
-    despine=False,
-    ylim=(-30, 30),
-)
-sns.set_style("white")
-
-
-def boxplot_3(data, **kwargs):
-    sns.lineplot(
-        x="Day",
-        y="% Difference from Setpoint",
-        hue="Controller",
-        marker="o",
-        hue_order=["Julia", "Python", "No MPC"],
-        palette=["C0", "C1", "k"],
-        markersize=10,
-        err_style="bars",
-        err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
-        errorbar="ci",
-        data=data,
-        **kwargs,
-    )
-    plt.axhline(y=0, color="r", linestyle="-.")
-    plt.grid(axis="x", linestyle="--", color="gray")
-    plt.grid(axis="y", linestyle="--", color="gray")
+# # Setpoint deviation (Temp/pH)
+# g = sns.FacetGrid(
+#     df_joined,
+#     col="Temp/pH",
+#     height=4,
+#     sharex=False,
+#     sharey=True,
+#     despine=False,
+#     ylim=(-30, 30),
+# )
+# sns.set_style("white")
 
 
-g.map_dataframe(boxplot_3)
-g.add_legend()
-plt.show()
+# def dev_grp_by_temp(data, **kwargs):
+#     sns.lineplot(
+#         x="Day",
+#         y="% Difference from Setpoint",
+#         hue="Controller",
+#         marker="o",
+#         hue_order=["Julia", "Python", "No MPC"],
+#         palette=["C0", "C1", "k"],
+#         markersize=10,
+#         err_style="bars",
+#         err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+#         errorbar="ci",
+#         data=data,
+#         **kwargs,
+#     )
+#     plt.axhline(y=0, color="r", linestyle="-.")
+#     plt.grid(axis="x", linestyle="--", color="gray")
+#     plt.grid(axis="y", linestyle="--", color="gray")
+
+
+# g.map_dataframe(dev_grp_by_temp)
+# g.add_legend()
+# plt.show()
