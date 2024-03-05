@@ -26,7 +26,6 @@ df_data = pd.read_excel(
 df_data["Temp"] = df_data["Temp"].astype(int)
 df_data["Bioreactor"] = [int(x[-3:]) for x in df_data["Batch"].values]
 df_data["Temp/pH"] = [f"{x[0]}, {int(x[1])}" for x in df_data.loc[:,["pH","Temp"]].values]
-df_data["Measured"] = df_data["IGG"]
 total_feed_diff = np.append(np.diff(df_data["Total Feed"]),0)
 daily_feed = np.zeros((len(total_feed_diff),))
 daily_feed[total_feed_diff > 0] = total_feed_diff[total_feed_diff > 0]
@@ -35,9 +34,7 @@ total_glc_diff = np.append(np.diff(df_data["Total Glucose"]),0)
 daily_glc = np.zeros((len(total_glc_diff),))
 daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
 df_data["Daily Glucose"] = daily_glc
-df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","IGG","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Measured","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
-
-DISPLAY_VARIABLE = "IGG"
+df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","IGG","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
 
 # Retrieve setpoint from the master sheet directly
 top_dir = Path().absolute()
@@ -48,84 +45,14 @@ df_sp_selected = df_sp.loc[:,["Bioreactor","Day","Setpoint"]]
 
 # Left join the two dfs
 df_joined = pd.merge(df_data_selected,df_sp_selected,how="inner",left_on=["Bioreactor","Day"],right_on=["Bioreactor","Day"])
-df_joined["% Difference from Setpoint"] = (df_joined["IGG"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined["Tracking Error (%)"] = (df_joined["IGG"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined["Absolute Tracking Error (%)"] = np.abs(df_joined["IGG"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
 
-# Setpoint tracking (Controller)
-g = sns.FacetGrid(
-    df_joined,
-    col="Controller",
-    height=4,
-    sharex=False,
-    sharey=True,
-    despine=False,
-)
+for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]:
 
-def data_grp_by_ctrl(data, **kwargs):
-    sns.lineplot(
-        x="Day",
-        y=DISPLAY_VARIABLE,
-        hue="iVCC",
-        marker="o",
-        hue_order=[12, 15, 18],
-        palette=["r", "k", "g"],
-        markersize=8,
-        err_style="bars",
-        err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
-        errorbar="ci",
-        data=data,
-        **kwargs,
-    )
-    if DISPLAY_VARIABLE == "IGG":
-        plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
-    
-    plt.grid(axis="x", linestyle="--", color="gray")
-    plt.grid(axis="y", linestyle="--", color="gray")
+    print(f"Generating figures for {disp_var}")
 
-
-g.map_dataframe(data_grp_by_ctrl)
-g.add_legend(title="iVCC")
-# plt.show()
-plt.savefig(fname=Path(fig_path,f"{DISPLAY_VARIABLE}_grp_by_ctrl.png"))
-
-# # Setpoint tracking (iVCC)
-# g = sns.FacetGrid(
-#     df_joined,
-#     col="iVCC",
-#     height=4,
-#     sharex=False,
-#     sharey=True,
-#     despine=False,
-# )
-
-# def data_grp_by_ivcc(data, **kwargs):
-#     sns.lineplot(
-#         x="Day",
-#         y=DISPLAY_VARIABLE,
-#         hue="Controller",
-#         marker="o",
-#         hue_order=["Julia", "Python", "No MPC"],
-#         palette=["C0", "C1", "k"],
-#         markersize=8,
-#         err_style="bars",
-#         err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
-#         errorbar="ci",
-#         data=data,
-#         **kwargs,
-#     )
-#     if DISPLAY_VARIABLE == "IGG":
-#         plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
-#     plt.grid(axis="x", linestyle="--", color="gray")
-#     plt.grid(axis="y", linestyle="--", color="gray")
-
-
-# g.map_dataframe(data_grp_by_ivcc)
-# g.add_legend(title="MPC Controller")
-# # plt.show()
-# plt.savefig(fname=Path(fig_path,f"{DISPLAY_VARIABLE}_grp_by_ivcc.png"))
-
-if DISPLAY_VARIABLE == "IGG":
-
-    # Setpoint deviation (Controller)
+    # Setpoint tracking (Controller)
     g = sns.FacetGrid(
         df_joined,
         col="Controller",
@@ -133,68 +60,108 @@ if DISPLAY_VARIABLE == "IGG":
         sharex=False,
         sharey=True,
         despine=False,
-        ylim=(-30, 30),
+        xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
     )
-    sns.set_style("white")
 
-    def dev_grp_by_ctrl(data, **kwargs):
+    def data_grp_by_ctrl(data, **kwargs):
         sns.lineplot(
             x="Day",
-            y="% Difference from Setpoint",
+            y=disp_var,
             hue="iVCC",
             marker="o",
-            hue_order=[12,15,18],
+            hue_order=[12, 15, 18],
             palette=["r", "k", "g"],
-            markersize=10,
+            markersize=8,
             err_style="bars",
             err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
             errorbar="ci",
             data=data,
             **kwargs,
         )
-        plt.axhline(y=0, color="b", linestyle="--")
+        if disp_var == "IGG":
+            plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
+        
         plt.grid(axis="x", linestyle="--", color="gray")
         plt.grid(axis="y", linestyle="--", color="gray")
 
-    g.map_dataframe(dev_grp_by_ctrl)
+
+    g.map_dataframe(data_grp_by_ctrl)
     g.add_legend(title="iVCC")
     # plt.show()
-    plt.savefig(fname=Path(fig_path,"dev_grp_by_ctrl.png"))
+    plt.savefig(fname=Path(fig_path,f"{disp_var}_grp_by_ctrl.png"))
 
-    # # Setpoint deviation (iVCC)
-    # g = sns.FacetGrid(
-    #     df_joined,
-    #     col="iVCC",
-    #     height=4,
-    #     sharex=False,
-    #     sharey=True,
-    #     despine=False,
-    #     ylim=(-30, 30),
-    # )
-    # sns.set_style("white")
+    if disp_var == "IGG":
 
+        # Tracking error (Controller)
+        g = sns.FacetGrid(
+            df_joined,
+            col="Controller",
+            height=4,
+            sharex=False,
+            sharey=True,
+            despine=False,
+            ylim=(-30, 30),
+            xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+        )
+        sns.set_style("white")
 
-    # def dev_grp_by_ivcc(data, **kwargs):
-    #     sns.lineplot(
-    #         x="Day",
-    #         y="% Difference from Setpoint",
-    #         hue="Controller",
-    #         marker="o",
-    #         hue_order=["Julia", "Python", "No MPC"],
-    #         palette=["C0", "C1", "k"],
-    #         markersize=10,
-    #         err_style="bars",
-    #         err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
-    #         errorbar="ci",
-    #         data=data,
-    #         **kwargs,
-    #     )
-    #     plt.axhline(y=0, color="b", linestyle="-.")
-    #     plt.grid(axis="x", linestyle="--", color="gray")
-    #     plt.grid(axis="y", linestyle="--", color="gray")
+        def dev_grp_by_ctrl(data, **kwargs):
+            sns.lineplot(
+                x="Day",
+                y="Tracking Error (%)",
+                hue="iVCC",
+                marker="o",
+                hue_order=[12,15,18],
+                palette=["r", "k", "g"],
+                markersize=10,
+                err_style="bars",
+                err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+                errorbar="ci",
+                data=data,
+                **kwargs,
+            )
+            plt.axhline(y=0, color="b", linestyle="--")
+            plt.grid(axis="x", linestyle="--", color="gray")
+            plt.grid(axis="y", linestyle="--", color="gray")
 
+        g.map_dataframe(dev_grp_by_ctrl)
+        g.add_legend(title="iVCC")
+        # plt.show()
+        plt.savefig(fname=Path(fig_path,"dev_grp_by_ctrl.png"))
 
-    # g.map_dataframe(dev_grp_by_ivcc)
-    # g.add_legend(title="iVCC")
-    # # plt.show()
-    # plt.savefig(fname=Path(fig_path,"dev_grp_by_ivcc.png"))
+        # Absolute tracking error (Controller)
+        g = sns.FacetGrid(
+            df_joined,
+            col="Controller",
+            height=4,
+            sharex=False,
+            sharey=True,
+            despine=False,
+            ylim=(0, 30),
+            xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+        )
+        sns.set_style("white")
+
+        def dev_grp_by_ctrl(data, **kwargs):
+            sns.lineplot(
+                x="Day",
+                y="Absolute Tracking Error (%)",
+                hue="iVCC",
+                marker="o",
+                hue_order=[12,15,18],
+                palette=["r", "k", "g"],
+                markersize=10,
+                err_style="bars",
+                err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+                errorbar="ci",
+                data=data,
+                **kwargs,
+            )
+            plt.axhline(y=0, color="b", linestyle="--")
+            plt.grid(axis="x", linestyle="--", color="gray")
+            plt.grid(axis="y", linestyle="--", color="gray")
+
+        g.map_dataframe(dev_grp_by_ctrl)
+        g.add_legend(title="iVCC")
+        # plt.show()
+        plt.savefig(fname=Path(fig_path,"dev_abs_grp_by_ctrl.png"))    
