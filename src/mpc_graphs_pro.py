@@ -5,6 +5,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
+import numpy as np
 
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 plt.rcParams["axes.edgecolor"] = "black"
@@ -17,14 +18,26 @@ data_path = Path(
 )
 fig_path = Path(data_path.parent,"mpc-performance-figs").expanduser()
 fig_path.mkdir(parents=True, exist_ok=True)
-df_data = pd.read_excel(data_path, skiprows=[0]).rename(columns={"Cumulative_Feed":"Total Feed","Cumulative_Glucose":"Total Glucose","pCO2_at_temp":"pCO2"})
+df_data = pd.read_excel(
+    data_path, skiprows=[0]
+    ).rename(
+        columns={"Cumulative_Feed":"Total Feed","Cumulative_Glucose":"Total Glucose","pCO2_at_temp":"pCO2"}
+        ).sort_values(by=["Batch","Day"])
 df_data["Temp"] = df_data["Temp"].astype(int)
 df_data["Bioreactor"] = [int(x[-3:]) for x in df_data["Batch"].values]
 df_data["Temp/pH"] = [f"{x[0]}, {int(x[1])}" for x in df_data.loc[:,["pH","Temp"]].values]
 df_data["Measured"] = df_data["IGG"]
-df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","IGG","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Measured","Total Feed","Total Glucose"]]
+total_feed_diff = np.append(np.diff(df_data["Total Feed"]),0)
+daily_feed = np.zeros((len(total_feed_diff),))
+daily_feed[total_feed_diff > 0] = total_feed_diff[total_feed_diff > 0]
+df_data["Daily Feed"] = daily_feed
+total_glc_diff = np.append(np.diff(df_data["Total Glucose"]),0)
+daily_glc = np.zeros((len(total_glc_diff),))
+daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
+df_data["Daily Glucose"] = daily_glc
+df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","IGG","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Measured","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
 
-DISPLAY_VARIABLE = "VCC"
+DISPLAY_VARIABLE = "Daily Glucose"
 
 # Retrieve setpoint from the master sheet directly
 top_dir = Path().absolute()
