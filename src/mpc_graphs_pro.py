@@ -6,6 +6,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
+import warnings
+
+warnings.filterwarnings("ignore")
 
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 plt.rcParams["axes.edgecolor"] = "black"
@@ -21,8 +24,10 @@ fig_path.mkdir(parents=True, exist_ok=True)
 df_data = pd.read_excel(
     data_path, skiprows=[0]
     ).rename(
-        columns={"Cumulative_Feed":"Total Feed","Cumulative_Glucose":"Total Glucose","pCO2_at_temp":"pCO2"}
-        ).sort_values(by=["Batch","Day"])
+        columns={"Cumulative_Feed":"Total Feed","Cumulative_Glucose":"Total Glucose","pCO2_at_temp":"pCO2","IGG":"Cedex Titer"}
+        ).sort_values(by=["Batch","Day"]).replace(
+            {"Controller":{"Python":"Linear MPC","Julia":"Nonlinear MPC"}}
+        )
 df_data["Temp"] = df_data["Temp"].astype(int)
 df_data["Bioreactor"] = [int(x[-3:]) for x in df_data["Batch"].values]
 df_data["Temp/pH"] = [f"{x[0]}, {int(x[1])}" for x in df_data.loc[:,["pH","Temp"]].values]
@@ -34,7 +39,7 @@ total_glc_diff = np.append(np.diff(df_data["Total Glucose"]),0)
 daily_glc = np.zeros((len(total_glc_diff),))
 daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
 df_data["Daily Glucose"] = daily_glc
-df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","IGG","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
+df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","Cedex Titer","HPLC Titer","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
 
 # Retrieve setpoint from the master sheet directly
 top_dir = Path().absolute()
@@ -45,10 +50,13 @@ df_sp_selected = df_sp.loc[:,["Bioreactor","Day","Setpoint"]]
 
 # Left join the two dfs
 df_joined = pd.merge(df_data_selected,df_sp_selected,how="inner",left_on=["Bioreactor","Day"],right_on=["Bioreactor","Day"])
-df_joined["Tracking Error (%)"] = (df_joined["IGG"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
-df_joined["Absolute Tracking Error (%)"] = np.abs(df_joined["IGG"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined["Cedex Titer Tracking Error (%)"] = (df_joined["Cedex Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined["Cedex Titer Absolute Tracking Error (%)"] = np.abs(df_joined["Cedex Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined["HPLC Titer Tracking Error (%)"] = (df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined["HPLC Titer Absolute Tracking Error (%)"] = np.abs(df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
 
-for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]:
+i = 1
+for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC","Lactate","Glucose","pCO2"]:
 
     print(f"Generating figures for {disp_var}")
 
@@ -63,7 +71,7 @@ for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed"
         xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
     )
 
-    def data_grp_by_ctrl(data, **kwargs):
+    def plot_measured(data, **kwargs):
         sns.lineplot(
             x="Day",
             y=disp_var,
@@ -78,19 +86,19 @@ for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed"
             data=data,
             **kwargs,
         )
-        if disp_var == "IGG":
+        if "Titer" in disp_var:
             plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
         
         plt.grid(axis="x", linestyle="--", color="gray")
         plt.grid(axis="y", linestyle="--", color="gray")
 
 
-    g.map_dataframe(data_grp_by_ctrl)
+    g.map_dataframe(plot_measured)
     g.add_legend(title="iVCC")
     # plt.show()
-    plt.savefig(fname=Path(fig_path,f"{disp_var}_grp_by_ctrl.png"))
+    plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-0-measured.png"))
 
-    if disp_var == "IGG":
+    if "Titer" in disp_var:
 
         # Tracking error (Controller)
         g = sns.FacetGrid(
@@ -105,10 +113,10 @@ for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed"
         )
         sns.set_style("white")
 
-        def dev_grp_by_ctrl(data, **kwargs):
+        def plot_error(data, **kwargs):
             sns.lineplot(
                 x="Day",
-                y="Tracking Error (%)",
+                y=f"{disp_var} Tracking Error (%)",
                 hue="iVCC",
                 marker="o",
                 hue_order=[12,15,18],
@@ -124,10 +132,47 @@ for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed"
             plt.grid(axis="x", linestyle="--", color="gray")
             plt.grid(axis="y", linestyle="--", color="gray")
 
-        g.map_dataframe(dev_grp_by_ctrl)
+        g.map_dataframe(plot_error)
         g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,"dev_grp_by_ctrl.png"))
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1-error.png"))
+
+        # Tracking error (Controller, grand average)
+        g = sns.FacetGrid(
+            df_joined,
+            col="Controller",
+            height=4,
+            sharex=False,
+            sharey=True,
+            despine=False,
+            ylim=(-30, 30),
+            xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+        )
+        sns.set_style("white")
+
+        def plot_error_grand_avg(data, **kwargs):
+            sns.lineplot(
+                x="Day",
+                y=f"{disp_var} Tracking Error (%)",
+                # hue="iVCC",
+                marker="o",
+                # hue_order=[12,15,18],
+                # palette=["r", "k", "g"],
+                markersize=10,
+                err_style="bars",
+                err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+                errorbar="ci",
+                data=data,
+                **kwargs,
+            )
+            plt.axhline(y=0, color="b", linestyle="--")
+            plt.grid(axis="x", linestyle="--", color="gray")
+            plt.grid(axis="y", linestyle="--", color="gray")
+
+        g.map_dataframe(plot_error_grand_avg)
+        g.add_legend(title="iVCC")
+        # plt.show()
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2-error_grand_avg.png"))        
 
         # Absolute tracking error (Controller)
         g = sns.FacetGrid(
@@ -142,10 +187,10 @@ for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed"
         )
         sns.set_style("white")
 
-        def dev_grp_by_ctrl(data, **kwargs):
+        def plot_error_abs(data, **kwargs):
             sns.lineplot(
                 x="Day",
-                y="Absolute Tracking Error (%)",
+                y=f"{disp_var} Absolute Tracking Error (%)",
                 hue="iVCC",
                 marker="o",
                 hue_order=[12,15,18],
@@ -161,7 +206,46 @@ for disp_var in ["IGG","VCC","Viability","Lactate","Glucose","pCO2","Total Feed"
             plt.grid(axis="x", linestyle="--", color="gray")
             plt.grid(axis="y", linestyle="--", color="gray")
 
-        g.map_dataframe(dev_grp_by_ctrl)
+        g.map_dataframe(plot_error_abs)
         g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,"dev_abs_grp_by_ctrl.png"))    
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-3-abs_error.png"))   
+
+        # Absolute tracking error (Controller, grand average)
+        g = sns.FacetGrid(
+            df_joined,
+            col="Controller",
+            height=4,
+            sharex=False,
+            sharey=True,
+            despine=False,
+            ylim=(0, 30),
+            xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+        )
+        sns.set_style("white")
+
+        def error_abs_grand_avg(data, **kwargs):
+            sns.lineplot(
+                x="Day",
+                y=f"{disp_var} Absolute Tracking Error (%)",
+                # hue="iVCC",
+                marker="o",
+                # hue_order=[12,15,18],
+                # palette=["r", "k", "g"],
+                markersize=10,
+                err_style="bars",
+                err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+                errorbar="ci",
+                data=data,
+                **kwargs,
+            )
+            plt.axhline(y=0, color="b", linestyle="--")
+            plt.grid(axis="x", linestyle="--", color="gray")
+            plt.grid(axis="y", linestyle="--", color="gray")
+
+        g.map_dataframe(error_abs_grand_avg)
+        g.add_legend(title="iVCC")
+        # plt.show()
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-4-abs_error_grand_avg.png"))   
+
+    i = i + 1        
