@@ -96,7 +96,45 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
     g.map_dataframe(plot_measured)
     g.add_legend(title="iVCC")
     # plt.show()
-    plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-0-measured.png"))
+    plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1a-measured.png"))
+
+    # Setpoint tracking (Controller, grand average)
+    g = sns.FacetGrid(
+        df_joined,
+        col="Controller",
+        height=4,
+        sharex=False,
+        sharey=True,
+        despine=False,
+        xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+    )    
+
+    def plot_measured_grand_avg(data, **kwargs):
+        sns.lineplot(
+            x="Day",
+            y=disp_var,
+            # hue="iVCC",
+            marker="o",
+            # hue_order=[12, 15, 18],
+            # palette=["r", "k", "g"],
+            markersize=8,
+            err_style="bars",
+            err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+            errorbar="ci",
+            data=data,
+            **kwargs,
+        )
+        if "Titer" in disp_var:
+            plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
+        
+        plt.grid(axis="x", linestyle="--", color="gray")
+        plt.grid(axis="y", linestyle="--", color="gray")
+
+
+    g.map_dataframe(plot_measured_grand_avg)
+    # g.add_legend(title="iVCC")
+    # plt.show()
+    plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1b-measured_grand_avg.png"))
 
     if "Titer" in disp_var:
 
@@ -135,7 +173,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
         g.map_dataframe(plot_error)
         g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1-error.png"))
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2a-error.png"))
 
         # Tracking error (Controller, grand average)
         g = sns.FacetGrid(
@@ -170,9 +208,9 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
             plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(plot_error_grand_avg)
-        g.add_legend(title="iVCC")
+        # g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2-error_grand_avg.png"))        
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2b-error_grand_avg.png"))        
 
         # Absolute tracking error (Controller)
         g = sns.FacetGrid(
@@ -209,7 +247,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
         g.map_dataframe(plot_error_abs)
         g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-3-abs_error.png"))   
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-3a-abs_error.png"))   
 
         # Absolute tracking error (Controller, grand average)
         g = sns.FacetGrid(
@@ -244,8 +282,8 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
             plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(error_abs_grand_avg)
-        g.add_legend(title="iVCC")
+        # g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-4-abs_error_grand_avg.png"))   
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-3b-abs_error_grand_avg.png"))   
 
     i = i + 1        
