@@ -69,6 +69,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
         sharey=True,
         despine=False,
         xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+        col_order=["Linear MPC","Nonlinear MPC","No MPC"]
     )
 
     def plot_measured(data, **kwargs):
@@ -107,6 +108,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
         sharey=True,
         despine=False,
         xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+        col_order=["Linear MPC","Nonlinear MPC","No MPC"]
     )    
 
     def plot_measured_grand_avg(data, **kwargs):
@@ -148,6 +150,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
             despine=False,
             ylim=(-30, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
         )
         sns.set_style("white")
 
@@ -185,6 +188,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
             despine=False,
             ylim=(-30, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
         )
         sns.set_style("white")
 
@@ -222,6 +226,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
             despine=False,
             ylim=(0, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
         )
         sns.set_style("white")
 
@@ -259,6 +264,7 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
             despine=False,
             ylim=(0, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
         )
         sns.set_style("white")
 
