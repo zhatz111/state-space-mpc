@@ -3,14 +3,19 @@
 Returns:
     _type_: _description_
 """
-# The code is importing various libraries that are used in the code:
+
+# Standard library imports
+import json
 import math
 import random
-import joblib
+from pathlib import Path
+from typing import Union
+
+# The code is importing various libraries that are used in the code:
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import GroupShuffleSplit
-
 
 # The `ModelData` class provides methods for data cleaning, preprocessing, and visualization for a
 # state space model.
@@ -22,7 +27,7 @@ class ModelData:
         self,
         raw_data: pd.DataFrame,
         group: str,
-        scaler_train: object,
+        scaler: MinMaxScaler,
         discard: list,
         states: list,
         inputs: list,
@@ -36,7 +41,7 @@ class ModelData:
           raw_data (pd.DataFrame): A pandas DataFrame containing the raw data.
           group (str): The "group" parameter is a string that represents the group or category that the
         data belongs to. It is used to identify and differentiate different groups of data within the
-        dataset.
+        dataset for splitting the data in train and test sets.
           scaler_train (object): The `scaler_train` parameter is an object that is used to scale the
         data. It is likely an instance of a scaler class from a library like scikit-learn, which is used
         to normalize or standardize the data before training a model.
@@ -52,7 +57,7 @@ class ModelData:
         """
         self.df = raw_data
         self.group = group
-        self.scaler_train = scaler_train
+        self.scaler = scaler
         self.discard = discard
         self.states = states
         self.inputs = inputs
@@ -99,6 +104,9 @@ class ModelData:
         df_interpolated = self.interpolation()
         grouped = df_interpolated.groupby("Batch")
         smoothed_df = pd.DataFrame()
+
+        if smoothing_list not in df_interpolated.columns:
+            raise ValueError("Columns to smooth do not exist in the dataframe.")
 
         for _, group_data in grouped:
             group_smoothed = group_data.copy()
@@ -190,37 +198,46 @@ class ModelData:
             data[columns] = scaler.transform(data.filter(items=columns))
             return data
 
-    def save_scaler(self, file_name, scaler):
+    def scaler_tojson(self, save_path: Union[str, Path]):
         """
-        The function saves a scaler object to a file using joblib.
-
+        The function `scaler_tojson` takes a scaler object and saves its attributes to a JSON file.
+        
         Args:
-          file_name: The name of the file where the scaler will be saved.
-          scaler: The scaler parameter is an instance of a scaler object that is used to scale or
-        normalize data. It could be any scaler object such as StandardScaler, MinMaxScaler, etc.
-
-        Returns:
-          the result of the joblib.dump() function, which is used to save the scaler object to a file.
+          scaler: The `scaler` parameter is an instance of a scaler object. It could be any scaler object
+        from a machine learning library, such as `StandardScaler` from scikit-learn. The scaler object is
+        used to scale or normalize data.
+          save_path: The `save_path` parameter is the file path where the JSON file will be saved. It should
+        include the file name and extension. For example, if you want to save the JSON file as
+        "scaler_attributes.json" in the current directory, you can set `save_path` as "sc
         """
-        scaler_name = file_name + ".scl"
-        return joblib.dump(scaler, scaler_name)
+        # Prepare a dictionary to hold the scaler's attributes
+        scaler_attributes = {
+            attr_name: getattr(self.scaler, attr_name).tolist()
+            if hasattr(getattr(self.scaler, attr_name), "tolist")
+            else getattr(self.scaler, attr_name)
+            for attr_name in vars(self.scaler)
+        }
+
+        # Save the attributes to a JSON file
+        with open(save_path, "w", encoding="utf-8") as file:
+            json.dump(scaler_attributes, file, indent=4)
 
     def clean(
         self,
-        column_inclusion,
+        metadata_columns,
         smoothing_list,
-        test_size=0.10,
+        test_size=0.20,
         n_splits=2,
         random_state=1,
         win_len=2,
     ):
         """
-        The `clean` function takes in several parameters, including `column_inclusion`,
+        The `clean` function takes in several parameters, including `metadata_columns`,
         `smoothing_list`, `test_size`, `n_splits`, `random_state`, and `win_len`, and performs some
         cleaning operations on the data.
         
         Args:
-          column_inclusion: A list of columns to include in the cleaning process. Only the columns
+          metadata_columns: A list of columns to include in the cleaning process. Only the columns
         specified in this list will be considered for cleaning.
           smoothing_list: The `smoothing_list` parameter is a list that contains values for smoothing.
         Smoothing is a technique used to reduce noise or fluctuations in data. It involves replacing
@@ -247,14 +264,14 @@ class ModelData:
         )
         train = self.feature_scaling(
             data=train,
-            scaler=self.scaler_train,
+            scaler=self.scaler,
         )
         test = self.feature_scaling(
             data=test,
-            scaler=self.scaler_train,
+            scaler=self.scaler,
             new_scaler=False,
         )
-        columns = column_inclusion + self.states + self.inputs
+        columns = metadata_columns + self.states + self.inputs
 
         return (
             train[train.columns[train.columns.isin(columns)]],

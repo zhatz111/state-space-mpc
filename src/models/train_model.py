@@ -138,16 +138,14 @@ class ModelTraining:
         if (self.a_matrix.shape[0] != self.state_len) or (
             self.a_matrix.shape[1] != self.state_len
         ):
-            raise ValueError(
-                f"The A Matrix should be {self.state_len}x{self.state_len} but instead is {self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}"
-            )
+            warnings.warn(f"Wrong size A-Matrix ({self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}) should be, {self.state_len}x{self.state_len}")
+            self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.state_len))
 
         if (self.b_matrix.shape[0] != self.state_len) or (
             self.b_matrix.shape[1] != self.input_len
         ):
-            raise ValueError(
-                f"The B Matrix should be {self.state_len}x{self.input_len} but instead is {self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}"
-            )
+            warnings.warn(f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}")
+            self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.input_len))
 
         a_sim = self.a_matrix.reshape(-1, 1)
         b_sim = self.b_matrix.reshape(-1, 1)
@@ -202,17 +200,20 @@ class ModelTraining:
             # rmse_scaled = np.hstack([np.array(y_diff),np.zeros([len(y_actual_all),self.input_len])])
 
             cost_list = []
-            for count, _ in enumerate(self.states):
-                y_diff = y_actual_all - y_sim_all
-                cost = np.sqrt(np.square(y_diff[:, count]).mean())
-                cost_list.append(cost)
+            for count, state in enumerate(self.states):
+                y_diff = y_actual_all[:,count] - y_sim_all[:,count]
+                feature_cost = np.square(y_diff).sum()
+                cost_list.append(feature_cost)
+
+            wghtd_cost = sum(np.array(cost_list)*np.array(self.pv_wghts))
 
             rmse_scaled = np.hstack(
                 [np.array(cost_list), np.zeros(self.input_len)]
             ).reshape(1, -1)
             rmse_unscaled = self.scaler.inverse_transform(rmse_scaled)
             cost_func = sum(np.array(cost_list) * np.array(self.pv_wghts))
-            value = np.sum(np.square(y_actual_all - y_sim_all))
+
+            # value = np.sum(np.square(y_actual_all - y_sim_all))
 
             if info["Nfeval"] % 25 == 0:
                 print("")
@@ -220,9 +221,9 @@ class ModelTraining:
                 for count, state in enumerate(self.states):
                     print(f"{state} Error: {np.array(rmse_unscaled)[:,count][0]:.5f}")
                 print("--------------------")
-                print(f"Total Error: {cost_func:.5f}, Old Error: {value:.5f}")
+                print(f"Total Error: {cost_func:.5f}, Old Error: {wghtd_cost:.5f}")
             info["Nfeval"] += 1
-            return value
+            return wghtd_cost
 
         res = optimize.minimize(
             fun=objective_func,

@@ -62,7 +62,14 @@ DISCARD = [
     "AR23-019-014P",
 ]
 
-pv_wghts = [1.6,1.6,1.6,0.3,0.3,0.3]
+pv_wghts = [
+    1.,
+    1.,
+    1.,
+    1.,
+    1.,
+    1.,
+]
 
 column_inclusion = [
     "Batch",
@@ -78,7 +85,7 @@ data = pd.read_csv(
 
 dataframe = ModelData(
     raw_data=data,
-    scaler_train=scaler_train,
+    scaler=scaler_train,
     group="Batch",
     discard=DISCARD,
     states=STATES,
@@ -94,7 +101,7 @@ training, testing = dataframe.train_test_split(
 
 
 train_data, test_data = dataframe.clean(
-    column_inclusion=column_inclusion,
+    metadata_columns=column_inclusion,
     smoothing_list=SMOOTHE_LIST,  # is smoothing list is empty, no data will be smoothed
     test_size=0.20,
     n_splits=2,
@@ -141,14 +148,6 @@ joblib.dump(
     scaler_train,
     rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl",
 )
-
-# UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
-
-# for key, value in scaler_dict.items():
-#     print(key)
-#     print("scale:","",round(value[0],6))
-#     print("min_:","",round(value[1],6))
-#     print()
 
 # Dictionary of constraints for the constraints needed in the optimized fucntion
 constraint_dict = {
