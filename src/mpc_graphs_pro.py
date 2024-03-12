@@ -56,7 +56,7 @@ df_joined["HPLC Titer Tracking Error (%)"] = (df_joined["HPLC Titer"] - df_joine
 df_joined["HPLC Titer Absolute Tracking Error (%)"] = np.abs(df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
 
 i = 1
-for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC","Lactate","Glucose","pCO2"]:
+for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC","Lactate","Glucose","pCO2"]:
 
     print(f"Generating figures for {disp_var}")
 
@@ -214,7 +214,46 @@ for disp_var in ["Cedex Titer","HPLC Titer","Total Feed","Daily Feed","Total Glu
         g.map_dataframe(plot_error_grand_avg)
         # g.add_legend(title="iVCC")
         # plt.show()
-        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2b-error_grand_avg.png"))        
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2b-error_grand_avg.png")) 
+
+        # Tracking error (Controller, no grouping)
+        g = sns.FacetGrid(
+            df_joined,
+            col="Controller",
+            height=4,
+            sharex=False,
+            sharey=True,
+            despine=False,
+            ylim=(-30, 30),
+            xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
+            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+        )
+        sns.set_style("white")
+
+        def plot_error_no_grp(data, **kwargs):
+            sns.lineplot(
+                x="Day",
+                y=f"{disp_var} Tracking Error (%)",
+                hue="Bioreactor",
+                marker=None,
+                # hue_order=[12,15,18],
+                palette=["k"],
+                # markersize=5,
+                # err_style="bars",
+                # err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
+                # errorbar="ci",
+                data=data,
+                estimator=None,
+                **kwargs,
+            )
+            plt.axhline(y=0, color="b", linestyle="--")
+            # plt.grid(axis="x", linestyle="--", color="gray")
+            # plt.grid(axis="y", linestyle="--", color="gray")
+
+        g.map_dataframe(plot_error_no_grp)
+        # g.add_legend(title="iVCC")
+        # plt.show()
+        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2c-error_no_grp.png"))        
 
         # Absolute tracking error (Controller)
         g = sns.FacetGrid(
