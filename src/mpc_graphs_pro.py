@@ -56,7 +56,8 @@ df_joined["HPLC Titer Tracking Error (%)"] = (df_joined["HPLC Titer"] - df_joine
 df_joined["HPLC Titer Absolute Tracking Error (%)"] = np.abs(df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
 
 i = 1
-for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC","Lactate","Glucose","pCO2"]:
+palette = sns.color_palette("colorblind",3)
+for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC","Lactate","Glucose","pCO2"]:
 
     print(f"Generating figures for {disp_var}")
 
@@ -79,7 +80,7 @@ for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total
             hue="iVCC",
             marker="o",
             hue_order=[12, 15, 18],
-            palette=["r", "k", "g"],
+            palette=palette,
             markersize=8,
             err_style="bars",
             err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -118,7 +119,7 @@ for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total
             # hue="iVCC",
             marker="o",
             # hue_order=[12, 15, 18],
-            # palette=["r", "k", "g"],
+            # palette=palette,
             markersize=8,
             err_style="bars",
             err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -161,7 +162,7 @@ for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total
                 hue="iVCC",
                 marker="o",
                 hue_order=[12,15,18],
-                palette=["r", "k", "g"],
+                palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -199,7 +200,7 @@ for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total
                 # hue="iVCC",
                 marker="o",
                 # hue_order=[12,15,18],
-                # palette=["r", "k", "g"],
+                # palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -276,7 +277,7 @@ for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total
                 hue="iVCC",
                 marker="o",
                 hue_order=[12,15,18],
-                palette=["r", "k", "g"],
+                palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -314,7 +315,7 @@ for disp_var in ["Cedex Titer"]: #,"HPLC Titer","Total Feed","Daily Feed","Total
                 # hue="iVCC",
                 marker="o",
                 # hue_order=[12,15,18],
-                # palette=["r", "k", "g"],
+                # palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
