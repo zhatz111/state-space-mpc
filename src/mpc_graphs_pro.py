@@ -16,12 +16,12 @@ plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
 
 # Options
-MPC_GRP = "no"
+MPC_GRP = "linear"
 CONFIG = {
     'all':{'dest':'mpc-performance-figs-all','controller':'Linear MPC|Nonlinear MPC|No MPC','col':'Controller','col_order':["Linear MPC","Nonlinear MPC","No MPC"],'hue':'iVCC','hue_order':[12, 15, 18]},
-    'linear':{'dest':'mpc-performance-figs-linear','controller':'Linear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'pH','hue_order':[7.1, 7.2, 7.3]},
-    'nonlinear':{'dest':'mpc-performance-figs-nonlinear','controller':'Nonlinear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'pH','hue_order':[7.1, 7.2, 7.3]},
-    'no':{'dest':'mpc-performance-figs-no','controller':'No MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'pH','hue_order':[7.1, 7.2, 7.3]}
+    'linear':{'dest':'mpc-performance-figs-linear','controller':'Linear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'Temp/pH','hue_order':['7.1, 32', '7.2, 34', '7.3, 35']},
+    'nonlinear':{'dest':'mpc-performance-figs-nonlinear','controller':'Nonlinear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'Temp/pH','hue_order':['7.1, 32', '7.2, 34', '7.3, 35']},
+    'no':{'dest':'mpc-performance-figs-no','controller':'No MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'Temp/pH','hue_order':['7.1, 32', '7.2, 34', '7.3, 35']},
 }
 DISP_VARS = ["Cedex Titer","Total Feed","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC"]#,"HPLC Titer","Lactate","Glucose","pCO2"]
 PALETTE = sns.color_palette("rocket",3)
