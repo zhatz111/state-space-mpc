@@ -15,11 +15,22 @@ plt.rcParams["axes.edgecolor"] = "black"
 plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
 
+# Options
+MPC_GRP = "no"
+CONFIG = {
+    'all':{'dest':'mpc-performance-figs-all','controller':'Linear MPC|Nonlinear MPC|No MPC','col':'Controller','col_order':["Linear MPC","Nonlinear MPC","No MPC"],'hue':'iVCC','hue_order':[12, 15, 18]},
+    'linear':{'dest':'mpc-performance-figs-linear','controller':'Linear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'pH','hue_order':[7.1, 7.2, 7.3]},
+    'nonlinear':{'dest':'mpc-performance-figs-nonlinear','controller':'Nonlinear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'pH','hue_order':[7.1, 7.2, 7.3]},
+    'no':{'dest':'mpc-performance-figs-no','controller':'No MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'pH','hue_order':[7.1, 7.2, 7.3]}
+}
+DISP_VARS = ["Cedex Titer","Total Feed","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC"]#,"HPLC Titer","Lactate","Glucose","pCO2"]
+PALETTE = sns.color_palette("rocket",3)
+
 # Retrieve measurements
 data_path = Path(
     "~/GSK/Biopharm Model Predictive Control - General/data/AR24-005_MPC_DoE/AR24-005_MasterDataTable_2.xlsx",
 )
-fig_path = Path(data_path.parent,"mpc-performance-figs").expanduser()
+fig_path = Path(data_path.parent,CONFIG[MPC_GRP]['dest']).expanduser()
 fig_path.mkdir(parents=True, exist_ok=True)
 df_data = pd.read_excel(
     data_path, skiprows=[0]
@@ -39,7 +50,7 @@ total_glc_diff = np.append(np.diff(df_data["Total Glucose"]),0)
 daily_glc = np.zeros((len(total_glc_diff),))
 daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
 df_data["Daily Glucose"] = daily_glc
-df_data_selected = df_data.loc[:,["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","Cedex Titer","HPLC Titer","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
+df_data_selected = df_data.loc[df_data['Controller'].str.contains(CONFIG[MPC_GRP]['controller']),["Bioreactor","Day","Batch","Controller","iVCC","pH","Temp","Cedex Titer","HPLC Titer","VCC","Viability","Lactate","Glucose","pCO2","Temp/pH","Total Feed","Total Glucose","Daily Feed","Daily Glucose"]]
 
 # Retrieve setpoint from the master sheet directly
 top_dir = Path().absolute()
@@ -56,31 +67,30 @@ df_joined["HPLC Titer Tracking Error (%)"] = (df_joined["HPLC Titer"] - df_joine
 df_joined["HPLC Titer Absolute Tracking Error (%)"] = np.abs(df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
 
 i = 1
-palette = sns.color_palette("colorblind",3)
-for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total Glucose","Daily Glucose","Viability","VCC","Lactate","Glucose","pCO2"]:
+for disp_var in DISP_VARS:
 
     print(f"Generating figures for {disp_var}")
 
     # Setpoint tracking (Controller)
     g = sns.FacetGrid(
         df_joined,
-        col="Controller",
+        col=CONFIG[MPC_GRP]['col'],
         height=4,
         sharex=False,
         sharey=True,
         despine=False,
         xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-        col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+        col_order=CONFIG[MPC_GRP]['col_order']
     )
 
     def plot_measured(data, **kwargs):
         sns.lineplot(
             x="Day",
             y=disp_var,
-            hue="iVCC",
+            hue=CONFIG[MPC_GRP]['hue'],
             marker="o",
-            hue_order=[12, 15, 18],
-            palette=palette,
+            hue_order=CONFIG[MPC_GRP]['hue_order'],
+            palette=PALETTE,
             markersize=8,
             err_style="bars",
             err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -96,30 +106,27 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
 
 
     g.map_dataframe(plot_measured)
-    g.add_legend(title="iVCC")
+    g.add_legend(title=CONFIG[MPC_GRP]['hue'])
     # plt.show()
     plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1a-measured.png"))
 
     # Setpoint tracking (Controller, grand average)
     g = sns.FacetGrid(
         df_joined,
-        col="Controller",
+        col=CONFIG[MPC_GRP]['col'],
         height=4,
         sharex=False,
         sharey=True,
         despine=False,
         xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-        col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+        col_order=CONFIG[MPC_GRP]['col_order']
     )    
 
     def plot_measured_grand_avg(data, **kwargs):
         sns.lineplot(
             x="Day",
             y=disp_var,
-            # hue="iVCC",
             marker="o",
-            # hue_order=[12, 15, 18],
-            # palette=palette,
             markersize=8,
             err_style="bars",
             err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -135,7 +142,6 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
 
 
     g.map_dataframe(plot_measured_grand_avg)
-    # g.add_legend(title="iVCC")
     # plt.show()
     plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1b-measured_grand_avg.png"))
 
@@ -144,14 +150,14 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
         # Tracking error (Controller)
         g = sns.FacetGrid(
             df_joined,
-            col="Controller",
+            col=CONFIG[MPC_GRP]['col'],
             height=4,
             sharex=False,
             sharey=True,
             despine=False,
             ylim=(-30, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+            col_order=CONFIG[MPC_GRP]['col_order']
         )
         sns.set_style("white")
 
@@ -159,10 +165,10 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             sns.lineplot(
                 x="Day",
                 y=f"{disp_var} Tracking Error (%)",
-                hue="iVCC",
+                hue=CONFIG[MPC_GRP]['hue'],
                 marker="o",
-                hue_order=[12,15,18],
-                palette=palette,
+                hue_order=CONFIG[MPC_GRP]['hue_order'],
+                palette=PALETTE,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -175,21 +181,21 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(plot_error)
-        g.add_legend(title="iVCC")
+        g.add_legend(title=CONFIG[MPC_GRP]['hue'])
         # plt.show()
         plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2a-error.png"))
 
         # Tracking error (Controller, grand average)
         g = sns.FacetGrid(
             df_joined,
-            col="Controller",
+            col=CONFIG[MPC_GRP]['col'],
             height=4,
             sharex=False,
             sharey=True,
             despine=False,
             ylim=(-30, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+            col_order=CONFIG[MPC_GRP]['col_order']
         )
         sns.set_style("white")
 
@@ -197,10 +203,7 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             sns.lineplot(
                 x="Day",
                 y=f"{disp_var} Tracking Error (%)",
-                # hue="iVCC",
                 marker="o",
-                # hue_order=[12,15,18],
-                # palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -213,21 +216,20 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(plot_error_grand_avg)
-        # g.add_legend(title="iVCC")
         # plt.show()
         plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2b-error_grand_avg.png")) 
 
         # Tracking error (Controller, no grouping)
         g = sns.FacetGrid(
             df_joined,
-            col="Controller",
+            col=CONFIG[MPC_GRP]['col'],
             height=4,
             sharex=False,
             sharey=True,
             despine=False,
             ylim=(-30, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+            col_order=CONFIG[MPC_GRP]['col_order']
         )
         sns.set_style("white")
 
@@ -237,12 +239,7 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
                 y=f"{disp_var} Tracking Error (%)",
                 hue="Bioreactor",
                 marker=None,
-                # hue_order=[12,15,18],
                 palette=["k"],
-                # markersize=5,
-                # err_style="bars",
-                # err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
-                # errorbar="ci",
                 data=data,
                 estimator=None,
                 **kwargs,
@@ -252,21 +249,19 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             # plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(plot_error_no_grp)
-        # g.add_legend(title="iVCC")
-        # plt.show()
         plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2c-error_no_grp.png"))        
 
         # Absolute tracking error (Controller)
         g = sns.FacetGrid(
             df_joined,
-            col="Controller",
+            col=CONFIG[MPC_GRP]['col'],
             height=4,
             sharex=False,
             sharey=True,
             despine=False,
             ylim=(0, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+            col_order=CONFIG[MPC_GRP]['col_order']
         )
         sns.set_style("white")
 
@@ -274,10 +269,10 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             sns.lineplot(
                 x="Day",
                 y=f"{disp_var} Absolute Tracking Error (%)",
-                hue="iVCC",
+                hue=CONFIG[MPC_GRP]['hue'],
                 marker="o",
-                hue_order=[12,15,18],
-                palette=palette,
+                hue_order=CONFIG[MPC_GRP]['hue_order'],
+                palette=PALETTE,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -290,21 +285,20 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(plot_error_abs)
-        g.add_legend(title="iVCC")
-        # plt.show()
+        g.add_legend(title=CONFIG[MPC_GRP]['hue'])
         plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-3a-abs_error.png"))   
 
         # Absolute tracking error (Controller, grand average)
         g = sns.FacetGrid(
             df_joined,
-            col="Controller",
+            col=CONFIG[MPC_GRP]['col'],
             height=4,
             sharex=False,
             sharey=True,
             despine=False,
             ylim=(0, 30),
             xlim=(-0.25, np.max(df_joined["Day"]) + 0.25),
-            col_order=["Linear MPC","Nonlinear MPC","No MPC"]
+            col_order=CONFIG[MPC_GRP]['col_order']
         )
         sns.set_style("white")
 
@@ -312,10 +306,7 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             sns.lineplot(
                 x="Day",
                 y=f"{disp_var} Absolute Tracking Error (%)",
-                # hue="iVCC",
                 marker="o",
-                # hue_order=[12,15,18],
-                # palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -328,8 +319,6 @@ for disp_var in ["Cedex Titer"]:#,"Total Feed","HPLC Titer","Daily Feed","Total 
             plt.grid(axis="y", linestyle="--", color="gray")
 
         g.map_dataframe(error_abs_grand_avg)
-        # g.add_legend(title="iVCC")
-        # plt.show()
         plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-3b-abs_error_grand_avg.png"))   
 
     i = i + 1        
