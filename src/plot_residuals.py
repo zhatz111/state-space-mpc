@@ -45,22 +45,33 @@ col_est = f"{DISP_VAR}--STATE_EST"
 col_pred = f"{DISP_VAR}--STATE_PRED"
 col_mod = f"{DISP_VAR}--STATE_MOD"
 
-for curr_vessel in VESSELS:
+# Day containers
+unique_code_run_dates = df["Code_Run_Date"].unique()
+fig_days = []
+sub_ax_days = []
+curr_times = np.zeros(len(unique_code_run_dates))
+for count_date,curr_date in enumerate(unique_code_run_dates):
+    fig_day, ax_day = plt.subplots(3, 3, figsize=(19.2, 10.8))
+    sub_ax_day = ax_day.flatten()
+    fig_days.append(fig_day)
+    sub_ax_days.append(sub_ax_day)
+
+for count_br,curr_vessel in enumerate(VESSELS):
 
     df_br = df.loc[
         df["Bioreactor"] == curr_vessel,:
     ]
-    unique_code_run_dates = df_br["Code_Run_Date"].unique()
 
     last_date = max(unique_code_run_dates)
     df_br_last = df_br.loc[df_br["Code_Run_Date"] == last_date,:]
 
-    fig, ax = plt.subplots(3, 5, figsize=(19.2, 10.8))
-    sub_ax = ax.flatten()
-    identifier = f"{MASTER_DATA_TABLE}: BR{curr_vessel:02d}, {DISP_VAR}"
-    save_path=fig_path_lv2/f"{DISP_VAR}-BR{curr_vessel:02d}.png"
+    fig_br, ax_br = plt.subplots(3, 4, figsize=(19.2, 10.8))
+    sub_ax = ax_br.flatten()
+
+    identifier_br = f"{MASTER_DATA_TABLE}: BR{curr_vessel:02d}, {DISP_VAR}"
+    save_path_br=fig_path_lv2/f"{DISP_VAR}-BR{curr_vessel:02d}.png"
     
-    for count, curr_date in enumerate(unique_code_run_dates):
+    for count_date, curr_date in enumerate(unique_code_run_dates):
         df_br_day = df_br.loc[df_br["Code_Run_Date"] == curr_date,:]
 
         # Left join
@@ -105,27 +116,41 @@ for curr_vessel in VESSELS:
         rmse_est = np.round(np.sqrt(np.nanmean(np.square(est_est - data_est))),1)
         
 
-        # Plot
-        sub_ax[count].plot(
-            plot_data["Day"].loc[plot_data["Day"] >= curr_time],
+        # Plot (by reactor)
+        sub_ax[count_date].stem(
+            plot_data["Day"].loc[plot_data["Day"] >= curr_time].values,
             pred_pred - data_pred,
-            "ro",
-            label=f"Prediction RMSE = {rmse_pred}",
+            linefmt='r-',markerfmt='ro',basefmt='k--',
+            label=f"Pred. RMSE = {rmse_pred}",
         )
-        sub_ax[count].plot(
-            plot_data["Day"].loc[plot_data["Day"] <= curr_time],
+        sub_ax[count_date].stem(
+            plot_data["Day"].loc[plot_data["Day"] <= curr_time].values,
             est_est - data_est,
-            "bo",
-            label=f"Estimation RMSE = {rmse_est}",
+            linefmt='b-',markerfmt='bo',basefmt='k--',
+            label=f"Est. RMSE = {rmse_est}",
+        )       
+        sub_ax[count_date].set_ylim(YLIM[0],YLIM[1])
+        sub_ax[count_date].legend(prop={"size": 9})
+        sub_ax[count_date].set_title(f"BR{curr_vessel:02d}, Day {curr_time}: RMSE = {rmse_all}", fontweight="bold")
+
+        # Plot (by day)
+        curr_times[count_date] = curr_time
+        sub_ax_days[count_date][count_br].stem(
+            plot_data["Day"].loc[plot_data["Day"] >= curr_time].values,
+            pred_pred - data_pred,
+            linefmt='r-',markerfmt='ro',basefmt='k--',
+            label=f"Pred. RMSE = {rmse_pred}",
         )
-        sub_ax[count].plot(
-            plot_data["Day"],
-            np.zeros(len(plot_data["Day"])),
-            "k--",
-        )        
-        sub_ax[count].set_ylim(YLIM[0],YLIM[1])
-        sub_ax[count].legend(prop={"size": 9})
-        sub_ax[count].set_title(f"Day {curr_time}: RMSE = {rmse_all}", fontweight="bold")
+        sub_ax_days[count_date][count_br].stem(
+            plot_data["Day"].loc[plot_data["Day"] <= curr_time].values,
+            est_est - data_est,
+            linefmt='b-',markerfmt='bo',basefmt='k--',
+            label=f"Est. RMSE = {rmse_est}",
+        )       
+        sub_ax_days[count_date][count_br].set_ylim(YLIM[0],YLIM[1])
+        sub_ax_days[count_date][count_br].legend(prop={"size": 9})
+        sub_ax_days[count_date][count_br].set_title(f"BR{curr_vessel:02d}, Day {curr_time}: RMSE = {rmse_all}", fontweight="bold")
+
 
     font = {
                 "family": "sans-serif",
@@ -133,10 +158,12 @@ for curr_vessel in VESSELS:
                 "weight": "normal",
                 "size": 20,
             }
-    fig.text(
+    
+    # Decorate (by reactor)
+    fig_br.text(
         0.977,
         0.5,
-        identifier,
+        identifier_br,
         fontdict=font,
         va="center",
         ha="center",
@@ -144,4 +171,32 @@ for curr_vessel in VESSELS:
     )
     plt.tight_layout(pad=1, h_pad=1, w_pad=1)
     plt.subplots_adjust(right=0.95, left=0.04, top=0.96, bottom=0.04)
-    fig.savefig(fname=save_path)
+    if count_date + 1 < len(sub_ax):
+        for sub_ax_single in sub_ax[count_date+1:]:
+            sub_ax_single.set_axis_off()
+    fig_br.savefig(fname=save_path_br)
+    print(f"BR{curr_vessel:02d}")
+
+
+# Decorate (by day)
+for count_date,curr_date in enumerate(unique_code_run_dates):
+    curr_time = curr_times[count_date]
+    identifier_day = f"{MASTER_DATA_TABLE}: Day {curr_time}, {DISP_VAR}"
+    save_path_day=fig_path_lv2/f"{DISP_VAR}-D{curr_time}.png"
+    fig_day = fig_days[count_date]
+    fig_day.text(
+        0.977,
+        0.5,
+        identifier_day,
+        fontdict=font,
+        va="center",
+        ha="center",
+        rotation="vertical",
+        )
+    plt.tight_layout(pad=1, h_pad=1, w_pad=1)
+    plt.subplots_adjust(right=0.95, left=0.04, top=0.96, bottom=0.04)
+    if count_br + 1 < len(sub_ax_days[count_date]):
+        for sub_ax_single in sub_ax_days[count_date][count_br+1:]:
+            sub_ax_single.set_axis_off()
+    fig_day.savefig(fname=save_path_day)
+    print(f"Day{curr_time}")
