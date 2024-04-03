@@ -6,12 +6,10 @@ import math
 import random
 import warnings
 from typing import Union
-from datetime import datetime
 
 # Imports from 3rd party libraries
 import numpy as np
 import pandas as pd
-from fpdf import FPDF
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
@@ -81,7 +79,13 @@ class ModelTraining:
         self.state_len = len(states)
         self.input_len = len(inputs)
         self.total = self.state_len + self.input_len
+
         self.iters = 0
+        self.model_error = 0
+        self.model_error_dict = {}
+
+        self.c_matrix = np.identity(self.state_len)
+        self.d_matrix = np.zeros([self.state_len, self.input_len])
 
     def first_pass_training(self):
         """
@@ -128,111 +132,42 @@ class ModelTraining:
         if first_train:
             self.a_matrix = np.random.random([self.state_len, self.state_len])
             self.b_matrix = np.random.random([self.state_len, self.input_len])
-            c_matrix = np.identity(self.state_len)
-            d_matrix = np.zeros([self.state_len, self.input_len])
-        else:
-            c_matrix = np.identity(self.state_len)
-            d_matrix = np.zeros([self.state_len, self.input_len])
+            self.c_matrix = np.identity(self.state_len)
+            self.d_matrix = np.zeros([self.state_len, self.input_len])
 
         # Check to make sure matrices are correct dimensions, if not create a random matrix of values
         if (self.a_matrix.shape[0] != self.state_len) or (
             self.a_matrix.shape[1] != self.state_len
         ):
-            warnings.warn(f"Wrong size A-Matrix ({self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}) should be, {self.state_len}x{self.state_len}")
+            warnings.warn(
+                f"Wrong size A-Matrix ({self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}) should be, {self.state_len}x{self.state_len}"
+            )
             self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.state_len))
 
         if (self.b_matrix.shape[0] != self.state_len) or (
             self.b_matrix.shape[1] != self.input_len
         ):
-            warnings.warn(f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}")
+            warnings.warn(
+                f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}"
+            )
             self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.input_len))
 
         a_sim = self.a_matrix.reshape(-1, 1)
         b_sim = self.b_matrix.reshape(-1, 1)
         combined_mat = np.vstack([a_sim, b_sim]).flatten()
 
-        def objective_func(mat, info):
-            """
-            The `objective_func` function calculates the error between actual and simulated data for a
-            given set of A and B matrices.
-
-            Args:
-              mat: The parameter `mat` is a 1-dimensional numpy array that contains the values of the
-            matrices `a_matrix` and `b_matrix`. The first `self.state_len**2` elements of `mat`
-            represent the values of `a_matrix`, while the remaining elements represent the values of `b
-              info: The "info" parameter is a dictionary that contains additional information about the
-            optimization process. It is used to keep track of the number of function evaluations
-            (Nfeval) and can be used to store any other relevant information during the optimization
-            process.
-
-            Returns:
-              the value of the objective function, which is the sum of squared errors between the actual
-            and simulated values of the system.
-            """
-            iter_counter = 0
-            train_grouped = self.train_data.groupby("Batch")
-            y_sim_all = np.zeros([self.num_days, self.state_len])
-            y_actual_all = np.zeros([self.num_days, self.state_len])
-
-            for _, group in train_grouped:
-                objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
-                objfunc_u = np.array(group.filter(self.inputs))
-                objfunc_y = np.array(group.filter(self.states))
-                time = np.arange(0, len(objfunc_u), 1)
-                a_matrix = mat[: (self.state_len**2)].reshape(
-                    self.state_len, self.state_len
-                )
-                b_matrix = mat[(self.state_len**2) :].reshape(
-                    self.state_len, self.input_len
-                )
-                state = signal.StateSpace(a_matrix, b_matrix, c_matrix, d_matrix)
-                _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0)
-
-                if iter_counter == 0:
-                    y_sim_all = np.array(objfunc_yout, dtype=np.float64)
-                    y_actual_all = np.array(objfunc_y, dtype=np.float64)
-                else:
-                    y_sim_all = np.vstack([y_sim_all, objfunc_yout])
-                    y_actual_all = np.vstack([y_actual_all, objfunc_y])
-                iter_counter += 1
-
-            # y_diff = y_actual_all - y_sim_all
-            # rmse_scaled = np.hstack([np.array(y_diff),np.zeros([len(y_actual_all),self.input_len])])
-
-            cost_list = []
-            for count, state in enumerate(self.states):
-                y_diff = y_actual_all[:,count] - y_sim_all[:,count]
-                feature_cost = np.square(y_diff).sum()
-                cost_list.append(feature_cost)
-
-            wghtd_cost = sum(np.array(cost_list)*np.array(self.pv_wghts))
-
-            rmse_scaled = np.hstack(
-                [np.array(cost_list), np.zeros(self.input_len)]
-            ).reshape(1, -1)
-            rmse_unscaled = self.scaler.inverse_transform(rmse_scaled)
-            cost_func = sum(np.array(cost_list) * np.array(self.pv_wghts))
-
-            # value = np.sum(np.square(y_actual_all - y_sim_all))
-
-            if info["Nfeval"] % 25 == 0:
-                print("")
-                print(f"Iteration: {info['Nfeval']}")
-                for count, state in enumerate(self.states):
-                    print(f"{state} Error: {np.array(rmse_unscaled)[:,count][0]:.5f}")
-                print("--------------------")
-                print(f"Total Error: {cost_func:.5f}, Old Error: {wghtd_cost:.5f}")
-            info["Nfeval"] += 1
-            return wghtd_cost
-
         res = optimize.minimize(
-            fun=objective_func,
+            fun=self.objective_func,
             x0=combined_mat,
             bounds=[(-1, 1)] * len(combined_mat),
             method="SLSQP",
-            args=({"Nfeval": 0},),
             options={"maxiter": iterations, "disp": False, "ftol": 1e-09},
         )
+        print("")
+        for key, value in self.model_error_dict.items():
+            print(f"{key} Error: {value:.5f}")
+        print("--------------------")
+        print(f"Iterations: {self.iters}, Model Error: {self.model_error:.5f}")
 
         opt_matrix = res.x
 
@@ -250,6 +185,90 @@ class ModelTraining:
         pd.DataFrame(self.b_matrix).to_csv(
             rf"{save_path}\B_Matrix.csv", index=False, header=False
         )
+    
+    def objective_func(self, x0):
+        """
+        The `objective_func` function calculates the error between actual and simulated data for a
+        given set of A and B matrices.
+
+        Args:
+            mat: The parameter `mat` is a 1-dimensional numpy array that contains the values of the
+        matrices `a_matrix` and `b_matrix`. The first `self.state_len**2` elements of `mat`
+        represent the values of `a_matrix`, while the remaining elements represent the values of `b
+            info: The "info" parameter is a dictionary that contains additional information about the
+        optimization process. It is used to keep track of the number of function evaluations
+        (Nfeval) and can be used to store any other relevant information during the optimization
+        process.
+
+        Returns:
+            the value of the objective function, which is the sum of squared errors between the actual
+        and simulated values of the system.
+        """
+        iter_counter = 0
+        train_grouped = self.train_data.groupby("Batch")
+        y_sim_all = np.zeros([self.num_days, self.state_len])
+        y_actual_all = np.zeros([self.num_days, self.state_len])
+
+        for _, group in train_grouped:
+            objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
+            objfunc_u = np.array(group.filter(self.inputs))
+            objfunc_y = np.array(group.filter(self.states))
+            time = np.arange(0, len(objfunc_u), 1)
+            a_matrix = x0[: (self.state_len**2)].reshape(
+                self.state_len, self.state_len
+            )
+            b_matrix = x0[(self.state_len**2) :].reshape(
+                self.state_len, self.input_len
+            )
+            state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
+            _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0)
+
+            if iter_counter == 0:
+                y_sim_all = np.array(objfunc_yout, dtype=np.float64)
+                y_actual_all = np.array(objfunc_y, dtype=np.float64)
+            else:
+                y_sim_all = np.vstack([y_sim_all, objfunc_yout])
+                y_actual_all = np.vstack([y_actual_all, objfunc_y])
+            iter_counter += 1
+
+        # y_diff = y_actual_all - y_sim_all
+        # rmse_scaled = np.hstack([np.array(y_diff),np.zeros([len(y_actual_all),self.input_len])])
+
+        cost_list = []
+        for count, state in enumerate(self.states):
+            y_diff = y_actual_all[:, count] - y_sim_all[:, count]
+            feature_cost = np.square(y_diff).sum()
+            cost_list.append(feature_cost)
+
+        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts))
+
+        rmse_sim_scaled = np.hstack(
+            (np.array(y_sim_all), np.zeros((y_sim_all.shape[0], self.input_len)))
+        )
+        rmse_sim_unscaled = self.scaler.inverse_transform(rmse_sim_scaled)
+
+        rmse_real_scaled = np.hstack(
+            (np.array(y_actual_all), np.zeros((y_actual_all.shape[0], self.input_len)))
+        )
+        rmse_real_unscaled = self.scaler.inverse_transform(rmse_real_scaled)
+        rmse_diff = rmse_sim_unscaled[:, :self.state_len] - rmse_real_unscaled[:,:self.state_len]
+
+        # cost_func = sum(np.array(cost_list) * np.array(self.pv_wghts))
+        # value = np.sum(np.square(y_actual_all - y_sim_all))
+
+        if self.iters % 50 == 0:
+            print("")
+            print(f"Iteration: {self.iters}")
+            for count, state in enumerate(self.states):
+                rmse = np.sqrt(np.square(rmse_diff[:,count]).sum()/rmse_diff.shape[0])
+                self.model_error_dict[state] = rmse
+                print(f"{state} Error: {rmse:.5f}")
+            print("--------------------")
+            print(f"Total Error: {wghtd_cost:.5f}")
+        self.iters += 1
+        self.model_error = wghtd_cost
+
+        return wghtd_cost
 
     def get_model_data_dict(self, data_agg="both") -> tuple[dict, dict]:
         """
@@ -452,208 +471,6 @@ class ModelTraining:
         fig2.suptitle("Parity Plot", size="x-large", weight="bold", y=0.98)
         fig2.tight_layout()
         plt.show()
-
-    def generate_report(
-        self,
-        output_pdf: str,
-        scaler_df: pd.DataFrame,
-        metadata_path: str,
-        figures_filepath: str,
-        logo_filepath: str,
-        xlim=None,
-        ylim=True,
-    ):
-        """
-        Save multiple plots to a PDF file, organized in a 4x4 matrix on each page.
-
-        Parameters:
-        - datas: List of data for each plot.
-        - output_pdf: Name of the output PDF file.
-        """
-        simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="train")
-        dict_keys = list(simulation_dict.keys())
-        COLS = 2
-        ROWS = 4
-        ppg = ROWS * COLS
-        now = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-        # Plotting the table and removing all axes
-        fig_table, ax = plt.subplots(
-            figsize=(6, 2)
-        )  # set the size that you'd like (width, height)
-        ax.axis("off")
-
-        tbl = ax.table(
-            cellText=scaler_df.values,
-            colLabels=list(scaler_df.columns),
-            cellLoc="center",
-            loc="center",
-        )
-
-        # Create the table and scale it to fit the fig
-        for (i, j), cell in tbl.get_celld().items():
-            if i == 0:  # header cells
-                cell.set_text_props(weight="bold", color="white")
-                cell.set_facecolor("#F25D18")
-
-        d = {}
-        with open(metadata_path, encoding="utf-8") as f:
-            for line in f:
-                data = line.split(sep=":")
-                d[data[0]] = data[1]
-
-        tbl.auto_set_font_size(False)
-        tbl.set_fontsize(20)
-        tbl.scale(2, 4)  # may need to adjust this for your data
-        plt.savefig(
-            rf"{figures_filepath}\table_image.png", dpi=200, bbox_inches="tight"
-        )
-        plt.close(fig_table)
-
-        pdf = FPDF(format="A4")  # A4 (210 by 297 mm)
-        pdf.add_page()
-        pdf.set_font("helvetica", "B", 8)
-        pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
-        pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
-
-        # Set the title of the document
-        pdf.set_font("helvetica", "B", 24)
-        pdf.set_text_color(r=242, g=93, b=24)
-        pdf.ln(15)
-        pdf.write(5, "BDSD State Space Model Report")
-
-        # Specify the reference number of document
-        pdf.set_font("helvetica", "B", 18)
-        pdf.set_text_color(r=242, g=93, b=24)
-        pdf.ln(15)
-        pdf.write(5, f"IDBS Reference: {d['IDBS']}")
-
-        # Write other data to the front cover
-        pdf.set_font("helvetica", "", 16)
-        pdf.set_text_color(r=242, g=93, b=24)
-        pdf.set_text_color(r=0, g=0, b=0)
-        pdf.ln(13)
-        pdf.write(7, f"Report Generated for {d['Asset']}")
-        pdf.ln(2)
-        pdf.write(7, f"Dataset for Model Training: {d['Dataset']}")
-        pdf.ln(2)
-        pdf.write(7, f"States in Model: {(', ').join(self.states)}")
-        pdf.ln(6)
-        pdf.write(7, f"Inputs in Model: {(', ').join(self.inputs)}")
-
-        pdf.set_font("helvetica", "B", 18)
-        pdf.set_text_color(r=242, g=93, b=24)
-        pdf.ln(15)
-        pdf.write(7, f"Table of Scaler Values from {d['scaler_type']}")
-
-        pdf.image(rf"{figures_filepath}\table_image.png", w=160, h=100, x=25, y=120)
-
-        pdf.set_font("helvetica", "I", 16)
-        pdf.set_text_color(r=0, g=0, b=0)
-        pdf.ln(132)
-        pdf.write(7, f"Report Author: {d['Author']}")
-        pdf.ln(2)
-        pdf.write(7, f"GitHub Link: {d['Github']}")
-        pdf.ln(2)
-        pdf.write(7, f"This report was generated on {now}")
-
-        pdf.add_page()
-        pdf.set_font("helvetica", "B", 8)
-        pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
-        pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
-
-        # Set the title of the document
-        pdf.set_font("helvetica", "B", 24)
-        pdf.set_text_color(r=242, g=93, b=24)
-        pdf.ln(127)
-        pdf.write(5, "Model Training Dataset")
-        df_sim_concat = pd.concat(simulation_dict.values(), ignore_index=True)
-        df_train_concat = pd.concat(train_test_dict.values(), ignore_index=True)
-        for test_label in self.states:
-            pdf.add_page()
-            pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
-            pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
-            # Set the title of the document
-            pdf.set_font("helvetica", "B", 24)
-            pdf.set_text_color(r=242, g=93, b=24)
-            pdf.ln(5)
-            pdf.write(5, f"State: {test_label}")
-            if df_sim_concat[test_label].max() > df_train_concat[test_label].max():
-                max_value = df_sim_concat[test_label].max()
-            else:
-                max_value = df_train_concat[test_label].max()
-
-            if df_sim_concat[test_label].min() < df_sim_concat[test_label].min():
-                min_value = df_sim_concat[test_label].min()
-            else:
-                min_value = df_sim_concat[test_label].min()
-
-            for i in range(0, len(simulation_dict.keys()), ppg):
-                if i != 0:
-                    pdf.add_page()
-                    pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
-                    pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
-                fig, axs = plt.subplots(ROWS, COLS, figsize=(8, 10), squeeze=False)
-                fig.subplots_adjust(top=0.8)
-
-                for count, ax_test in enumerate(axs.reshape(-1)):
-                    if count + i < len(simulation_dict.keys()):
-                        key = dict_keys[count + i]
-                        time = np.arange(0, len(simulation_dict[key][test_label]), 1)
-                        ax_test.plot(
-                            time,
-                            simulation_dict[key][test_label],
-                            "ro-",
-                            label="Simulated Data",
-                            markersize=3.5,
-                        )
-                        ax_test.plot(
-                            time,
-                            train_test_dict[key][test_label],
-                            "bo-",
-                            label="Experimental Data",
-                            markersize=3.5,
-                        )
-                        ax_test.set_title(key, size="medium", weight="bold")
-                        ax_test.grid()
-                        if ylim:
-                            if min_value > 200:
-                                ax_test.set_ylim(
-                                    min_value - (min_value * 0.2),
-                                    max_value + (max_value * 0.2),
-                                )
-                            else:
-                                ax_test.set_ylim(0, max_value + (max_value * 0.2))
-                        if xlim is not None:
-                            ax_test.set_xlim(-1.5, xlim)
-                    else:
-                        pass
-
-                # If on the last page and there are fewer than 12 plots, remove extra subplots
-                if len(simulation_dict.keys()) - i < ppg:
-                    for j in range(len(simulation_dict.keys()) - i, len(axs.flatten())):
-                        axs.ravel()[j].remove()
-
-                axs[ROWS - 1][COLS - 1].legend()
-                # if ppg < len(simulation_dict.keys()) - i:
-                #     axs[ROWS - 1][COLS - 1].legend()
-                # else:
-                #     axs[math.ceil((len(simulation_dict.keys()) - i)/COLS) - 1][COLS - 1].legend()
-                # fig.suptitle("Training Data Set", size= "x-large", weight= "bold", y=0.98)
-                fig.supxlabel("Day", size="x-large", weight="bold")
-                fig.supylabel(f"{test_label}", size="x-large", weight="bold")
-                fig.tight_layout()
-
-                plt.savefig(rf"{figures_filepath}\{test_label}_{i}.png", dpi=200)
-                plt.close(fig)
-                pdf.image(
-                    rf"{figures_filepath}\{test_label}_{i}.png",
-                    w=190,
-                    h=250,
-                    x=10,
-                    y=22,
-                )
-
-        pdf.output(output_pdf)
 
     def get_rmse_table(self):
         """

@@ -105,8 +105,9 @@ class ModelData:
         grouped = df_interpolated.groupby("Batch")
         smoothed_df = pd.DataFrame()
 
-        if smoothing_list not in df_interpolated.columns:
-            raise ValueError("Columns to smooth do not exist in the dataframe.")
+        for item in smoothing_list:
+            if item not in df_interpolated.columns:
+                raise ValueError("Columns to smooth do not exist in the dataframe.")
 
         for _, group_data in grouped:
             group_smoothed = group_data.copy()
