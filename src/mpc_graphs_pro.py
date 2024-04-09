@@ -16,7 +16,7 @@ plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
 
 # Options
-MPC_GRP = "linear"
+MPC_GRP = "all"
 CONFIG = {
     'all':{'dest':'mpc-performance-figs-all','controller':'Linear MPC|Nonlinear MPC|No MPC','col':'Controller','col_order':["Linear MPC","Nonlinear MPC","No MPC"],'hue':'iVCC','hue_order':[12, 15, 18]},
     'linear':{'dest':'mpc-performance-figs-linear','controller':'Linear MPC','col':'iVCC','col_order':[12, 15, 18],'hue':'Temp/pH','hue_order':['7.1, 32', '7.2, 34', '7.3, 35']},
