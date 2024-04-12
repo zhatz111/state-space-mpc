@@ -14,6 +14,30 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 ScalerType = Union[MinMaxScaler, StandardScaler]
 
 
+def update_json(json_path: Union[str, Path], values_dict: dict):
+    """
+    The function `update_json` updates a JSON file with values from a dictionary.
+    
+    Args:
+      json_path (Union[str, Path]): The `json_path` parameter in the `update_json` function is the path
+    to the JSON file that you want to update. It can be either a string representing the file path or a
+    `Path` object from the `pathlib` module.
+      values_dict (dict): The `values_dict` parameter in the `update_json` function is a dictionary that
+    contains key-value pairs where the key is a string representing the key in the JSON file that you
+    want to update, and the value is the new value that you want to set for that key in the JSON file.
+    """
+    with open(json_path, "r", encoding="utf-8") as file:
+        data = json.load(file)
+    
+    for key, value in values_dict.items():
+        if key == "Iterations":
+            data[key] += value
+        else:
+            data[key] = value
+        
+    with open(json_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4)
+
 def scaler_tojson(scaler: MinMaxScaler, save_path: Union[str, Path]):
     """
     The function `scaler_tojson` takes a scaler object and saves its attributes to a JSON file.

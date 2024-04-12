@@ -150,7 +150,7 @@ class ModelTraining:
             warnings.warn(
                 f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}"
             )
-            self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.input_len))
+            self.b_matrix = np.resize(self.b_matrix, (self.state_len, self.input_len))
 
         a_sim = self.a_matrix.reshape(-1, 1)
         b_sim = self.b_matrix.reshape(-1, 1)
@@ -160,7 +160,7 @@ class ModelTraining:
             fun=self.objective_func,
             x0=combined_mat,
             bounds=[(-1, 1)] * len(combined_mat),
-            method="SLSQP",
+            method="L-BFGS-B",
             options={"maxiter": iterations, "disp": False, "ftol": 1e-09},
         )
         print("")
@@ -185,7 +185,7 @@ class ModelTraining:
         pd.DataFrame(self.b_matrix).to_csv(
             rf"{save_path}\B_Matrix.csv", index=False, header=False
         )
-    
+
     def objective_func(self, x0):
         """
         The `objective_func` function calculates the error between actual and simulated data for a
@@ -214,12 +214,8 @@ class ModelTraining:
             objfunc_u = np.array(group.filter(self.inputs))
             objfunc_y = np.array(group.filter(self.states))
             time = np.arange(0, len(objfunc_u), 1)
-            a_matrix = x0[: (self.state_len**2)].reshape(
-                self.state_len, self.state_len
-            )
-            b_matrix = x0[(self.state_len**2) :].reshape(
-                self.state_len, self.input_len
-            )
+            a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
+            b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
             state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
             _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0)
 
@@ -230,9 +226,6 @@ class ModelTraining:
                 y_sim_all = np.vstack([y_sim_all, objfunc_yout])
                 y_actual_all = np.vstack([y_actual_all, objfunc_y])
             iter_counter += 1
-
-        # y_diff = y_actual_all - y_sim_all
-        # rmse_scaled = np.hstack([np.array(y_diff),np.zeros([len(y_actual_all),self.input_len])])
 
         cost_list = []
         for count, state in enumerate(self.states):
@@ -251,16 +244,18 @@ class ModelTraining:
             (np.array(y_actual_all), np.zeros((y_actual_all.shape[0], self.input_len)))
         )
         rmse_real_unscaled = self.scaler.inverse_transform(rmse_real_scaled)
-        rmse_diff = rmse_sim_unscaled[:, :self.state_len] - rmse_real_unscaled[:,:self.state_len]
-
-        # cost_func = sum(np.array(cost_list) * np.array(self.pv_wghts))
-        # value = np.sum(np.square(y_actual_all - y_sim_all))
+        rmse_diff = (
+            rmse_sim_unscaled[:, : self.state_len]
+            - rmse_real_unscaled[:, : self.state_len]
+        )
 
         if self.iters % 50 == 0:
             print("")
             print(f"Iteration: {self.iters}")
             for count, state in enumerate(self.states):
-                rmse = np.sqrt(np.square(rmse_diff[:,count]).sum()/rmse_diff.shape[0])
+                rmse = np.sqrt(
+                    np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0]
+                )
                 self.model_error_dict[state] = rmse
                 print(f"{state} Error: {rmse:.5f}")
             print("--------------------")
