@@ -2,12 +2,14 @@
 """
 
 # Imports from Standard Library
+import glob
 from pathlib import Path
 from datetime import datetime
 
 # Imports from third party
 import warnings
 import json
+import yaml
 import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -20,75 +22,31 @@ from src.models.ssm import scaler_tojson, json_toscaler, update_json
 # suppress warnings
 warnings.filterwarnings("ignore")
 
-# CREATE A CONFIG FILE THAT CAN TAKE THE PLACE OF ALL THESE PARAMETERS THAT I SPECIFY
-# THIS WAY I CAN USE THIS SCRIPT REALLY EASY FOR MULTIPLE ASSETS BY JUST CHANGING THE CONFIG FILE
-# MAKE THE CONFIG FILE A JSON
 
+# FILL THIS OUT BEFORE RUNNING SCRIPT
+# ------------------------------------------------------------
+PARENT_FILE_PATH = Path(
+    r"~\GSK\Biopharm Model Predictive Control - General\data"
+).expanduser()
+MODELING_DATA_FOLDER_NAME = "2024-04-16 aCD96 Robustness Data"
+# ------------------------------------------------------------
+
+
+
+PATH_DIRECTORY = Path(PARENT_FILE_PATH, MODELING_DATA_FOLDER_NAME)
+yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
+yaml_data = open(yaml_files[0], "r", encoding="utf-8")
+model_config = yaml.safe_load(yaml_data)
+yaml_data.close()
 
 METADATA_TEMPLATE = {
-    "Asset": "aIL33-LA",
-    "Training Data Study": "AR24-012",
+    "Asset": model_config["Asset"],
+    "Training Data Study": model_config["Training Data Study"],
     "Iterations": 0,
     "Model RMSE": 0,
     "States RMSE": {},
     "Last Model Training": "",
 }
-FILE_PATH = Path(r"~\GSK\Biopharm Model Predictive Control - General\data").expanduser()
-DATA_FOLDER_EXT = "2024-04-12 aIL33-LA Data"
-DATA_FILE_EXT = "AR24-012 Feed-pH-Temp Model Data"
-MATRIX_FOLDER_EXT = "AR24-012 Matrices"
-PDF_PLOT_FILENAME = "model_test_report"
-
-TARGET_LABEL = "IGG"
-PROCESS_TIME = 13  # should be length of days + 1
-ITERATIONS = 100
-FIRST_TRAIN = False
-pv_wghts = [
-    8.0,
-    1.0,
-    1.0,
-    1.0,
-    1.0,
-]
-
-# Make sure to check the window length for smoothing with moving average
-
-include_columns = [
-    "Batch",
-    "Condition",
-    "Day",
-]
-
-STATES = [
-    "IGG",
-    "VCC",
-    "Viability",
-    "Lactate",
-    "pH_at_temp",
-]
-
-INPUTS = [
-    "Cumulative_Normalized_Feed",
-    "Temperature",
-    "pH_setpoint",
-    "DO",
-]
-
-SMOOTHE_LIST = [
-    "IGG",
-    "VCC",
-    "Viability",
-    "Lactate",
-]
-
-DISCARD = [
-    # "AR23-067-005P",
-    # "AR23-067-011P",
-    # "AR23-019-001P",
-    # "AR23-019-004P",
-    # "AR23-019-007P",
-    # "AR23-019-014P",
-]
 
 
 def main():
@@ -96,49 +54,59 @@ def main():
     The main function reads data, preprocesses it, trains a model, and saves the model scaler and
     matrices.
     """
-    directory = Path(FILE_PATH, DATA_FOLDER_EXT)
     if f"{METADATA_TEMPLATE['Training Data Study']}_scaler.json" in list(
-        f.name for f in directory.iterdir()
+        f.name for f in PATH_DIRECTORY.iterdir()
     ):
         scaler_train = json_toscaler(
-            Path(directory, f"{METADATA_TEMPLATE['Training Data Study']}_scaler.json")
+            Path(
+                PATH_DIRECTORY,
+                f"{METADATA_TEMPLATE['Training Data Study']}_scaler.json",
+            )
         )
     else:
         scaler_train = MinMaxScaler()
 
-    data = pd.read_csv(Path(directory, f"{DATA_FILE_EXT}.csv"))
+    data = pd.read_csv(
+        Path(PATH_DIRECTORY, f"{model_config['Modeling Data File Name']}.csv")
+    )
 
     dataframe = ModelData(
         raw_data=data,
         scaler=scaler_train,
         group="Batch",
-        discard=DISCARD,
-        states=STATES,
-        inputs=INPUTS,
+        discard=model_config["Batches to Discard"],
+        states=model_config["Model States"],
+        inputs=model_config["Model Inputs"],
     )
 
     # Class method to clean up all the data
     # this includes interpolation to start, spline smoothing, splitting the data into training and testing sets
     # and finally feature scaling using the scaler of choice
     train_data, test_data = dataframe.clean(
-        metadata_columns=include_columns,
-        smoothing_list=SMOOTHE_LIST,
-        test_size=0.20,
-        n_splits=2,
-        random_state=1,
-        win_len=2,
+        metadata_columns=model_config["Include Data Columns"],
+        smoothing_list=model_config["Data Smoothing List"],
+        test_size=model_config["Testing Data Size"],
+        n_splits=model_config["Number Cross Val Splits"],
+        random_state=model_config["Random Seed"],
+        win_len=model_config["Window Length"],
     )
 
     a_matrix = np.array(
         pd.read_csv(
-            Path(directory, f"{MATRIX_FOLDER_EXT}/A_Matrix.csv"),
+            Path(
+                PATH_DIRECTORY,
+                f"{model_config['A & B Matrices Folder Extension']}/A_Matrix.csv",
+            ),
             header=None,
         )
     )
 
     b_matrix = np.array(
         pd.read_csv(
-            Path(directory, f"{MATRIX_FOLDER_EXT}/B_Matrix.csv"),
+            Path(
+                PATH_DIRECTORY,
+                f"{model_config['A & B Matrices Folder Extension']}/B_Matrix.csv",
+            ),
             header=None,
         )
     )
@@ -146,8 +114,8 @@ def main():
     scaler_tojson(
         scaler=scaler_train,
         save_path=Path(
-            directory,
-            f"{MATRIX_FOLDER_EXT}/{METADATA_TEMPLATE['Training Data Study']}_scaler.json",
+            PATH_DIRECTORY,
+            f"{model_config['A & B Matrices Folder Extension']}/{model_config['Asset']}_scaler.json",
         ),
     )
 
@@ -156,19 +124,19 @@ def main():
         test_data,
         a_matrix=a_matrix,
         b_matrix=b_matrix,
-        states=STATES,
-        inputs=INPUTS,
-        pv_wghts=pv_wghts,
-        num_days=PROCESS_TIME,
+        states=model_config["Model States"],
+        inputs=model_config["Model Inputs"],
+        pv_wghts=model_config["Process Variable Weights"],
+        num_days=model_config["Process Time"],
         scaler=scaler_train,
     )
     time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
+
     model_train_obj.train_test_model(
-        Path(directory, f"{MATRIX_FOLDER_EXT}"),
-        test_label=TARGET_LABEL,
-        iterations=ITERATIONS,
-        first_train=FIRST_TRAIN,
+        Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Extension']}"),
+        test_label=model_config["Target Plotting Label"],
+        iterations=model_config["Training Iterations"],
+        first_train=model_config["First Training"],
     )
 
     post_training_metadata = {
@@ -178,10 +146,11 @@ def main():
         "Last Model Training": time,
     }
     json_path = Path(
-        directory, f"{METADATA_TEMPLATE['Training Data Study']}_model_metadata.json"
+        PATH_DIRECTORY,
+        f"{METADATA_TEMPLATE['Asset']}_model_metadata.json",
     )
-    if f"{METADATA_TEMPLATE['Training Data Study']}_model_metadata.json" in list(
-        f.name for f in directory.iterdir()
+    if f"{METADATA_TEMPLATE['Asset']}_model_metadata.json" in list(
+        f.name for f in PATH_DIRECTORY.iterdir()
     ):
         update_json(
             json_path,
@@ -194,6 +163,7 @@ def main():
             json_path,
             post_training_metadata,
         )
+
 
 if __name__ == "__main__":
     main()
