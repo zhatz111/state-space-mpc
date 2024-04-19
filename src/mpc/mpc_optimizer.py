@@ -19,31 +19,7 @@ from scipy import optimize
 
 # State-Space-Model Package Imports
 from models.ssm import StateSpaceModel
-
-
-def daily_to_cumulative_feed(model, u_matrix_daily):
-    """
-    The function `daily_to_cumulative_feed` converts a U matrix's daily feed column to cumulative feed
-    for lsim.
-
-    Args:
-      model: The "model" parameter is a variable that represents a model object. It is not specified in
-    the code snippet provided, so its exact definition and usage would depend on the context in which
-    this function is being used.
-      u_matrix_daily: The u_matrix_daily parameter is a numpy array representing the U matrix with daily
-    feed values.
-
-    Returns:
-      the modified U matrix with the daily feed column converted to cumulative feed.
-    """
-    u_matrix_cumulative = np.copy(u_matrix_daily)
-    cumulative_feed_loc = np.where(np.isin(model.inputs, "CUMULATIVE_NORMALIZED_FEED"))[
-        0
-    ]
-    u_matrix_cumulative[:, cumulative_feed_loc] = np.cumsum(
-        u_matrix_cumulative[:, cumulative_feed_loc]
-    ).reshape([-1, 1])
-    return u_matrix_cumulative
+from data.functions import daily_to_cumulative_feed
 
 
 class Bioreactor:
@@ -177,7 +153,7 @@ class Bioreactor:
             cols = np.array(data.columns.tolist())
             new_cols = cols[np.concatenate((
                 np.where(np.isin(cols,"Code_Run_Date"))[0],
-                np.where(~np.isin(cols,"Code_Run_Date"))[0]),dtype=int)]
+                np.where(~np.isin(cols,"Code_Run_Date"))[0]))]
             data = data[new_cols].copy(deep=True)
 
         if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:

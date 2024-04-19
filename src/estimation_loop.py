@@ -4,23 +4,25 @@
     Modified: 2024-02-26
 """
 
-# pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
-# pylint: disable=locally-disabled, multiple-statements, fixme, import-error
-
 # Standard Library Imports
 import sys
+import glob
 import warnings
 from pathlib import Path
 from datetime import datetime
 
 # 3rd Party Library Imports
+import yaml
 import numpy as np
 import pandas as pd
+from InquirerPy.resolver import prompt
 
 # State-Space-Model Package Imports
-from mpc.mpc_optimizer import Bioreactor, Controller
-from visualization.visualize import MPCVisualizer
-from models.ssm import StateSpaceModel, json_toscaler
+from src.mpc.mpc_optimizer import Bioreactor, Controller
+from src.visualization.visualize import MPCVisualizer
+from src.models.ssm import StateSpaceModel
+from src.data.functions import json_toscaler
+
 
 warnings.filterwarnings("ignore")
 
@@ -31,6 +33,31 @@ top_dir = Path().absolute()
 
 # -------------------------------------------------------------------------------------
 # USER SPECIFIED DATA
+
+PARENT_FILE_PATH = Path(
+    r"~\GSK\Biopharm Model Predictive Control - General\data"
+).expanduser()
+FOLDER_SEARCH_KEY = "Experiment"
+matching_folders = [
+    folder.name
+    for folder in PARENT_FILE_PATH.iterdir()
+    if folder.is_dir() and FOLDER_SEARCH_KEY in folder.name
+]
+questions = {
+    "type": "list",
+    "name": "folder",
+    "message": "Which experiment are you running MPC for?",
+    "choices": matching_folders,
+}
+answer = prompt(questions)
+DATA_FOLDER_NAME = str(answer["folder"])
+
+PATH_DIRECTORY = Path(PARENT_FILE_PATH, DATA_FOLDER_NAME)
+yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
+yaml_data = open(yaml_files[0], "r", encoding="utf-8")
+experiment_config = yaml.safe_load(yaml_data)
+yaml_data.close()
+
 
 # Specify the study number, measurement units, current time and vessel
 # Units list contents must equal exactly the number of graphs being plotted
@@ -45,41 +72,48 @@ units_list = [
     "(\N{DEGREE SIGN}C)",
     "",
 ]
-EXP_NUM = "AR24-005"
-CURR_TIME = 11
-VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
-# Specify names for batch sheet parent folder and master sheet
-RAW_DATA_PATH = "AR24-005_MPC_DoE"
-MASTER_DATA_TABLE = "ar24-005-mpc"
+if len(experiment_config["Bioreactors"]) == 2 and experiment_config["Arange Bioreactors"]:
+    # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
+    VESSELS = np.arange(
+        experiment_config["Bioreactors"][0], experiment_config["Bioreactors"][1] + 1
+    )
+else:
+    VESSELS = np.array(experiment_config["Bioreactors"])
 
-# Specify batch sheet path and load the read-only "master" sheet
-fig_path_lv1 = Path(
-    "~/GSK/Biopharm Model Predictive Control - General/data/", RAW_DATA_PATH
-)
-data_path = Path(top_dir, f"data/simulation/{EXP_NUM}")
-reference_data_all = pd.read_csv(
-    Path(data_path, f"{MASTER_DATA_TABLE}.csv")
-)
+data_path = Path(top_dir, f"data/simulation/{experiment_config['Experiment Number']}")
+reference_data_all = pd.read_csv(Path(data_path, f"{experiment_config['Master Data File']}.csv"))
 
 # -------------------------------------------------------------------------------------
 # LOAD MODEL DATA
 
 # Import the MinMaxScaler Json file
-json_scaler_path = Path(top_dir, f"data/parameters/{EXP_NUM}", "model_scaler.json")
+json_scaler_path = Path(
+    top_dir,
+    f"data/parameters/{experiment_config['Experiment Number']}",
+    "model_scaler.json",
+)
 sim_model_scaler = json_toscaler(json_file=json_scaler_path)
 
 # Import the A and B matrix CSV files
-sim_A_matrix = np.array(
+sim_a_matrix = np.array(
     pd.read_csv(
-        Path(top_dir, f"data/parameters/{EXP_NUM}", "A_Matrix.csv"),
+        Path(
+            top_dir,
+            f"data/parameters/{experiment_config['Experiment Number']}",
+            "A_Matrix.csv",
+        ),
         header=None,
     )
 )
 
-sim_B_matrix = np.array(
+sim_b_matrix = np.array(
     pd.read_csv(
-        Path(top_dir, f"data/parameters/{EXP_NUM}", "B_Matrix.csv"),
+        Path(
+            top_dir,
+            f"data/parameters/{experiment_config['Experiment Number']}",
+            "B_Matrix.csv",
+        ),
         header=None,
     )
 )
@@ -88,19 +122,21 @@ sim_B_matrix = np.array(
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
 
 # Create figure output folder
-fig_path_lv2 = Path(fig_path_lv1.expanduser(), MASTER_DATA_TABLE)
-fig_path_lv2.mkdir(parents=True, exist_ok=True)
+fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config['Figures Folder'])
+fig_path_top_dir.mkdir(parents=True, exist_ok=True)
 
 # Create a daily folder of all reactors
-fig_path_lv3a = Path(fig_path_lv2.expanduser(), f"D{CURR_TIME}-{todays_date}")
-fig_path_lv3a.mkdir(parents=True, exist_ok=True)
+fig_path_lv2_day = Path(
+    fig_path_top_dir.expanduser(), f"D{experiment_config['Current Day']}-{todays_date}"
+)
+fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
 
 for curr_vessel in VESSELS:
     # curr_vessel = 1  # want to eliminate this and add a for loop for all reactors
 
     # Create figure folder
-    fig_path_lv3b = Path(fig_path_lv2.expanduser(), f"BR{curr_vessel:02d}")
-    fig_path_lv3b.mkdir(parents=True, exist_ok=True)
+    fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
+    fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
     # Parse the states from the reference data csv file
     reference_data_this_vessel = reference_data_all.loc[
@@ -146,8 +182,8 @@ for curr_vessel in VESSELS:
         states=STATES,
         inputs=INPUTS,
         scaler=sim_model_scaler,
-        a_matrix=sim_A_matrix,
-        b_matrix=sim_B_matrix,
+        a_matrix=sim_a_matrix,
+        b_matrix=sim_b_matrix,
     )
 
     # Construct a bioreactor object
@@ -173,28 +209,28 @@ for curr_vessel in VESSELS:
     # # 2024-02-28: increased the lower bound
     # PV_WTS = np.array([1 / (1000) ** 2])
     # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.002, 0.1]])  # feed    
+    # MV_BOUNDS = np.array([[0.002, 0.1]])  # feed
 
     # # 2024-02-29: decreased the upper bound
     # PV_WTS = np.array([1 / (1000) ** 2])
     # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed        
+    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed
 
     # # 2024-03-01: decreased the lower bound
     # PV_WTS = np.array([1 / (1000) ** 2])
     # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.001, 0.03]])  # feed    
+    # MV_BOUNDS = np.array([[0.001, 0.03]])  # feed
 
     # # 2024-03-02: brought the lower bound back to 0.002
     # PV_WTS = np.array([1 / (1000) ** 2])
     # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed  
+    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed
 
     # 2024-03-03: changed the upper bound to 0.05
     PV_WTS = np.array([1 / (1000) ** 2])
     MV_WTS = np.array([1 / (0.01) ** 2])
-    MV_BOUNDS = np.array([[0.002, 0.05]])  # feed            
-    
+    MV_BOUNDS = np.array([[0.002, 0.05]])  # feed
+
     # 2024-02-22: original weights
     # EST_WTS = np.array(
     #     [
@@ -217,7 +253,7 @@ for curr_vessel in VESSELS:
     #         0.007,  # OSMO
     #         0.001,  # CO2
     #     ]
-    # )   
+    # )
 
     # # 2024-02-25: increased IGG and VCC's weights
     # EST_WTS = np.array(
@@ -229,7 +265,7 @@ for curr_vessel in VESSELS:
     #         0.007,  # OSMO
     #         0.001,  # CO2
     #     ]
-    # )    
+    # )
 
     # 2024-03-03: increased IGG and VCC's weights
     EST_WTS = np.array(
@@ -241,7 +277,7 @@ for curr_vessel in VESSELS:
             0.007,  # OSMO
             0.001,  # CO2
         ]
-    )        
+    )
 
     # # 2024-03-02: original weight
     # EST_FILTER_WT_ON_DATA = 0.75
@@ -277,11 +313,13 @@ for curr_vessel in VESSELS:
         est_horizon=EST_HORIZON,
     )
 
+    
+
     # -------------------------------------------------------------------------------------
     # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
 
     # Update the time cursor
-    bioreactor.curr_time = CURR_TIME
+    bioreactor.curr_time = experiment_config["Current Day"]
 
     # Estimate CURR_DAY's state
 
@@ -296,10 +334,13 @@ for curr_vessel in VESSELS:
     # BIOREACTOR DATA SAVED
 
     # Search if files are in directory
-    filenames = [f"{EXP_NUM}-daily_feed.csv", f"{EXP_NUM}-total_feed.csv"]
+    filenames = [
+        f"{experiment_config['Experiment Number']}-daily_feed.csv",
+        f"{experiment_config['Experiment Number']}-total_feed.csv",
+    ]
     dir_paths = [x.name for x in list(data_path.iterdir())]
 
-    if any(item in filenames for item in dir_paths):
+    if all(item in filenames for item in dir_paths):
         # Read in CSV files
         df_br_daily = pd.read_csv(data_path / filenames[0])
         df_br_total = pd.read_csv(data_path / filenames[1])
@@ -338,32 +379,37 @@ for curr_vessel in VESSELS:
     # Plot the MPC Controller for each Bioreactor
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
-        save_path=fig_path_lv3b
-        / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
-        identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
+        save_path=fig_path_lv2_BR
+        / f"BR{bioreactor.vessel:02d}_D{experiment_config['Current Day']}-{todays_date}.png",
+        identifier=f"{experiment_config['Experiment Number']} \
+        -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
+        _D{experiment_config['Current Day']}-{todays_date}",
+
         unit_list=units_list,
         metadata={
-            "Title": f"{EXP_NUM}-D{CURR_TIME}",
+            "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
             "Author": "Zach Hatzenbeller, Yu Luo",
-            "Description": f"MPC plot for {EXP_NUM}. Developed within GSK R&D in BDSD",
+            "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
             "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
             "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "Software": f"Python v{sys.version}",
         },
-        display=False
+        display=False,
     )
     br_plots.mpc_daily_plot(
-        save_path=fig_path_lv3a
-        / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
-        identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
+        save_path=fig_path_lv2_day
+        / f"BR{bioreactor.vessel:02d}_D{experiment_config['Current Day']}-{todays_date}.png",
+        identifier=f"{experiment_config['Experiment Number']} \
+        -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
+        _D{experiment_config['Current Day']}-{todays_date}",
         unit_list=units_list,
         metadata={
-            "Title": f"{EXP_NUM}-D{CURR_TIME}",
+            "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
             "Author": "Zach Hatzenbeller, Yu Luo",
-            "Description": f"MPC plot for {EXP_NUM}. Developed within GSK R&D in BDSD",
+            "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
             "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
             "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "Software": f"Python v{sys.version}",
         },
-        display=False
-    )    
+        display=False,
+    )

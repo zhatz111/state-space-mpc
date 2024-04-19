@@ -70,7 +70,7 @@ class ModelData:
         Returns:
           a pandas DataFrame called `df_interpolate`.
         """
-        if (len(self.discard) > 0) or (self.discard is None):
+        if (self.discard is not None):
             self.df = self.df[
                 ~self.df[self.group].str.contains("|".join(self.discard), na=False)
             ]

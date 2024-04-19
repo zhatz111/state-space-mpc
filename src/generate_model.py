@@ -3,34 +3,43 @@
 
 # Imports from Standard Library
 import glob
+import warnings
 from pathlib import Path
 from datetime import datetime
 
 # Imports from third party
-import warnings
 import json
 import yaml
 import numpy as np
 import pandas as pd
+from InquirerPy.resolver import prompt
 from sklearn.preprocessing import MinMaxScaler
 
 # Imports from within repository
 from src.data.make_dataset import ModelData
 from src.models.train_model import ModelTraining
-from src.models.ssm import scaler_tojson, json_toscaler, update_json
+from src.data.functions import scaler_tojson, json_toscaler, update_json
 
 # suppress warnings
 warnings.filterwarnings("ignore")
 
-
-# FILL THIS OUT BEFORE RUNNING SCRIPT
-# ------------------------------------------------------------
 PARENT_FILE_PATH = Path(
     r"~\GSK\Biopharm Model Predictive Control - General\data"
 ).expanduser()
-MODELING_DATA_FOLDER_NAME = "2024-04-16 aCD96 Robustness Data"
-# ------------------------------------------------------------
-
+FOLDER_SEARCH_KEY = "Model"
+matching_folders = [
+    folder.name
+    for folder in PARENT_FILE_PATH.iterdir()
+    if folder.is_dir() and FOLDER_SEARCH_KEY in folder.name
+]
+questions = {
+    "type": "list",
+    "name": "folder",
+    "message": "What folder to use for training?",
+    "choices": matching_folders,
+}
+answer = prompt(questions)
+MODELING_DATA_FOLDER_NAME = str(answer["folder"])
 
 
 PATH_DIRECTORY = Path(PARENT_FILE_PATH, MODELING_DATA_FOLDER_NAME)
