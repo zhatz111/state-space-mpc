@@ -1,6 +1,6 @@
 """
 Code for useful functions needed in other scripts
-Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com) and Yu Luo (yu.8.luo@gsk.com)
 Created: 2024-04-19
 Modified: 2024-04-19
 """
@@ -63,6 +63,8 @@ def update_json(json_path: Union[str, Path], values_dict: dict):
         
     with open(json_path, "w", encoding="utf-8") as file:
         json.dump(data, file, indent=4)
+    
+    return data
 
 def scaler_tojson(scaler: MinMaxScaler, save_path: Union[str, Path]):
     """
@@ -122,3 +124,49 @@ def json_toscaler(json_file: Union[str, Path], minmaxscaler=True):
         )
 
     return reconstructed_scaler
+
+def dict_toscaler(dict_file: dict, minmaxscaler=True):
+    """
+    The function `json_toscaler` takes a JSON file containing attributes of a scaler and reconstructs
+    the scaler object using the loaded attributes.
+    
+    Args:
+      json_file: The path to the JSON file that contains the attributes of the scaler object.
+      minmaxscaler: The `minmaxscaler` parameter is a boolean flag that determines whether to use the
+    `MinMaxScaler` class for scaling the data. If `minmaxscaler` is set to `True`, the function will use
+    `MinMaxScaler` for scaling the data. If it is set to `. Defaults to True
+    
+    Returns:
+      a reconstructed scaler object.
+    """
+    # Initialize a new MinMaxScaler instance
+    if minmaxscaler:
+        reconstructed_scaler = MinMaxScaler()
+    else:
+        raise ValueError("This method currently only works for the MinMaxScaler")
+
+    # Set the loaded attributes back to the scaler
+    for attr_name, attr_value in dict_file.items():
+        setattr(
+            reconstructed_scaler,
+            attr_name,
+            np.array(attr_value) if isinstance(attr_value, list) else attr_value,
+        )
+
+    return reconstructed_scaler
+
+def json_to_dict(json_file_path: Union[str, Path]):
+  
+    with open(json_file_path, "r", encoding="utf-8") as file:
+        json_dict = json.load(file)
+
+    file.close()
+
+    return json_dict
+
+def dict_to_json(json_file_path: Union[str, Path], data: dict):
+
+    with open(json_file_path, "w", encoding="utf-8") as file:
+        json.dump(data, file, indent=4)
+    
+    file.close()

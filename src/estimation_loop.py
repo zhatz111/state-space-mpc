@@ -1,7 +1,7 @@
 """Main code for simulating closed-loop MPC
     Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2024-02-26
+    Modified: 2024-04-23
 """
 
 # Standard Library Imports
@@ -21,7 +21,7 @@ from InquirerPy.resolver import prompt
 from src.mpc.mpc_optimizer import Bioreactor, Controller
 from src.visualization.visualize import MPCVisualizer
 from src.models.ssm import StateSpaceModel
-from src.data.functions import json_toscaler
+from src.data.functions import dict_toscaler, json_to_dict
 
 
 warnings.filterwarnings("ignore")
@@ -73,7 +73,10 @@ units_list = [
     "",
 ]
 
-if len(experiment_config["Bioreactors"]) == 2 and experiment_config["Arange Bioreactors"]:
+if (
+    len(experiment_config["Bioreactors"]) == 2
+    and experiment_config["Arange Bioreactors"]
+):
     # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
     VESSELS = np.arange(
         experiment_config["Bioreactors"][0], experiment_config["Bioreactors"][1] + 1
@@ -81,48 +84,31 @@ if len(experiment_config["Bioreactors"]) == 2 and experiment_config["Arange Bior
 else:
     VESSELS = np.array(experiment_config["Bioreactors"])
 
-data_path = Path(top_dir, f"data/simulation/{experiment_config['Experiment Number']}")
-reference_data_all = pd.read_csv(Path(data_path, f"{experiment_config['Master Data File']}.csv"))
+reference_data_all = pd.read_csv(
+    Path(PATH_DIRECTORY, f"{experiment_config['Master Data File']}.csv")
+)
 
 # -------------------------------------------------------------------------------------
 # LOAD MODEL DATA
 
 # Import the MinMaxScaler Json file
-json_scaler_path = Path(
-    top_dir,
-    f"data/parameters/{experiment_config['Experiment Number']}",
-    "model_scaler.json",
+json_parameters_path = Path(
+    PATH_DIRECTORY,
+    f"{experiment_config['Experiment Number']}_model_parameters.json",
 )
-sim_model_scaler = json_toscaler(json_file=json_scaler_path)
+
+model_parameters = json_to_dict(json_parameters_path)
+sim_model_scaler = dict_toscaler(dict_file=model_parameters["scaler"])
 
 # Import the A and B matrix CSV files
-sim_a_matrix = np.array(
-    pd.read_csv(
-        Path(
-            top_dir,
-            f"data/parameters/{experiment_config['Experiment Number']}",
-            "A_Matrix.csv",
-        ),
-        header=None,
-    )
-)
-
-sim_b_matrix = np.array(
-    pd.read_csv(
-        Path(
-            top_dir,
-            f"data/parameters/{experiment_config['Experiment Number']}",
-            "B_Matrix.csv",
-        ),
-        header=None,
-    )
-)
+sim_a_matrix = np.array(model_parameters["a_matrix"])
+sim_b_matrix = np.array(model_parameters["b_matrix"])
 
 # -------------------------------------------------------------------------------------
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
 
 # Create figure output folder
-fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config['Figures Folder'])
+fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
 fig_path_top_dir.mkdir(parents=True, exist_ok=True)
 
 # Create a daily folder of all reactors
@@ -132,7 +118,13 @@ fig_path_lv2_day = Path(
 fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
 
 for curr_vessel in VESSELS:
-    # curr_vessel = 1  # want to eliminate this and add a for loop for all reactors
+    for key, value in experiment_config["Controller Dictionary"].items():
+        if curr_vessel in value:
+            controller_key = key
+
+    controller_config = json_to_dict(
+        Path(PATH_DIRECTORY, "Controllers", f"{controller_key}.json")
+    )
 
     # Create figure folder
     fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
@@ -306,14 +298,12 @@ for curr_vessel in VESSELS:
         mv_wts=MV_WTS,
         pred_horizon=PRED_HORIZON,
         ctrl_horizon=CTRL_HORIZON,
-        constr=MV_BOUNDS,
+        constr=MV_BOUNDS,  # feed
         output_mods_user=np.array([]),
         filter_wt_on_data=EST_FILTER_WT_ON_DATA,
         est_wts=EST_WTS,
         est_horizon=EST_HORIZON,
     )
-
-    
 
     # -------------------------------------------------------------------------------------
     # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
@@ -338,12 +328,12 @@ for curr_vessel in VESSELS:
         f"{experiment_config['Experiment Number']}-daily_feed.csv",
         f"{experiment_config['Experiment Number']}-total_feed.csv",
     ]
-    dir_paths = [x.name for x in list(data_path.iterdir())]
+    dir_paths = [x.name for x in list(PATH_DIRECTORY.iterdir())]
 
     if all(item in filenames for item in dir_paths):
         # Read in CSV files
-        df_br_daily = pd.read_csv(data_path / filenames[0])
-        df_br_total = pd.read_csv(data_path / filenames[1])
+        df_br_daily = pd.read_csv(PATH_DIRECTORY / filenames[0])
+        df_br_total = pd.read_csv(PATH_DIRECTORY / filenames[1])
 
         # Daily feed csv
         df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
@@ -353,7 +343,7 @@ for curr_vessel in VESSELS:
             subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
         )
         df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_daily.to_csv(data_path / filenames[0], index=False)
+        df_final_daily.to_csv(PATH_DIRECTORY / filenames[0], index=False)
 
         # Total feed csv
         df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
@@ -363,14 +353,14 @@ for curr_vessel in VESSELS:
             subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
         )
         df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_total.to_csv(data_path / filenames[1], index=False)
+        df_final_total.to_csv(PATH_DIRECTORY / filenames[1], index=False)
     else:
         # If no file exist currently
         bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
-            data_path / filenames[0], index=False
+            PATH_DIRECTORY / filenames[0], index=False
         )
         bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
-            data_path / filenames[1], index=False
+            PATH_DIRECTORY / filenames[1], index=False
         )
 
     # -------------------------------------------------------------------------------------
@@ -384,12 +374,12 @@ for curr_vessel in VESSELS:
         identifier=f"{experiment_config['Experiment Number']} \
         -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
         _D{experiment_config['Current Day']}-{todays_date}",
-
         unit_list=units_list,
         metadata={
             "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
             "Author": "Zach Hatzenbeller, Yu Luo",
-            "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
+            "Description": f"MPC plot for {experiment_config['Experiment Number']}. \
+            Developed within GSK R&D in BDSD",
             "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
             "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "Software": f"Python v{sys.version}",

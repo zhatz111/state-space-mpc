@@ -1,4 +1,7 @@
-"""_summary_
+"""Main code for training an model for MPC
+    Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+    Created: 2023-10-05
+    Modified: 2024-04-23
 """
 
 # Imports from Standard Library
@@ -18,7 +21,13 @@ from sklearn.preprocessing import MinMaxScaler
 # Imports from within repository
 from src.data.make_dataset import ModelData
 from src.models.train_model import ModelTraining
-from src.data.functions import scaler_tojson, json_toscaler, update_json
+from src.data.functions import (
+    scaler_tojson,
+    json_toscaler,
+    update_json,
+    json_to_dict,
+    dict_to_json,
+)
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -60,16 +69,19 @@ METADATA_TEMPLATE = {
 
 def main():
     """
-    The main function reads data, preprocesses it, trains a model, and saves the model scaler and
-    matrices.
+    The main function reads data, preprocesses it, trains a model, and saves 
+    the model scaler and matrices.
     """
-    if f"{METADATA_TEMPLATE['Training Data Study']}_scaler.json" in list(
-        f.name for f in PATH_DIRECTORY.iterdir()
+    if f"{model_config['Training Data Study']}_scaler.json" in list(
+        f.name
+        for f in Path(
+            PATH_DIRECTORY, model_config["A & B Matrices Folder Name"]
+        ).iterdir()
     ):
         scaler_train = json_toscaler(
             Path(
                 PATH_DIRECTORY,
-                f"{METADATA_TEMPLATE['Training Data Study']}_scaler.json",
+                f"{METADATA_TEMPLATE['Asset']}_scaler.json",
             )
         )
     else:
@@ -89,7 +101,8 @@ def main():
     )
 
     # Class method to clean up all the data
-    # this includes interpolation to start, spline smoothing, splitting the data into training and testing sets
+    # this includes interpolation to start, spline smoothing, splitting 
+    # the data into training and testing sets
     # and finally feature scaling using the scaler of choice
     train_data, test_data = dataframe.clean(
         metadata_columns=model_config["Include Data Columns"],
@@ -104,7 +117,7 @@ def main():
         pd.read_csv(
             Path(
                 PATH_DIRECTORY,
-                f"{model_config['A & B Matrices Folder Extension']}/A_Matrix.csv",
+                f"{model_config['A & B Matrices Folder Name']}/A_Matrix.csv",
             ),
             header=None,
         )
@@ -114,7 +127,7 @@ def main():
         pd.read_csv(
             Path(
                 PATH_DIRECTORY,
-                f"{model_config['A & B Matrices Folder Extension']}/B_Matrix.csv",
+                f"{model_config['A & B Matrices Folder Name']}/B_Matrix.csv",
             ),
             header=None,
         )
@@ -124,7 +137,7 @@ def main():
         scaler=scaler_train,
         save_path=Path(
             PATH_DIRECTORY,
-            f"{model_config['A & B Matrices Folder Extension']}/{model_config['Asset']}_scaler.json",
+            f"{model_config['A & B Matrices Folder Name']}/{model_config['Asset']}_scaler.json",
         ),
     )
 
@@ -139,10 +152,10 @@ def main():
         num_days=model_config["Process Time"],
         scaler=scaler_train,
     )
-    time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
     model_train_obj.train_test_model(
-        Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Extension']}"),
+        Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}"),
         test_label=model_config["Target Plotting Label"],
         iterations=model_config["Training Iterations"],
         first_train=model_config["First Training"],
@@ -161,18 +174,42 @@ def main():
     if f"{METADATA_TEMPLATE['Asset']}_model_metadata.json" in list(
         f.name for f in PATH_DIRECTORY.iterdir()
     ):
-        update_json(
+        post_training_metadata = update_json(
             json_path,
             post_training_metadata,
         )
     else:
         with open(json_path, "w", encoding="utf-8") as file:
             json.dump(METADATA_TEMPLATE, file)
-        update_json(
+        post_training_metadata = update_json(
             json_path,
             post_training_metadata,
         )
 
+    # generate a json file to import model parameters into mpc script
+    scaler_dict = json_to_dict(
+        Path(
+            PATH_DIRECTORY,
+            model_config["A & B Matrices Folder Name"],
+            f"{METADATA_TEMPLATE['Asset']}_scaler.json",
+        )
+    )
+    params = {
+        "States": model_config["Model States"],
+        "Inputs": model_config["Model Inputs"],
+        "a_matrix": a_matrix.tolist(),
+        "b_matrix": b_matrix.tolist(),
+        "scaler": scaler_dict,
+    }
+
+    model_parameters = {**params, **post_training_metadata}
+    dict_to_json(
+        Path(
+            PATH_DIRECTORY,
+            f"{METADATA_TEMPLATE['Asset']}_model_parameters.json",
+        ),
+        data=model_parameters
+    )
 
 if __name__ == "__main__":
     main()
