@@ -1,17 +1,15 @@
 """Main code for training an model for MPC
     Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
-    Created: 2023-10-05
-    Modified: 2024-04-23
+    Created: 2024-04-24
+    Modified: 2024-04-24
 """
 
 # Imports from Standard Library
 import glob
 import warnings
 from pathlib import Path
-from datetime import datetime
 
 # Imports from third party
-import json
 import yaml
 import numpy as np
 import pandas as pd
@@ -21,13 +19,8 @@ from sklearn.preprocessing import MinMaxScaler
 # Imports from within repository
 from src.data.make_dataset import ModelData
 from src.models.train_model import ModelTraining
-from src.data.functions import (
-    scaler_tojson,
-    json_toscaler,
-    update_json,
-    json_to_dict,
-    dict_to_json,
-)
+from src.visualization.pdf_report import generate_report
+from src.data.functions import scaler_tojson, json_toscaler, json_to_dict
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -44,7 +37,7 @@ matching_folders = [
 questions = {
     "type": "list",
     "name": "folder",
-    "message": "What folder to use for training?",
+    "message": "Generate Report for:",
     "choices": matching_folders,
 }
 answer = prompt(questions)
@@ -56,15 +49,6 @@ yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
 yaml_data = open(yaml_files[0], "r", encoding="utf-8")
 model_config = yaml.safe_load(yaml_data)
 yaml_data.close()
-
-METADATA_TEMPLATE = {
-    "Asset": model_config["Asset"],
-    "Training Data Study": model_config["Training Data Study"],
-    "Iterations": 0,
-    "Model RMSE": 0,
-    "States RMSE": {},
-    "Last Model Training": "",
-}
 
 
 def main():
@@ -81,7 +65,7 @@ def main():
         scaler_train = json_toscaler(
             Path(
                 PATH_DIRECTORY,
-                f"{METADATA_TEMPLATE['Asset']}_scaler.json",
+                f"{model_config['Asset']}_scaler.json",
             )
         )
     else:
@@ -152,61 +136,12 @@ def main():
         num_days=model_config["Process Time"],
         scaler=scaler_train,
     )
-    time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
-    model_train_obj.train_test_model(
-        save_path=Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}"),
-        test_label=model_config["Target Plotting Label"],
-        iterations=model_config["Training Iterations"],
-        first_train=model_config["First Training"],
-    )
-
-    post_training_metadata = {
-        "Iterations": model_train_obj.iters,
-        "Model RMSE": model_train_obj.model_error,
-        "States RMSE": model_train_obj.model_error_dict,
-        "Last Model Training": time,
-    }
-    json_path = Path(
-        PATH_DIRECTORY,
-        f"{METADATA_TEMPLATE['Asset']}_model_metadata.json",
-    )
-    if f"{METADATA_TEMPLATE['Asset']}_model_metadata.json" in list(
-        f.name for f in PATH_DIRECTORY.iterdir()
-    ):
-        post_training_metadata = update_json(
-            json_path,
-            post_training_metadata,
-        )
-    else:
-        with open(json_path, "w", encoding="utf-8") as file:
-            json.dump(METADATA_TEMPLATE, file)
-        post_training_metadata = update_json(
-            json_path,
-            post_training_metadata,
-        )
-
-    # generate a json file to import model parameters into mpc script
-    scaler_dict = json_to_dict(
-        Path(
-            PATH_DIRECTORY,
-            model_config["A & B Matrices Folder Name"],
-            f"{METADATA_TEMPLATE['Asset']}_scaler.json",
-        )
-    )
-    params = {
-        "a_matrix": a_matrix.tolist(),
-        "b_matrix": b_matrix.tolist(),
-        "scaler": scaler_dict,
-    }
-
-    model_parameters = {"Path Directory": str(PATH_DIRECTORY), **model_config, **params, **post_training_metadata}
-    dict_to_json(
-        Path(
-            PATH_DIRECTORY,
-            f"{METADATA_TEMPLATE['Asset']}_model_parameters.json",
-        ),
-        data=model_parameters
+    report_metadata = json_to_dict(Path(PATH_DIRECTORY, "aCD96_model_parameters.json"))
+    generate_report(
+        model_train_obj=model_train_obj,
+        output_folder=Path(PATH_DIRECTORY, f"{model_config['Asset']} Report"),
+        metadata = report_metadata
     )
 
 if __name__ == "__main__":

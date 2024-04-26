@@ -6,6 +6,8 @@ import math
 import random
 import warnings
 from typing import Union
+from datetime import datetime
+from pathlib import Path
 
 # Imports from 3rd party libraries
 import numpy as np
@@ -112,7 +114,7 @@ class ModelTraining:
             regression_matrix[j, :] = reg.coef_
         return regression_matrix
 
-    def train_model(self, save_path, first_train=True, iterations=10):
+    def train_model(self, save_path: Path, first_train: bool=True, iterations: int=10):
         """
         The `train_model` function trains a system model using the provided training data and saves the
         resulting A and B matrices to CSV files.
@@ -179,11 +181,22 @@ class ModelTraining:
             self.state_len, self.input_len
         )
 
+        save_time = datetime.now().strftime("%Y-%m-%d %H%M%S")
+        historic_path = Path(save_path, "historic_matrices")
+        historic_path.mkdir(parents=True, exist_ok=True)
+
         pd.DataFrame(self.a_matrix).to_csv(
             rf"{save_path}\A_Matrix.csv", index=False, header=False
         )
         pd.DataFrame(self.b_matrix).to_csv(
             rf"{save_path}\B_Matrix.csv", index=False, header=False
+        )
+
+        pd.DataFrame(self.a_matrix).to_csv(
+            rf"{historic_path}\{save_time} A_Matrix.csv", index=False, header=False
+        )
+        pd.DataFrame(self.b_matrix).to_csv(
+            rf"{historic_path}\{save_time} B_Matrix.csv", index=False, header=False
         )
 
     def objective_func(self, x0):
@@ -238,12 +251,12 @@ class ModelTraining:
         rmse_sim_scaled = np.hstack(
             (np.array(y_sim_all), np.zeros((y_sim_all.shape[0], self.input_len)))
         )
-        rmse_sim_unscaled = self.scaler.inverse_transform(rmse_sim_scaled)
+        rmse_sim_unscaled = np.array(self.scaler.inverse_transform(rmse_sim_scaled))
 
         rmse_real_scaled = np.hstack(
             (np.array(y_actual_all), np.zeros((y_actual_all.shape[0], self.input_len)))
         )
-        rmse_real_unscaled = self.scaler.inverse_transform(rmse_real_scaled)
+        rmse_real_unscaled = np.array(self.scaler.inverse_transform(rmse_real_scaled))
         rmse_diff = (
             rmse_sim_unscaled[:, : self.state_len]
             - rmse_real_unscaled[:, : self.state_len]

@@ -1,20 +1,29 @@
+"""Main code for simulating closed-loop MPC
+    Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+    Created: 2024-04-24
+    Modified: 2024-04-24
+"""
+
+# Standard Library Imports
+from typing import Union
+from pathlib import Path
+from datetime import datetime
+
 # Imports from 3rd party libraries
 import numpy as np
 import pandas as pd
 from fpdf import FPDF
-from datetime import datetime
 import matplotlib.pyplot as plt
 
+# Repository Imports
 from src.models.train_model import ModelTraining
 
+print(Path().absolute())
 
 def generate_report(
     model_train_obj: ModelTraining,
-    output_pdf: str,
-    scaler_df: pd.DataFrame,
-    metadata_path: str,
-    figures_filepath: str,
-    logo_filepath: str,
+    output_folder: Union[Path, str],
+    metadata: dict,
     xlim=None,
     ylim=True,
 ):
@@ -25,17 +34,31 @@ def generate_report(
     - datas: List of data for each plot.
     - output_pdf: Name of the output PDF file.
     """
-    simulation_dict, train_test_dict = model_train_obj.get_model_data_dict(data_agg="train")
-    dict_keys = list(simulation_dict.keys())
-    COLS = 2
-    ROWS = 4
-    ppg = ROWS * COLS
-    now = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+    output_path = Path(output_folder, f"{metadata['Training Data Study']}_report.pdf")
+    figures_filepath = Path(output_folder, "report_figures")
+    figures_filepath.mkdir(parents=True, exist_ok=True)
+    logo_filepath = str(Path(Path().absolute(), "reports", "report_info", "GSK_logo_2022.png"))
+
+    simulation_train_dict, train_dict = model_train_obj.get_model_data_dict(data_agg="train")
+    # simulation_test_dict, test_dict = model_train_obj.get_model_data_dict(data_agg="test")
+
+    dict_keys = list(simulation_train_dict.keys())
+    cols = 2
+    rows = 4
+    ppg = rows * cols # subplot dimensions
+    now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+
     # Plotting the table and removing all axes
     fig_table, ax = plt.subplots(
         figsize=(6, 2)
     )  # set the size that you'd like (width, height)
     ax.axis("off")
+
+    scaler_dict = {}
+    for key, value in metadata["scaler"].items():
+        if isinstance(value,list) and len(value) == len(metadata["scaler"]["feature_names_in_"]):
+            scaler_dict[key] = value
+    scaler_df = pd.DataFrame.from_dict(scaler_dict).round(3)
 
     tbl = ax.table(
         cellText=scaler_df.values,
@@ -50,16 +73,10 @@ def generate_report(
             cell.set_text_props(weight="bold", color="white")
             cell.set_facecolor("#F25D18")
 
-    d = {}
-    with open(metadata_path, encoding="utf-8") as f:
-        for line in f:
-            data = line.split(sep=":")
-            d[data[0]] = data[1]
-
     tbl.auto_set_font_size(False)
-    tbl.set_fontsize(20)
+    tbl.set_fontsize(14)
     tbl.scale(2, 4)  # may need to adjust this for your data
-    plt.savefig(rf"{figures_filepath}\table_image.png", dpi=200, bbox_inches="tight")
+    plt.savefig(rf"{str(figures_filepath)}\scaler_table.png", dpi=200, bbox_inches="tight")
     plt.close(fig_table)
 
     pdf = FPDF(format="A4")  # A4 (210 by 297 mm)
@@ -72,22 +89,22 @@ def generate_report(
     pdf.set_font("helvetica", "B", 24)
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(15)
-    pdf.write(5, "BDSD State Space Model Report")
+    pdf.write(5, "BDSD MPC Training Report")
 
     # Specify the reference number of document
     pdf.set_font("helvetica", "B", 18)
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(15)
-    pdf.write(5, f"IDBS Reference: {d['IDBS']}")
+    pdf.write(5, f"IDBS Reference: {metadata['IDBS Number']}")
 
     # Write other data to the front cover
     pdf.set_font("helvetica", "", 16)
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.set_text_color(r=0, g=0, b=0)
     pdf.ln(13)
-    pdf.write(7, f"Report Generated for {d['Asset']}")
+    pdf.write(7, f"Report Generated for {metadata['Asset']}")
     pdf.ln(2)
-    pdf.write(7, f"Dataset for Model Training: {d['Dataset']}")
+    pdf.write(7, f"Dataset for Model Training: {metadata['Training Data Study']}")
     pdf.ln(2)
     pdf.write(7, f"States in Model: {(', ').join(model_train_obj.states)}")
     pdf.ln(6)
@@ -96,16 +113,16 @@ def generate_report(
     pdf.set_font("helvetica", "B", 18)
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(15)
-    pdf.write(7, f"Table of Scaler Values from {d['scaler_type']}")
+    pdf.write(7, "Table of Scaler Values from MinMaxScaler")
 
-    pdf.image(rf"{figures_filepath}\table_image.png", w=160, h=100, x=25, y=120)
+    pdf.image(rf"{str(figures_filepath)}\scaler_table.png", w=160, h=100, x=25, y=120)
 
     pdf.set_font("helvetica", "I", 16)
     pdf.set_text_color(r=0, g=0, b=0)
     pdf.ln(132)
-    pdf.write(7, f"Report Author: {d['Author']}")
+    pdf.write(7, f"Report Author: {metadata['Operator']}")
     pdf.ln(2)
-    pdf.write(7, f"GitHub Link: {d['Github']}")
+    pdf.write(7, f"GitHub Link: {metadata['Github Link']}")
     pdf.ln(2)
     pdf.write(7, f"This report was generated on {now}")
 
@@ -119,8 +136,8 @@ def generate_report(
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(127)
     pdf.write(5, "Model Training Dataset")
-    df_sim_concat = pd.concat(simulation_dict.values(), ignore_index=True)
-    df_train_concat = pd.concat(train_test_dict.values(), ignore_index=True)
+    df_sim_concat = pd.concat(simulation_train_dict.values(), ignore_index=True)
+    df_train_concat = pd.concat(train_dict.values(), ignore_index=True)
     for test_label in model_train_obj.states:
         pdf.add_page()
         pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
@@ -140,28 +157,28 @@ def generate_report(
         else:
             min_value = df_sim_concat[test_label].min()
 
-        for i in range(0, len(simulation_dict.keys()), ppg):
+        for i in range(0, len(simulation_train_dict.keys()), ppg):
             if i != 0:
                 pdf.add_page()
                 pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
                 pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
-            fig, axs = plt.subplots(ROWS, COLS, figsize=(8, 10), squeeze=False)
+            fig, axs = plt.subplots(rows, cols, figsize=(8, 10), squeeze=False)
             fig.subplots_adjust(top=0.8)
 
             for count, ax_test in enumerate(axs.reshape(-1)):
-                if count + i < len(simulation_dict.keys()):
+                if count + i < len(simulation_train_dict.keys()):
                     key = dict_keys[count + i]
-                    time = np.arange(0, len(simulation_dict[key][test_label]), 1)
+                    time = np.arange(0, len(simulation_train_dict[key][test_label]), 1)
                     ax_test.plot(
                         time,
-                        simulation_dict[key][test_label],
+                        simulation_train_dict[key][test_label],
                         "ro-",
                         label="Simulated Data",
                         markersize=3.5,
                     )
                     ax_test.plot(
                         time,
-                        train_test_dict[key][test_label],
+                        train_dict[key][test_label],
                         "bo-",
                         label="Experimental Data",
                         markersize=3.5,
@@ -180,11 +197,11 @@ def generate_report(
                         ax_test.set_xlim(-1.5, xlim)
 
             # If on the last page and there are fewer than 12 plots, remove extra subplots
-            if len(simulation_dict.keys()) - i < ppg:
-                for j in range(len(simulation_dict.keys()) - i, len(axs.flatten())):
+            if len(simulation_train_dict.keys()) - i < ppg:
+                for j in range(len(simulation_train_dict.keys()) - i, len(axs.flatten())):
                     axs.ravel()[j].remove()
 
-            axs[ROWS - 1][COLS - 1].legend()
+            axs[rows - 1][cols - 1].legend()
             # if ppg < len(simulation_dict.keys()) - i:
             #     axs[ROWS - 1][COLS - 1].legend()
             # else:
@@ -194,14 +211,14 @@ def generate_report(
             fig.supylabel(f"{test_label}", size="x-large", weight="bold")
             fig.tight_layout()
 
-            plt.savefig(rf"{figures_filepath}\{test_label}_{i}.png", dpi=200)
+            plt.savefig(rf"{str(figures_filepath)}\{test_label}_{i}.png", dpi=200)
             plt.close(fig)
             pdf.image(
-                rf"{figures_filepath}\{test_label}_{i}.png",
+                rf"{str(figures_filepath)}\{test_label}_{i}.png",
                 w=190,
                 h=250,
                 x=10,
                 y=22,
             )
 
-    pdf.output(output_pdf)
+    pdf.output(str(output_path))
