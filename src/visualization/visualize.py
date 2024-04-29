@@ -1,8 +1,8 @@
-"""_summary_
+"""Main code for visualizing daily MPC trends
+    Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+    Created: 2022-11-04
+    Modified: 2024-04-29
 """
-
-# pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
-# pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
 # Imports from Standard Library
 import math
@@ -17,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Imports from Classes in Repository
-from mpc.mpc_optimizer import Bioreactor, Controller
+from src.mpc.mpc_optimizer import Bioreactor, Controller
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -102,13 +102,13 @@ class MPCVisualizer:
 
                 # Retrieve the latest modifier
                 modifiers_data = plot_data[state + '--STATE_MOD'].values
-                latest_modifier = modifiers_data[~np.isnan(modifiers_data)][-1]
+                latest_modifier = modifiers_data[~pd.isnull(modifiers_data)][-1]
 
                 # Use the correct modifiers for days outside the est horizon (2024-02-26)
                 modifiers = modifiers_data.copy()
                 modifiers[:] = latest_modifier
-                if sum(~np.isnan(modifiers_data)) > self.controller.est_horizon:
-                    for m in range(sum(~np.isnan(modifiers_data)) - self.controller.est_horizon):
+                if sum(~pd.isnull(modifiers_data)) > self.controller.est_horizon:
+                    for m in range(sum(~pd.isnull(modifiers_data)) - self.controller.est_horizon):
                         modifiers[m] = modifiers_data[m + self.controller.est_horizon - 1]
 
                 if state == y_var:

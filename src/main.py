@@ -1,7 +1,5 @@
 """_summary_
 """
-# pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
-# pylint: disable=locally-disabled, multiple-statements, fixme, import-error
 
 # Imports from third party
 import warnings
@@ -11,9 +9,9 @@ import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 
 # Imports from within repository
-from data.make_dataset import ModelData
-from models.train_model import ModelTraining
-from models.optimize_model import ModelOptimizer
+from src.data.make_dataset import ModelData
+from src.models.train_model import ModelTraining
+# from src.models.optimize_model import ModelOptimizer
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -62,7 +60,14 @@ DISCARD = [
     "AR23-019-014P",
 ]
 
-pv_wghts = [1.6,1.6,1.6,0.3,0.3,0.3]
+pv_wghts = [
+    1.,
+    1.,
+    1.,
+    1.,
+    1.,
+    1.,
+]
 
 column_inclusion = [
     "Batch",
@@ -78,7 +83,7 @@ data = pd.read_csv(
 
 dataframe = ModelData(
     raw_data=data,
-    scaler_train=scaler_train,
+    scaler=scaler_train,
     group="Batch",
     discard=DISCARD,
     states=STATES,
@@ -94,7 +99,7 @@ training, testing = dataframe.train_test_split(
 
 
 train_data, test_data = dataframe.clean(
-    column_inclusion=column_inclusion,
+    metadata_columns=column_inclusion,
     smoothing_list=SMOOTHE_LIST,  # is smoothing list is empty, no data will be smoothed
     test_size=0.20,
     n_splits=2,
@@ -114,14 +119,14 @@ train_data, test_data = dataframe.clean(
 
 A_Matrix = np.array(
     pd.read_csv(
-        rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
+        rf"\\us603rddsntv02\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\A_Matrix.csv",
         header=None,
     )
 )
 
 B_Matrix = np.array(
     pd.read_csv(
-        rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv",
+        rf"\\us603rddsntv02\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\B_Matrix.csv",
         header=None,
     )
 )
@@ -139,16 +144,8 @@ scaler_table = pd.DataFrame.from_dict(scaler_dict).T.reset_index(drop=True)
 
 joblib.dump(
     scaler_train,
-    rf"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl",
+    rf"\\us603rddsntv02\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\model_scaler.scl",
 )
-
-# UNCOMMENT TO PRINT OUT MODLE SCALING PARAMETERS FROM DICTIONARY
-
-# for key, value in scaler_dict.items():
-#     print(key)
-#     print("scale:","",round(value[0],6))
-#     print("min_:","",round(value[1],6))
-#     print()
 
 # Dictionary of constraints for the constraints needed in the optimized fucntion
 constraint_dict = {
@@ -183,21 +180,21 @@ first_model_train = ModelTraining(
     scaler=scaler_train,
 )
 
-model_optimize = ModelOptimizer(
-    target_label="IGG",
-    a_matrix=A_Matrix,
-    b_matrix=B_Matrix,
-    states=STATES,
-    inputs=INPUTS,
-    scaler=scaler_train,
-    constraint_dict=constraint_dict,
-    initial_input=setpoints,
-    initial_condition=initial_condition,
-    days=PROCESS_TIME,
-    volume=VOLUME,
-    max_iters=100,
-    scaler_dict=scaler_dict,
-)
+# model_optimize = ModelOptimizer(
+#     target_label="IGG",
+#     a_matrix=A_Matrix,
+#     b_matrix=B_Matrix,
+#     states=STATES,
+#     inputs=INPUTS,
+#     scaler=scaler_train,
+#     constraint_dict=constraint_dict,
+#     initial_input=setpoints,
+#     initial_condition=initial_condition,
+#     days=PROCESS_TIME,
+#     volume=VOLUME,
+#     max_iters=100,
+#     scaler_dict=scaler_dict,
+# )
 
 # UNCOMMENT THIS CODE TO RUN OPTIMIZATION
 
@@ -207,7 +204,7 @@ model_optimize = ModelOptimizer(
 
 # UNCOMMENT THIS CODE TO TRAIN THE MODEL ON THE DATA
 first_model_train.train_test_model(
-    fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
+    fr"\\us603rddsntv02\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}",
     test_label="IGG",
     iterations=10,
     first_train=False,
@@ -223,7 +220,7 @@ first_model_train.train_test_model(
 # )
 
 # first_model_train.generate_report(
-#     output_pdf=fr"\\kopdsntp006\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\{PDF_PLOT_FILENAME}.pdf",
+#     output_pdf=fr"\\us603rddsntv02\SA199800263\Zach Hatzenbeller\State-Space-Matrices\{MATRIX_FOLDER_EXT}\{PDF_PLOT_FILENAME}.pdf",
 #     scaler_df=scaler_table,
 #     metadata_path=r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\reports\report_info\metadata.txt",
 #     figures_filepath=r"C:\Users\zah48132\OneDrive - GSK\Documents\GitHub\state-space-model\reports\test_report",

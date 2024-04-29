@@ -19,31 +19,7 @@ from scipy import optimize
 
 # State-Space-Model Package Imports
 from models.ssm import StateSpaceModel
-
-
-def daily_to_cumulative_feed(model, u_matrix_daily):
-    """
-    The function `daily_to_cumulative_feed` converts a U matrix's daily feed column to cumulative feed
-    for lsim.
-
-    Args:
-      model: The "model" parameter is a variable that represents a model object. It is not specified in
-    the code snippet provided, so its exact definition and usage would depend on the context in which
-    this function is being used.
-      u_matrix_daily: The u_matrix_daily parameter is a numpy array representing the U matrix with daily
-    feed values.
-
-    Returns:
-      the modified U matrix with the daily feed column converted to cumulative feed.
-    """
-    u_matrix_cumulative = np.copy(u_matrix_daily)
-    cumulative_feed_loc = np.where(np.isin(model.inputs, "CUMULATIVE_NORMALIZED_FEED"))[
-        0
-    ]
-    u_matrix_cumulative[:, cumulative_feed_loc] = np.cumsum(
-        u_matrix_cumulative[:, cumulative_feed_loc]
-    ).reshape([-1, 1])
-    return u_matrix_cumulative
+from data.functions import daily_to_cumulative_feed
 
 
 class Bioreactor:
@@ -73,6 +49,8 @@ class Bioreactor:
           data (pd.DataFrame): The `data` parameter is a pandas DataFrame that contains the time-series
         data for the bioreactor process. It should have the following columns:
         """
+        self.feed_name = "CUMULATIVE_NORMALIZED_FEED"
+        self.daily_feed_name = "DAILY_NORMALIZED_FEED"
 
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
@@ -104,9 +82,9 @@ class Bioreactor:
             raise ValueError("Data set is not in 1-day increments!")
 
         # Convert cumulative feed (data) to daily feed
-        if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT_DATA", self.data.columns):
-            self.data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = np.append(
-                np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]), 0
+        if np.isin(f"{self.feed_name}--INPUT_DATA", self.data.columns):
+            self.data[f"{self.feed_name}--INPUT_DATA"] = np.append(
+                np.diff(self.data.loc[:, f"{self.feed_name}--INPUT_DATA"]), 0
             )
             self.has_cumulative_feed_data = True
             warnings.warn(
@@ -114,12 +92,12 @@ class Bioreactor:
             )
         else:
             self.has_cumulative_feed_data = False
-        self.daily_feed_name_data = "DAILY_NORMALIZED_FEED--INPUT_DATA"
+        self.daily_feed_name_data = f"{self.daily_feed_name}--INPUT_DATA"
 
         # Convert cumulative feed (reference) to daily feed
-        if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT_REF", self.data.columns):
-            self.data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] = np.append(
-                np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]), 0
+        if np.isin(f"{self.feed_name}--INPUT_REF", self.data.columns):
+            self.data[f"{self.feed_name}--INPUT_REF"] = np.append(
+                np.diff(self.data.loc[:, f"{self.feed_name}--INPUT_REF"]), 0
             )
             self.has_cumulative_feed_ref = True
             warnings.warn(
@@ -127,7 +105,7 @@ class Bioreactor:
             )
         else:
             self.has_cumulative_feed_ref = False
-        self.daily_feed_name_ref = "DAILY_NORMALIZED_FEED--INPUT_REF"
+        self.daily_feed_name_ref = f"{self.daily_feed_name}--INPUT_REF"
 
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)
@@ -177,7 +155,7 @@ class Bioreactor:
             cols = np.array(data.columns.tolist())
             new_cols = cols[np.concatenate((
                 np.where(np.isin(cols,"Code_Run_Date"))[0],
-                np.where(~np.isin(cols,"Code_Run_Date"))[0]),dtype=int)]
+                np.where(~np.isin(cols,"Code_Run_Date"))[0]))]
             data = data[new_cols].copy(deep=True)
 
         if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:

@@ -32,21 +32,29 @@ data_path = Path(
 )
 fig_path = Path(data_path.parent,CONFIG[MPC_GRP]['dest']).expanduser()
 fig_path.mkdir(parents=True, exist_ok=True)
-df_data = pd.read_excel(
-    data_path, skiprows=[0]
-    ).rename(
-        columns={"Cumulative_Feed":"Total Feed","Cumulative_Glucose":"Total Glucose","pCO2_at_temp":"pCO2","IGG":"Cedex Titer"}
-        ).sort_values(by=["Batch","Day"]).replace(
-            {"Controller":{"Python":"Linear MPC","Julia":"Nonlinear MPC"}}
-        )
+df_data = (
+    pd.read_excel(data_path, skiprows=[0])
+    .rename(
+        columns={
+            "Cumulative_Feed": "Total Feed",
+            "Cumulative_Glucose": "Total Glucose",
+            "pCO2_at_temp": "pCO2",
+            "IGG": "Cedex Titer",
+        }
+    )
+    .sort_values(by=["Batch", "Day"])
+    .replace({"Controller": {"Python": "Linear MPC", "Julia": "Nonlinear MPC"}})
+)
 df_data["Temp"] = df_data["Temp"].astype(int)
 df_data["Bioreactor"] = [int(x[-3:]) for x in df_data["Batch"].values]
-df_data["Temp/pH"] = [f"{x[0]}, {int(x[1])}" for x in df_data.loc[:,["pH","Temp"]].values]
-total_feed_diff = np.append(np.diff(df_data["Total Feed"]),0)
+df_data["Temp/pH"] = [
+    f"{x[0]}, {int(x[1])}" for x in df_data.loc[:, ["pH", "Temp"]].values
+]
+total_feed_diff = np.append(np.diff(df_data["Total Feed"]), 0)
 daily_feed = np.zeros((len(total_feed_diff),))
 daily_feed[total_feed_diff > 0] = total_feed_diff[total_feed_diff > 0]
 df_data["Daily Feed"] = daily_feed
-total_glc_diff = np.append(np.diff(df_data["Total Glucose"]),0)
+total_glc_diff = np.append(np.diff(df_data["Total Glucose"]), 0)
 daily_glc = np.zeros((len(total_glc_diff),))
 daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
 df_data["Daily Glucose"] = daily_glc
@@ -54,17 +62,35 @@ df_data_selected = df_data.loc[df_data['Controller'].str.contains(CONFIG[MPC_GRP
 
 # Retrieve setpoint from the master sheet directly
 top_dir = Path().absolute()
-sp_path = Path(top_dir, f"data/simulation/AR24-005/ar24-005-mpc.csv")
-df_sp = pd.read_csv(sp_path).rename(columns={"IGG--STATE_SP":"Setpoint"})
-df_sp.loc[df_sp["Day"] == 0,"Setpoint"] = float("NaN")
-df_sp_selected = df_sp.loc[:,["Bioreactor","Day","Setpoint"]]
+sp_path = Path(top_dir, "data/simulation/AR24-005/ar24-005-mpc.csv")
+df_sp = pd.read_csv(sp_path).rename(columns={"IGG--STATE_SP": "Setpoint"})
+df_sp.loc[df_sp["Day"] == 0, "Setpoint"] = float("NaN")
+df_sp_selected = df_sp.loc[:, ["Bioreactor", "Day", "Setpoint"]]
 
 # Left join the two dfs
-df_joined = pd.merge(df_data_selected,df_sp_selected,how="inner",left_on=["Bioreactor","Day"],right_on=["Bioreactor","Day"])
-df_joined["Cedex Titer Tracking Error (%)"] = (df_joined["Cedex Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
-df_joined["Cedex Titer Absolute Tracking Error (%)"] = np.abs(df_joined["Cedex Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
-df_joined["HPLC Titer Tracking Error (%)"] = (df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
-df_joined["HPLC Titer Absolute Tracking Error (%)"] = np.abs(df_joined["HPLC Titer"] - df_joined["Setpoint"])/df_joined["Setpoint"]*100
+df_joined = pd.merge(
+    df_data_selected,
+    df_sp_selected,
+    how="inner",
+    left_on=["Bioreactor", "Day"],
+    right_on=["Bioreactor", "Day"],
+)
+df_joined["Cedex Titer Tracking Error (%)"] = (
+    (df_joined["Cedex Titer"] - df_joined["Setpoint"]) / df_joined["Setpoint"] * 100
+)
+df_joined["Cedex Titer Absolute Tracking Error (%)"] = (
+    np.abs(df_joined["Cedex Titer"] - df_joined["Setpoint"])
+    / df_joined["Setpoint"]
+    * 100
+)
+df_joined["HPLC Titer Tracking Error (%)"] = (
+    (df_joined["HPLC Titer"] - df_joined["Setpoint"]) / df_joined["Setpoint"] * 100
+)
+df_joined["HPLC Titer Absolute Tracking Error (%)"] = (
+    np.abs(df_joined["HPLC Titer"] - df_joined["Setpoint"])
+    / df_joined["Setpoint"]
+    * 100
+)
 
 i = 1
 for disp_var in DISP_VARS:
@@ -100,15 +126,14 @@ for disp_var in DISP_VARS:
         )
         if "Titer" in disp_var:
             plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
-        
+
         plt.grid(axis="x", linestyle="--", color="gray")
         plt.grid(axis="y", linestyle="--", color="gray")
-
 
     g.map_dataframe(plot_measured)
     g.add_legend(title=CONFIG[MPC_GRP]['hue'])
     # plt.show()
-    plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1a-measured.png"))
+    plt.savefig(fname=Path(fig_path, f"{i}-{disp_var}-1a-measured.png"))
 
     # Setpoint tracking (Controller, grand average)
     g = sns.FacetGrid(
@@ -136,17 +161,15 @@ for disp_var in DISP_VARS:
         )
         if "Titer" in disp_var:
             plt.plot(df_joined["Day"], df_joined["Setpoint"], "b--")
-        
+
         plt.grid(axis="x", linestyle="--", color="gray")
         plt.grid(axis="y", linestyle="--", color="gray")
 
-
     g.map_dataframe(plot_measured_grand_avg)
     # plt.show()
-    plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-1b-measured_grand_avg.png"))
+    plt.savefig(fname=Path(fig_path, f"{i}-{disp_var}-1b-measured_grand_avg.png"))
 
     if "Titer" in disp_var:
-
         # Tracking error (Controller)
         g = sns.FacetGrid(
             df_joined,
@@ -183,7 +206,7 @@ for disp_var in DISP_VARS:
         g.map_dataframe(plot_error)
         g.add_legend(title=CONFIG[MPC_GRP]['hue'])
         # plt.show()
-        plt.savefig(fname=Path(fig_path,f"{i}-{disp_var}-2a-error.png"))
+        plt.savefig(fname=Path(fig_path, f"{i}-{disp_var}-2a-error.png"))
 
         # Tracking error (Controller, grand average)
         g = sns.FacetGrid(

@@ -1,7 +1,8 @@
-"""_summary_
-
-Returns:
-    _type_: _description_
+"""
+Code for optimzing model after training
+Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+Created: 2022-11-04
+Modified: 2023-09-15
 """
 import math
 import numpy as np
