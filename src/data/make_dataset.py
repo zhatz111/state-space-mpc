@@ -1,7 +1,8 @@
-"""_summary_
-
-Returns:
-    _type_: _description_
+"""
+Code for generating a cleaned and smoothed data set
+Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+Created: 2022-11-04
+Modified: 2024-04-19
 """
 
 # Standard library imports

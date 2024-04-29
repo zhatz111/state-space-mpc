@@ -49,6 +49,8 @@ class Bioreactor:
           data (pd.DataFrame): The `data` parameter is a pandas DataFrame that contains the time-series
         data for the bioreactor process. It should have the following columns:
         """
+        self.feed_name = "CUMULATIVE_NORMALIZED_FEED"
+        self.daily_feed_name = "DAILY_NORMALIZED_FEED"
 
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
@@ -80,9 +82,9 @@ class Bioreactor:
             raise ValueError("Data set is not in 1-day increments!")
 
         # Convert cumulative feed (data) to daily feed
-        if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT_DATA", self.data.columns):
-            self.data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = np.append(
-                np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]), 0
+        if np.isin(f"{self.feed_name}--INPUT_DATA", self.data.columns):
+            self.data[f"{self.feed_name}--INPUT_DATA"] = np.append(
+                np.diff(self.data.loc[:, f"{self.feed_name}--INPUT_DATA"]), 0
             )
             self.has_cumulative_feed_data = True
             warnings.warn(
@@ -90,12 +92,12 @@ class Bioreactor:
             )
         else:
             self.has_cumulative_feed_data = False
-        self.daily_feed_name_data = "DAILY_NORMALIZED_FEED--INPUT_DATA"
+        self.daily_feed_name_data = f"{self.daily_feed_name}--INPUT_DATA"
 
         # Convert cumulative feed (reference) to daily feed
-        if np.isin("CUMULATIVE_NORMALIZED_FEED--INPUT_REF", self.data.columns):
-            self.data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] = np.append(
-                np.diff(self.data.loc[:, "CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]), 0
+        if np.isin(f"{self.feed_name}--INPUT_REF", self.data.columns):
+            self.data[f"{self.feed_name}--INPUT_REF"] = np.append(
+                np.diff(self.data.loc[:, f"{self.feed_name}--INPUT_REF"]), 0
             )
             self.has_cumulative_feed_ref = True
             warnings.warn(
@@ -103,7 +105,7 @@ class Bioreactor:
             )
         else:
             self.has_cumulative_feed_ref = False
-        self.daily_feed_name_ref = "DAILY_NORMALIZED_FEED--INPUT_REF"
+        self.daily_feed_name_ref = f"{self.daily_feed_name}--INPUT_REF"
 
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)

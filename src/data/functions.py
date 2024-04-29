@@ -1,8 +1,8 @@
 """
 Code for useful functions needed in other scripts
-Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com) and Yu Luo (yu.8.luo@gsk.com)
+Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
 Created: 2024-04-19
-Modified: 2024-04-19
+Modified: 2024-04-23
 """
 # Standard library imports
 from typing import Union

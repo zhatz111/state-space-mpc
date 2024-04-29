@@ -1,7 +1,7 @@
 """Main code for simulating closed-loop MPC
     Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2024-04-23
+    Modified: 2024-04-29
 """
 
 # Standard Library Imports
@@ -21,7 +21,7 @@ from InquirerPy.resolver import prompt
 from src.mpc.mpc_optimizer import Bioreactor, Controller
 from src.visualization.visualize import MPCVisualizer
 from src.models.ssm import StateSpaceModel
-from src.data.functions import dict_toscaler, json_to_dict
+from src.data.functions import dict_toscaler, json_to_dict #, dict_to_json
 
 
 warnings.filterwarnings("ignore")
@@ -67,7 +67,6 @@ units_list = [
     "(%)",
     "(g/L)",
     "(mOsm/kg)",
-    "(mmHg)",
     "",
     "(\N{DEGREE SIGN}C)",
     "",
@@ -98,11 +97,12 @@ json_parameters_path = Path(
 )
 
 model_parameters = json_to_dict(json_parameters_path)
-sim_model_scaler = dict_toscaler(dict_file=model_parameters["scaler"])
 
 # Import the A and B matrix CSV files
 sim_a_matrix = np.array(model_parameters["a_matrix"])
 sim_b_matrix = np.array(model_parameters["b_matrix"])
+# Create Scaler object from parameters
+sim_model_scaler = dict_toscaler(dict_file=model_parameters["scaler"])
 
 # -------------------------------------------------------------------------------------
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
@@ -171,8 +171,8 @@ for curr_vessel in VESSELS:
 
     # Create a state space model for control (identical to bioreactor sim model)
     controller_model = StateSpaceModel(
-        states=STATES,
-        inputs=INPUTS,
+        states=list(map(str.upper,model_parameters["Model States"])),
+        inputs=list(map(str.upper,model_parameters["Model Inputs"])),
         scaler=sim_model_scaler,
         a_matrix=sim_a_matrix,
         b_matrix=sim_b_matrix,
@@ -267,7 +267,6 @@ for curr_vessel in VESSELS:
             10,  # Viability
             50,  # Lactate
             0.007,  # OSMO
-            0.001,  # CO2
         ]
     )
 
@@ -290,20 +289,41 @@ for curr_vessel in VESSELS:
     controller = Controller(
         controller_model=controller_model,
         bioreactor=bioreactor,
-        ts=ts,
-        pv_sps=pv_sps,
-        pv_names=pv_names,
-        pv_wts=PV_WTS,
-        mv_names=mv_names,
-        mv_wts=MV_WTS,
-        pred_horizon=PRED_HORIZON,
-        ctrl_horizon=CTRL_HORIZON,
-        constr=MV_BOUNDS,  # feed
-        output_mods_user=np.array([]),
-        filter_wt_on_data=EST_FILTER_WT_ON_DATA,
-        est_wts=EST_WTS,
-        est_horizon=EST_HORIZON,
+        ts=np.array(controller_config["Time"]),
+        pv_sps=np.array(controller_config["Process Variable Setpoints"]),
+        pv_names=controller_config["Process Variables"],
+        pv_wts=np.array(controller_config["Process Variable Weights"]),
+        mv_names=controller_config["Manipulated Variables"],
+        mv_wts=np.array(controller_config["Manipulated Variable Weights"]),
+        pred_horizon=controller_config["Prediction Horizon"],
+        ctrl_horizon=controller_config["Control Horizon"],
+        est_horizon=controller_config["Estimation Horizon"],
+        est_wts=np.array(controller_config["Estimation Weights"]),
+        constr=np.array(controller_config["Constraints"]),  # feed
+        output_mods_user=np.array(controller_config["User Specified Modifiers"]),
+        filter_wt_on_data=controller_config["Estimation Filter Weight on Data"],
     )
+
+    # Used to create a dictionary for the controller to serialize to json
+    # Created 2024-04-29 by Zach Hatzenbeller
+
+    # controller_dict = {
+    #     "Time": ts.tolist(),
+    #     "Process Variable Setpoints": pv_sps.tolist(),
+    #     "Process Variables": pv_names,
+    #     "Process Variable Weights": PV_WTS.tolist(),
+    #     "Manipulated Variables": mv_names,
+    #     "Manipulated Variable Weights": MV_WTS.tolist(),
+    #     "Prediction Horizon": PRED_HORIZON,
+    #     "Control Horizon": CTRL_HORIZON,
+    #     "Estimation Horizon": EST_HORIZON,
+    #     "Constraints": MV_BOUNDS.tolist(),
+    #     "User Specified Modifiers": [],
+    #     "Estimation Filter Weight on Data": EST_FILTER_WT_ON_DATA,
+    #     "Estimation Weights": EST_WTS.tolist(),
+    #     "Controller States": STATES,
+    # }
+    # dict_to_json(Path(PATH_DIRECTORY, "test_controller.json"), controller_dict)
 
     # -------------------------------------------------------------------------------------
     # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
