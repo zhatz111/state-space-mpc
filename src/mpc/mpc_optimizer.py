@@ -9,7 +9,7 @@
 
 # Standard Library Imports
 import warnings
-from typing import Union
+from typing import Optional, Union
 from datetime import datetime
 
 # 3rd Party Library Imports
@@ -33,7 +33,10 @@ class Bioreactor:
         self,
         vessel: Union[str, int],
         process_model: StateSpaceModel,
-        data: pd.DataFrame,
+        data: Optional[pd.DataFrame] = None,
+        batch_length: int = 12,
+        column_mapping: Optional[dict] = None,
+        input_values: Optional[dict] = None,
     ):
         """
         The function initializes an object with attributes based on user input, checks the validity of
@@ -49,16 +52,50 @@ class Bioreactor:
           data (pd.DataFrame): The `data` parameter is a pandas DataFrame that contains the time-series
         data for the bioreactor process. It should have the following columns:
         """
-        self.feed_name = "CUMULATIVE_NORMALIZED_FEED"
-        self.daily_feed_name = "DAILY_NORMALIZED_FEED"
-
+        # Initialize attributes
+        self.curr_time = 0
+        self.start_date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+        self.duration = batch_length
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
         self.process_model = (
             process_model  # Model (if provided) for simulating a process
         )
-        self.data = data.copy(deep=True)
-        # self.data = data # Data for storing simulation results or real data (if provided)
+        # this parameter is necessary for tech automation
+        # when the data vector is passed to this class the columns must be mapped
+        # correctly to the dataframe initialized at instantiation
+        self.column_map = column_mapping
+
+        if data is None:
+            if input_values is None:
+                raise ValueError("You must pass in a dictionary with input values and setpoints!")
+            cols = (
+                ["Code_Run_Date", "Bioreactor", "Day", "Date"]
+                + ["IGG--STATE_SP", "CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] # Find way to avoid hard coding these
+                + self.process_model.state_data_labels
+                + self.process_model.input_data_labels
+                + self.process_model.state_pred_labels
+                + self.process_model.state_est_labels
+                + self.process_model.state_mod_labels
+            )
+            zero_arr = np.zeros((self.duration+1,len(cols)))
+            zero_arr[:] = np.nan
+            data = pd.DataFrame(data=zero_arr, columns=cols)
+
+            # Initialize the dataframe with input values and setpoints
+            for key, value in input_values.items():
+                data[key] = value
+
+            data["Day"] = np.arange(0, self.duration+1)
+            data["Bioreactor"] = str(self.vessel)
+            self.data = data.copy(deep=True)
+        else:
+            self.data = data.copy(deep=True)
+
+        # 24 columns defined
+
+        self.feed_name = "CUMULATIVE_NORMALIZED_FEED"
+        self.daily_feed_name = "DAILY_NORMALIZED_FEED"
 
         # Data frame for open_loop simulation results
         self.open_loop_df = pd.DataFrame()
@@ -66,9 +103,6 @@ class Bioreactor:
         # Check if the data set starts on Day 0
         if self.data["Day"].values[0] != 0:
             raise ValueError("Data set does not start on Day 0!")
-
-        # Initialize other attributes
-        self.curr_time = 0  # this may need to be changed to evaluate the last data point in the csv and set the current day to that
 
         # self.state = self.data.filter(items=self.process_model.states)
         self.duration = self.data["Day"].values[-1]
@@ -153,9 +187,14 @@ class Bioreactor:
         if exec_date:
             data["Code_Run_Date"] = datetime.today().strftime("%Y-%m-%d")
             cols = np.array(data.columns.tolist())
-            new_cols = cols[np.concatenate((
-                np.where(np.isin(cols,"Code_Run_Date"))[0],
-                np.where(~np.isin(cols,"Code_Run_Date"))[0]))]
+            new_cols = cols[
+                np.concatenate(
+                    (
+                        np.where(np.isin(cols, "Code_Run_Date"))[0],
+                        np.where(~np.isin(cols, "Code_Run_Date"))[0],
+                    )
+                )
+            ]
             data = data[new_cols].copy(deep=True)
 
         if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:
@@ -169,7 +208,7 @@ class Bioreactor:
                 data = data.rename(
                     columns={
                         "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_feed_name_data,
-                        "CUMULATIVE_NORMALIZED_FEED--INPUT_REF": self.daily_feed_name_ref
+                        "CUMULATIVE_NORMALIZED_FEED--INPUT_REF": self.daily_feed_name_ref,
                     }
                 )
             else:
@@ -177,7 +216,7 @@ class Bioreactor:
                     feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]
                     feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
                     data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = feed_total
-                
+
                 if self.has_cumulative_feed_ref:
                     feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]
                     feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
@@ -429,6 +468,8 @@ class Controller:
         MV_SUFFIX = "--INPUT_DATA"
         self.mv_names = [x + MV_SUFFIX for x in mv_names]
 
+        self.bioreactor.data["IGG--STATE_SP"] = self.pv_sps # find a way to avoid hard coding target setpoint name
+
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
 
@@ -450,26 +491,36 @@ class Controller:
         is_in_ctrl_horizon = np.logical_and(
             np.logical_and(
                 data["Day"] >= self.curr_time,
-                data["Day"] < (self.curr_time + self.ctrl_horizon)),
-                data["Day"] < max(data["Day"])
-                )
+                data["Day"] < (self.curr_time + self.ctrl_horizon),
+            ),
+            data["Day"] < max(data["Day"]),
+        )
         is_in_pred_horizon = np.logical_and(
             data["Day"] >= self.curr_time,
             data["Day"] < (self.curr_time + self.pred_horizon),
         )
 
         # Do not run MPC on EoR
-        pred_names = [x.replace("--STATE_DATA","--STATE_PRED") for x in self.pv_names]
-        sp_names = [x.replace("--STATE_DATA","--STATE_SP") for x in self.pv_names]
-        if not(np.any(is_in_ctrl_horizon)):
-
+        pred_names = [x.replace("--STATE_DATA", "--STATE_PRED") for x in self.pv_names]
+        sp_names = [x.replace("--STATE_DATA", "--STATE_SP") for x in self.pv_names]
+        if not (np.any(is_in_ctrl_horizon)):
             # Update pred horizon
-            data.loc[is_in_pred_horizon, self.controller_model.state_pred_labels] = np.multiply(
-                data.loc[is_in_pred_horizon, self.controller_model.state_est_labels].values,
-                self.output_mods_est)
+            data.loc[
+                is_in_pred_horizon, self.controller_model.state_pred_labels
+            ] = np.multiply(
+                data.loc[
+                    is_in_pred_horizon, self.controller_model.state_est_labels
+                ].values,
+                self.output_mods_est,
+            )
 
             # Update command line output
-            print(data.loc[data["Day"] == max(data["Day"]),["Day","Bioreactor"] + sp_names + pred_names])
+            print(
+                data.loc[
+                    data["Day"] == max(data["Day"]),
+                    ["Day", "Bioreactor"] + sp_names + pred_names,
+                ]
+            )
             return
 
         control_matrix = data.loc[is_in_ctrl_horizon, self.mv_names].values
@@ -533,7 +584,12 @@ class Controller:
         ]
 
         # Print final PV (2024-03-01)
-        print(data.loc[data["Day"] == max(data["Day"]),["Day","Bioreactor"] + sp_names + pred_names])
+        print(
+            data.loc[
+                data["Day"] == max(data["Day"]),
+                ["Day", "Bioreactor"] + sp_names + pred_names,
+            ]
+        )
 
     def obj_func_wrapper(self, mv_array):
         """

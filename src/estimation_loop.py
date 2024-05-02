@@ -182,7 +182,7 @@ for curr_vessel in VESSELS:
     bioreactor = Bioreactor(
         vessel=curr_vessel,
         process_model=controller_model,
-        data=reference_data_this_vessel,
+        # data=reference_data_this_vessel,
     )
 
     # Construct a controller object

@@ -137,7 +137,7 @@ def main():
         scaler=scaler_train,
     )
 
-    report_metadata = json_to_dict(Path(PATH_DIRECTORY, "aCD96_model_parameters.json"))
+    report_metadata = json_to_dict(Path(PATH_DIRECTORY, f"{model_config['Asset']}_model_parameters.json"))
     generate_report(
         model_train_obj=model_train_obj,
         output_folder=Path(PATH_DIRECTORY, f"{model_config['Asset']} Report"),

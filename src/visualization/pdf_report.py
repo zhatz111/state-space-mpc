@@ -95,7 +95,10 @@ def generate_report(
     pdf.set_font("helvetica", "B", 18)
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(15)
-    pdf.write(5, f"IDBS Reference: {metadata['IDBS Number']}")
+    try:
+        pdf.write(5, f"IDBS Reference: {metadata['IDBS Number']}")
+    except KeyError:
+        pdf.write(5, "IDBS Reference: EXXXXX")
 
     # Write other data to the front cover
     pdf.set_font("helvetica", "", 16)
@@ -120,9 +123,9 @@ def generate_report(
     pdf.set_font("helvetica", "I", 16)
     pdf.set_text_color(r=0, g=0, b=0)
     pdf.ln(132)
-    pdf.write(7, f"Report Author: {metadata['Operator']}")
+    pdf.write(7, "Report Author: Zach Hatzenbeller")
     pdf.ln(2)
-    pdf.write(7, f"GitHub Link: {metadata['Github Link']}")
+    pdf.write(7, "GitHub Link: https://github.com/gsk-tech/state-space-model")
     pdf.ln(2)
     pdf.write(7, f"This report was generated on {now}")
 
