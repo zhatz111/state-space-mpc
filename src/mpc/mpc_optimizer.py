@@ -68,17 +68,22 @@ class Bioreactor:
 
         if data is None:
             if input_values is None:
-                raise ValueError("You must pass in a dictionary with input values and setpoints!")
+                raise ValueError(
+                    "You must pass in a dictionary with input values and setpoints!"
+                )
             cols = (
                 ["Code_Run_Date", "Bioreactor", "Day", "Date"]
-                + ["IGG--STATE_SP", "CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] # Find way to avoid hard coding these
+                + [
+                    "IGG--STATE_SP",
+                    "CUMULATIVE_NORMALIZED_FEED--INPUT_REF",
+                ]  # Find way to avoid hard coding these
                 + self.process_model.state_data_labels
                 + self.process_model.input_data_labels
                 + self.process_model.state_pred_labels
                 + self.process_model.state_est_labels
                 + self.process_model.state_mod_labels
             )
-            zero_arr = np.zeros((self.duration+1,len(cols)))
+            zero_arr = np.zeros((self.duration + 1, len(cols)))
             zero_arr[:] = np.nan
             data = pd.DataFrame(data=zero_arr, columns=cols)
 
@@ -86,7 +91,7 @@ class Bioreactor:
             for key, value in input_values.items():
                 data[key] = value
 
-            data["Day"] = np.arange(0, self.duration+1)
+            data["Day"] = np.arange(0, self.duration + 1)
             data["Bioreactor"] = str(self.vessel)
             self.data = data.copy(deep=True)
         else:
@@ -173,6 +178,27 @@ class Bioreactor:
         print(f"Dataset for Bioreactor: {self.vessel}")
         print(data)
         print("")
+
+    def ingest_vector(self, vector: pd.Series):
+        """
+        The function `ingest_vector` takes a Pandas Series vector, renames its columns based on a
+        provided mapping, and inserts it into a DataFrame at a specific index based on a condition.
+        
+        Args:
+          vector (pd.Series): The `ingest_vector` method takes a pandas Series object as input, which is
+        represented by the parameter `vector`. This method is used to ingest the input vector into the
+        class dataframe after performing some operations.
+        """
+        if self.column_map is None:
+            raise ValueError(
+                "Need to instantiate column mapping to correctly ingest input vector to dataframe."
+            )
+        renamed_vector = vector.rename(self.column_map)
+        selected_col = (
+            self.process_model.state_data_labels + self.process_model.input_data_labels
+        )
+        insert_index = self.data[self.data["Day"] == renamed_vector["batchAge"]].index[0]
+        self.data[selected_col].loc[insert_index] = renamed_vector[selected_col]
 
     def return_data(self, show_daily_feed: bool, exec_date: bool = False):
         """
@@ -468,7 +494,9 @@ class Controller:
         MV_SUFFIX = "--INPUT_DATA"
         self.mv_names = [x + MV_SUFFIX for x in mv_names]
 
-        self.bioreactor.data["IGG--STATE_SP"] = self.pv_sps # find a way to avoid hard coding target setpoint name
+        self.bioreactor.data[
+            "IGG--STATE_SP"
+        ] = self.pv_sps  # find a way to avoid hard coding target setpoint name
 
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
