@@ -45,13 +45,13 @@ units_list = [
     "(\N{DEGREE SIGN}C)",
     "",
 ]
-EXP_NUM = "AR24-005"
-CURR_TIME = 11
-VESSELS = np.arange(1,25) # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
+EXP_NUM = "AR24-005-debug"
+CURR_TIME = 0
+VESSELS = [6] # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
 
 # Specify names for batch sheet parent folder and master sheet
-RAW_DATA_PATH = "AR24-005_MPC_DoE"
-MASTER_DATA_TABLE = "ar24-005-mpc"
+RAW_DATA_PATH = "AR24-005_MPC_DoE-debug"
+MASTER_DATA_TABLE = "ar24-005-mpc-debug"
 
 # Specify batch sheet path and load the read-only "master" sheet
 fig_path_lv1 = Path(
@@ -295,42 +295,42 @@ for curr_vessel in VESSELS:
     # -------------------------------------------------------------------------------------
     # BIOREACTOR DATA SAVED
 
-    # Search if files are in directory
-    filenames = [f"{EXP_NUM}-daily_feed.csv", f"{EXP_NUM}-total_feed.csv"]
-    dir_paths = [x.name for x in list(data_path.iterdir())]
+    # # Search if files are in directory
+    # filenames = [f"{EXP_NUM}-daily_feed.csv", f"{EXP_NUM}-total_feed.csv"]
+    # dir_paths = [x.name for x in list(data_path.iterdir())]
 
-    if any(item in filenames for item in dir_paths):
-        # Read in CSV files
-        df_br_daily = pd.read_csv(data_path / filenames[0])
-        df_br_total = pd.read_csv(data_path / filenames[1])
+    # if any(item in filenames for item in dir_paths):
+    #     # Read in CSV files
+    #     df_br_daily = pd.read_csv(data_path / filenames[0])
+    #     df_br_total = pd.read_csv(data_path / filenames[1])
 
-        # Daily feed csv
-        df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
-        df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
+    #     # Daily feed csv
+    #     df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
+    #     df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
 
-        df_final_daily = df_combined_daily.drop_duplicates(
-            subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
-        )
-        df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_daily.to_csv(data_path / filenames[0], index=False)
+    #     df_final_daily = df_combined_daily.drop_duplicates(
+    #         subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    #     )
+    #     df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    #     df_final_daily.to_csv(data_path / filenames[0], index=False)
 
-        # Total feed csv
-        df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
-        df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
+    #     # Total feed csv
+    #     df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
+    #     df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
 
-        df_final_total = df_combined_total.drop_duplicates(
-            subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
-        )
-        df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_total.to_csv(data_path / filenames[1], index=False)
-    else:
-        # If no file exist currently
-        bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
-            data_path / filenames[0], index=False
-        )
-        bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
-            data_path / filenames[1], index=False
-        )
+    #     df_final_total = df_combined_total.drop_duplicates(
+    #         subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    #     )
+    #     df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    #     df_final_total.to_csv(data_path / filenames[1], index=False)
+    # else:
+    #     # If no file exist currently
+    #     bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
+    #         data_path / filenames[0], index=False
+    #     )
+    #     bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
+    #         data_path / filenames[1], index=False
+    #     )
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED

@@ -577,9 +577,10 @@ class Controller:
 
         # Rows within the control horizon (2023-10-21)
         ctrl_horizon_where = np.where(
-            np.logical_and(
+            np.logical_and(np.logical_and(
                 self.bioreactor.data["Day"] >= self.curr_time,
-                self.bioreactor.data["Day"] < (self.curr_time + self.ctrl_horizon),
+                self.bioreactor.data["Day"] < (self.curr_time + self.ctrl_horizon)),
+                self.bioreactor.data["Day"] < max(self.bioreactor.data["Day"]),
             )
         )[0]
 
