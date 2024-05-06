@@ -34,28 +34,40 @@ class Bioreactor:
         vessel: Union[str, int],
         process_model: StateSpaceModel,
         data: Optional[pd.DataFrame] = None,
-        batch_length: int = 12,
-        column_mapping: Optional[dict] = None,
-        input_values: Optional[dict] = None,
+        config: Optional[dict] = None,
     ):
         """
-        The function initializes an object with attributes based on user input, checks the validity of
-        the data, and converts cumulative feed to daily feed if necessary.
-
+        This Python function initializes an object with specified attributes and data, performing
+        various checks and conversions on the input data.
+        
         Args:
-          vessel (str): The `vessel` parameter is a string that represents the name of the vessel. It is
-        used for processing multiple bioreactors.
-          process_model (StateSpaceModel): The `process_model` parameter is a `StateSpaceModel` object
-        that represents the mathematical model of the process being simulated. It contains information
-        about the states, inputs, and outputs of the system, as well as the equations that describe the
-        dynamics of the system.
-          data (pd.DataFrame): The `data` parameter is a pandas DataFrame that contains the time-series
-        data for the bioreactor process. It should have the following columns:
+          vessel (Union[str, int]): The `vessel` parameter in the `__init__` method is used to specify
+        the name or identifier of the vessel or bioreactor for processing multiple bioreactors. It is a
+        required parameter and can be either a string or an integer.
+          process_model (StateSpaceModel): The `process_model` parameter in the `__init__` method is
+        expected to be an instance of the `StateSpaceModel` class. This parameter is used for simulating
+        a process within the class.
+          data (Optional[pd.DataFrame]): The `data` parameter in the `__init__` method is used to
+        provide a DataFrame containing process data. If no data is provided, a DataFrame is initialized
+        based on the configuration settings. The DataFrame should include columns for various process
+        variables, setpoints, and references. If cumulative feed data is
+          config (Optional[dict]): The `config` parameter in the `__init__` method is a dictionary that
+        should contain the following keys:
+            - batchLength: length of the batch as an int
+            - column_mapping: dictionary of columns in input topic to columns in bioreactor class df
+            - Process Variable Setpoints: list of setpoints trajectory for target process variable i.e. Titer
+            - Manipulated Variable Reference: list of setpoints trajectory for manipulated variable i.e. Feed
+            - Process Variables: list of all process variables to control at a trajectory
+            - Manipulated Variables: list of all variables to manipulate controlled trajectory
         """
+        if not isinstance(config, dict):
+            raise ValueError(
+                "Config file must specify batch length, column mapping, PV setpoints and MV reference."
+            )
         # Initialize attributes
         self.curr_time = 0
         self.start_date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        self.duration = batch_length
+        self.duration = config["batchLength"]
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
         self.process_model = (
@@ -64,18 +76,21 @@ class Bioreactor:
         # this parameter is necessary for tech automation
         # when the data vector is passed to this class the columns must be mapped
         # correctly to the dataframe initialized at instantiation
-        self.column_map = column_mapping
+        self.column_map = config["column_mapping"]
 
         if data is None:
-            if input_values is None:
+            if (
+                config["Process Variable Setpoints"] is None
+                or config["Manipulated Variable Reference"] is None
+            ):
                 raise ValueError(
-                    "You must pass in a dictionary with input values and setpoints!"
+                    "Config file must contain PV setpoints/MV reference trajectory."
                 )
             cols = (
                 ["Code_Run_Date", "Bioreactor", "Day", "Date"]
                 + [
-                    "IGG--STATE_SP",
-                    "CUMULATIVE_NORMALIZED_FEED--INPUT_REF",
+                    f"{config['Process Variables'][0]}--STATE_SP",
+                    f"{config['Manipulated Variables'][0]}--INPUT_REF",
                 ]  # Find way to avoid hard coding these
                 + self.process_model.state_data_labels
                 + self.process_model.input_data_labels
@@ -88,8 +103,12 @@ class Bioreactor:
             data = pd.DataFrame(data=zero_arr, columns=cols)
 
             # Initialize the dataframe with input values and setpoints
-            for key, value in input_values.items():
-                data[key] = value
+            data[f"{config['Process Variables'][0]}--STATE_SP"] = config[
+                "Process Variable Setpoints"
+            ]
+            data[f"{config['Manipulated Variables'][0]}--INPUT_REF"] = config[
+                "Manipulated Variable Reference"
+            ]
 
             data["Day"] = np.arange(0, self.duration + 1)
             data["Bioreactor"] = str(self.vessel)
@@ -99,7 +118,7 @@ class Bioreactor:
 
         # 24 columns defined
 
-        self.feed_name = "CUMULATIVE_NORMALIZED_FEED"
+        self.feed_name = config['Manipulated Variables'][0]
         self.daily_feed_name = "DAILY_NORMALIZED_FEED"
 
         # Data frame for open_loop simulation results
@@ -183,7 +202,7 @@ class Bioreactor:
         """
         The function `ingest_vector` takes a Pandas Series vector, renames its columns based on a
         provided mapping, and inserts it into a DataFrame at a specific index based on a condition.
-        
+
         Args:
           vector (pd.Series): The `ingest_vector` method takes a pandas Series object as input, which is
         represented by the parameter `vector`. This method is used to ingest the input vector into the
@@ -197,7 +216,9 @@ class Bioreactor:
         selected_col = (
             self.process_model.state_data_labels + self.process_model.input_data_labels
         )
-        insert_index = self.data[self.data["Day"] == renamed_vector["batchAge"]].index[0]
+        insert_index = self.data[self.data["Day"] == renamed_vector["batchAge"]].index[
+            0
+        ]
         self.data[selected_col].loc[insert_index] = renamed_vector[selected_col]
 
     def return_data(self, show_daily_feed: bool, exec_date: bool = False):
