@@ -658,12 +658,13 @@ class Controller:
         mv_loc]`. The second element is the `x_out`
         """
 
-        # Rows within the control horizon (2023-10-21)
+        # Rows within the control horizon (2023-10-21/updated 2024-05-06: added the < max day condition)
         ctrl_horizon_where = np.where(
+            np.logical_and(
             np.logical_and(
                 self.bioreactor.data["Day"] >= self.curr_time,
                 self.bioreactor.data["Day"] < (self.curr_time + self.ctrl_horizon),
-            )
+            ),self.bioreactor.data["Day"] < max(self.bioreactor.data["Day"]))
         )[0]
 
         # Fold mv_array to a 2D array
