@@ -22,10 +22,12 @@ The main reasons for starting this project are:
 ## Table of Contents
 
 - [State Space Dynamic Modeling](#state-space-dynamic-modeling)
+  - [Changelog](#changelog)
   - [Table of Contents](#table-of-contents)
   - [Model Development History](#model-development-history)
     - [Model 1: AR22-075 Process Model](#model-1-ar22-075-process-model)
   - [Setting up a Python Virtual Environment](#setting-up-a-python-virtual-environment)
+  - [Installing the Package](#installing-the-package)
   - [Project Organization](#project-organization)
 
 
@@ -58,6 +60,14 @@ python -m virtualenv .venv
 pip install pipreqs
 cd Documents/GitHub/{repository_name}/src
 pipreqs
+```
+
+## Installing the Package
+- It is necessary to install this package to ensure that all imports within the project resolve. To this follow the simple comands below
+- Clone the GitHub repo and in CMD/Terminal, change directory (cd) to the location of where the repo was cloned on your computer then run:
+```shell
+python setup.py build
+python setup.py install
 ```
 
 

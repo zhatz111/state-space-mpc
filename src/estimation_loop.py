@@ -182,7 +182,9 @@ for curr_vessel in VESSELS:
     bioreactor_config = {
         "Batch Length": 13,
         "Manipulated Variables": "CUMULATIVE_NORMALIZED_FEED",
-        "Constraints": None
+        "Constraints": {
+            "Viability": [80,100]
+        }
     }
 
     # Construct a bioreactor object

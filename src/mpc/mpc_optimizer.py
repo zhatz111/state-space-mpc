@@ -53,8 +53,8 @@ class Bioreactor:
         variables, setpoints, and references. If cumulative feed data is
           config (Optional[dict]): The `config` parameter in the `__init__` method is a dictionary that
         should contain the following keys:
-            - batchLength: length of the batch as an int
-            - column_mapping: dictionary of columns in input topic to columns in bioreactor class df
+            - Batch Length: length of the batch as an int
+            - Column Mapping: dictionary of columns in input topic to columns in bioreactor class df
             - Process Variable Setpoints: list of setpoints trajectory for target process variable i.e. Titer
             - Manipulated Variable Reference: list of setpoints trajectory for manipulated variable i.e. Feed
             - Process Variables: list of all process variables to control at a trajectory
@@ -67,7 +67,7 @@ class Bioreactor:
         # Initialize attributes
         self.curr_time = 0
         self.start_date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        self.duration = config["batchLength"]
+        self.duration = config["Batch Length"]
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
         self.process_model = (
@@ -76,9 +76,12 @@ class Bioreactor:
         # this parameter is necessary for tech automation
         # when the data vector is passed to this class the columns must be mapped
         # correctly to the dataframe initialized at instantiation
-        self.column_map = config["column_mapping"]
+        
+        if "Constraints" in config:
+            self.constraints = config["Constraints"]
 
         if data is None:
+            self.column_map = config["Column Mapping"]
             if (
                 config["Process Variable Setpoints"] is None
                 or config["Manipulated Variable Reference"] is None
@@ -216,9 +219,14 @@ class Bioreactor:
         selected_col = (
             self.process_model.state_data_labels + self.process_model.input_data_labels
         )
-        insert_index = self.data[self.data["Day"] == renamed_vector["batchAge"]].index[
-            0
-        ]
+        if renamed_vector is not None:
+            insert_index = self.data[self.data["Day"] == renamed_vector["batchAge"]].index[
+                0
+            ]
+        else:
+            raise ValueError(
+                "Vector does not contain data, check that vector is not None or column mapping is correct"
+            )
         self.data[selected_col].loc[insert_index] = renamed_vector[selected_col]
 
     def return_data(self, show_daily_feed: bool, exec_date: bool = False):
@@ -742,6 +750,20 @@ class Controller:
           the sum of the cost values for the control inputs (u3_cost) and the process variables
         (x3_cost).
         """
+        # Calculate cost of minimum constraints
+        min_constraints = []
+        max_constraints = []
+        if self.bioreactor.constraints is not None:
+            for state, constraint in self.bioreactor.constraints.items():
+                for idx, string in enumerate(self.controller_model.state_pred_labels):
+                    if str.upper(state) in string:
+                        label = self.controller_model.state_pred_labels[idx]
+                if constraint[0] > self.bioreactor.data[label].iloc[-1]:
+                    diff = (constraint[0] - self.bioreactor.data[label].iloc[-1])**2
+                    min_constraints.append(diff)
+                if constraint[1] < self.bioreactor.data[label].iloc[-1]:
+                    diff = (constraint[1] - self.bioreactor.data[label].iloc[-1])**2
+                    max_constraints.append(diff)
 
         # Trim to keep only future entries
         y2 = y[ts > self.curr_time, :]
@@ -758,7 +780,7 @@ class Controller:
         u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff), axis=0), self.mv_wts))
         y3_diff = y3 - pv_sps3
         y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff), axis=0), self.pv_wts))
-        return u3_cost + y3_cost
+        return u3_cost + y3_cost + np.sum(min_constraints) + np.sum(max_constraints)
 
     def estimate(self):
         """_summary_
