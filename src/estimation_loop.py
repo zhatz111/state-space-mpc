@@ -70,6 +70,7 @@ units_list = [
     "",
     "(\N{DEGREE SIGN}C)",
     "",
+    "",
 ]
 
 if (
@@ -178,11 +179,18 @@ for curr_vessel in VESSELS:
         b_matrix=sim_b_matrix,
     )
 
+    bioreactor_config = {
+        "Batch Length": 13,
+        "Manipulated Variables": "CUMULATIVE_NORMALIZED_FEED",
+        "Constraints": None
+    }
+
     # Construct a bioreactor object
     bioreactor = Bioreactor(
         vessel=curr_vessel,
         process_model=controller_model,
-        # data=reference_data_this_vessel,
+        data=reference_data_this_vessel,
+        config=bioreactor_config
     )
 
     # Construct a controller object
