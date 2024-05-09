@@ -27,7 +27,6 @@ from src.data.functions import dict_toscaler, json_to_dict #, dict_to_json
 warnings.filterwarnings("ignore")
 
 # Store todays date and the top level directory in variables
-# todays_date = datetime.today().strftime("%Y-%m-%d")
 todays_date = datetime.today().strftime("%y%m%d")
 top_dir = Path().absolute()
 
@@ -77,7 +76,6 @@ if (
     len(experiment_config["Bioreactors"]) == 2
     and experiment_config["Arange Bioreactors"]
 ):
-    # np.append(np.arange(1,25),999)  # [3,5,6,9,13,15,18,20] or np.arange(1,25)
     VESSELS = np.arange(
         experiment_config["Bioreactors"][0], experiment_config["Bioreactors"][1] + 1
     )
@@ -99,10 +97,9 @@ json_parameters_path = Path(
 
 model_parameters = json_to_dict(json_parameters_path)
 
-# Import the A and B matrix CSV files
+# Import the A and B matrices and the scaler
 sim_a_matrix = np.array(model_parameters["a_matrix"])
 sim_b_matrix = np.array(model_parameters["b_matrix"])
-# Create Scaler object from parameters
 sim_model_scaler = dict_toscaler(dict_file=model_parameters["scaler"])
 
 # -------------------------------------------------------------------------------------
@@ -181,10 +178,7 @@ for curr_vessel in VESSELS:
 
     bioreactor_config = {
         "Batch Length": 13,
-        "Manipulated Variables": "CUMULATIVE_NORMALIZED_FEED",
-        # "Constraints": {
-        #     "Viability": [80,100]
-        # }
+        "Manipulated Variables":controller_config["Manipulated Variables"],
     }
 
     # Construct a bioreactor object
@@ -222,29 +216,9 @@ for curr_vessel in VESSELS:
         output_mods_user=np.array(controller_config["User Specified Modifiers"]),
         filter_wt_on_data=controller_config["Estimation Filter Weight on Data"],
         eor_names=controller_config["End of Run Names"],
-        eor_constr=np.array(controller_config["End of Run Constraints"])
+        eor_constr=np.array(controller_config["End of Run Constraints"]),
+        eor_wts=np.array(controller_config["End of Run Weights"])
     )
-
-    # Used to create a dictionary for the controller to serialize to json
-    # Created 2024-04-29 by Zach Hatzenbeller
-
-    # controller_dict = {
-    #     "Time": ts.tolist(),
-    #     "Process Variable Setpoints": pv_sps.tolist(),
-    #     "Process Variables": pv_names,
-    #     "Process Variable Weights": PV_WTS.tolist(),
-    #     "Manipulated Variables": mv_names,
-    #     "Manipulated Variable Weights": MV_WTS.tolist(),
-    #     "Prediction Horizon": PRED_HORIZON,
-    #     "Control Horizon": CTRL_HORIZON,
-    #     "Estimation Horizon": EST_HORIZON,
-    #     "Constraints": MV_BOUNDS.tolist(),
-    #     "User Specified Modifiers": [],
-    #     "Estimation Filter Weight on Data": EST_FILTER_WT_ON_DATA,
-    #     "Estimation Weights": EST_WTS.tolist(),
-    #     "Controller States": STATES,
-    # }
-    # dict_to_json(Path(PATH_DIRECTORY, "test_controller.json"), controller_dict)
 
     # -------------------------------------------------------------------------------------
     # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
@@ -256,8 +230,8 @@ for curr_vessel in VESSELS:
 
     # Update bioreactor.data>STATE_MOD (curr day)
     controller.estimate()
-    # Update bioreactor.data>STATE_EST (curr day + 1)
-    bioreactor.next_day()
+    # # Update bioreactor.data>STATE_EST (curr day + 1)
+    # bioreactor.next_day()
     # Update bioreactor.data>STATE_PRED (curr day + 1:end of pred horizon)
     controller.optimize(open_loop=False)
 

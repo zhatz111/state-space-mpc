@@ -389,7 +389,7 @@ class Bioreactor:
             raise ValueError("Simulation did not start from the current state!")
 
         return x_out, x_out_df, y_out, y_out_df
-
+    
     def next_day(self):
         """
         The `next_day` function advances the simulation by 24 hours, updates the state and current time,
@@ -451,6 +451,7 @@ class Controller:
         est_horizon: int,
         eor_names: list[str],
         eor_constr: np.ndarray,
+        eor_wts: np.ndarray,
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters
@@ -516,6 +517,7 @@ class Controller:
         self.est_horizon = est_horizon
         self.eor_names = eor_names
         self.eor_const = eor_constr
+        self.eor_wts = eor_wts
 
         # Data snapshots (2023-10-22)
         self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
@@ -719,6 +721,19 @@ class Controller:
 
         # self.bioreactor.data.loc[self.bioreactor.data["Day"] == self.curr_time, self.bioreactor.process_model.state_mod_labels].values
 
+        # Retrieve end of run predictions
+        # below_deadband_cost = 0
+        # above_deadband_cost = 0
+        e = np.array([])
+        if self.eor_names is not None:
+            for (state, constraint, eor_wt) in zip(self.eor_names,self.eor_const,self.eor_wts):
+                for idx, string in enumerate(self.controller_model.state_pred_labels):
+                    if str.upper(state) in string:
+                        if constraint[0] > y_out[-1,idx]:
+                            e = np.append(e,(constraint[0] - y_out[-1,idx]) * eor_wt)
+                        if constraint[1] < y_out[-1,idx]:
+                            e = np.append(e,(y_out[-1,idx] - constraint[0]) * eor_wt)
+
         # Obj
         pv_loc = np.where(
             np.isin(np.array(self.controller_model.state_data_labels), self.pv_names)
@@ -733,11 +748,12 @@ class Controller:
                 u_matrix_daily[self.bioreactor.data["Day"] >= self.curr_time, :][
                     :, mv_loc
                 ],
+                e,
             ),
             y_out,
         )
 
-    def ctrl_obj_func(self, ts: np.ndarray, y: np.ndarray, u: np.ndarray):
+    def ctrl_obj_func(self, ts: np.ndarray, y: np.ndarray, u: np.ndarray, e: np.ndarray):
         """
         The function calculates the cost value based on the given inputs.
 
@@ -754,20 +770,6 @@ class Controller:
           the sum of the cost values for the control inputs (u3_cost) and the process variables
         (x3_cost).
         """
-        # Calculate cost of minimum constraints
-        below_deadband_cost = 0
-        above_deadband_cost = 0
-        if self.eor_names is not None:
-            for (state, constraint) in zip(self.eor_names,self.eor_const):
-                for idx, string in enumerate(self.controller_model.state_pred_labels):
-                    if str.upper(state) in string:
-                        label = self.controller_model.state_pred_labels[idx]
-                if constraint[0] > self.bioreactor.data[label].iloc[-1]:
-                    sq_diff = (constraint[0] - self.bioreactor.data[label].iloc[-1])**2
-                    below_deadband_cost = below_deadband_cost + sq_diff
-                if constraint[1] < self.bioreactor.data[label].iloc[-1]:
-                    sq_diff = (constraint[1] - self.bioreactor.data[label].iloc[-1])**2
-                    above_deadband_cost = above_deadband_cost + sq_diff
 
         # Trim to keep only future entries
         y2 = y[ts > self.curr_time, :]
@@ -784,7 +786,7 @@ class Controller:
         u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff), axis=0), self.mv_wts))
         y3_diff = y3 - pv_sps3
         y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff), axis=0), self.pv_wts))
-        return u3_cost + y3_cost + below_deadband_cost*1e5 + above_deadband_cost*1e5
+        return u3_cost + y3_cost + np.sum(e**2)
 
     def estimate(self):
         """_summary_
@@ -877,48 +879,68 @@ class Controller:
         else:
             self.output_mods_est = self.output_mods_user
 
-        def est_mod_obj_func(p_array):
-            # Apply the output modifiers to the stored states
-            predictions = np.multiply(
-                data.loc[
-                    is_in_est_horizon, self.bioreactor.process_model.state_est_labels
-                ].values,
-                p_array,
-            )
+        # def est_mod_obj_func(p_array):
+        #     # Apply the output modifiers to the stored states
+        #     predictions = np.multiply(
+        #         data.loc[
+        #             is_in_est_horizon, self.bioreactor.process_model.state_est_labels
+        #         ].values,
+        #         p_array,
+        #     )
 
-            # Retrieve measurements
-            measurements = data.loc[
-                is_in_est_horizon, self.bioreactor.process_model.state_data_labels
-            ].values
+        #     # Retrieve measurements
+        #     measurements = data.loc[
+        #         is_in_est_horizon, self.bioreactor.process_model.state_data_labels
+        #     ].values
 
-            cost = (
-                np.nansum(
-                    np.nanmean(
-                        np.multiply(
-                            np.square(predictions - measurements), self.est_wts
-                        ),
-                        axis=0,
-                    )
-                )
-                + np.nansum(np.square(p_array - 1))
-                + np.nansum(np.square(p_array - self.output_mods_est))
-            )
+        #     cost = (
+        #         np.nansum(
+        #             np.nanmean(
+        #                 np.multiply(
+        #                     np.square(predictions - measurements), self.est_wts
+        #                 ),
+        #                 axis=0,
+        #             )
+        #         )
+        #         + np.nansum(np.square(p_array - 1))
+        #         + np.nansum(np.square(p_array - self.output_mods_est))
+        #     )
 
-            return cost
+        #     return cost
 
-        # flatten the optimization parameters
-        p_array0 = self.output_mods_est.flatten()
+        # # flatten the optimization parameters
+        # p_array0 = self.output_mods_est.flatten()
 
-        res2 = optimize.minimize(
-            fun=est_mod_obj_func,
-            x0=p_array0,
-            method="SLSQP",
-        )
-
-        # Unravel final delta_p matrix back to correct shape
-        self.output_mods_est = res2.x  # [: len(self.output_mods.flatten())].reshape(
-        # self.output_mods.shape[0], self.output_mods.shape[1]
+        # res2 = optimize.minimize(
+        #     fun=est_mod_obj_func,
+        #     x0=p_array0,
+        #     method="SLSQP",
         # )
+
+        # # Unravel final delta_p matrix back to correct shape
+        # self.output_mods_est = res2.x  # [: len(self.output_mods.flatten())].reshape(
+        # # self.output_mods.shape[0], self.output_mods.shape[1]
+        # # )
+
+        # Linear reg with no intercept to get mods (YL: 2024-05-09)
+        p_array_star = self.output_mods_est.flatten()
+        predictions = data.loc[
+            is_in_est_horizon, self.bioreactor.process_model.state_est_labels
+            ].values
+        measurements = data.loc[
+            is_in_est_horizon, self.bioreactor.process_model.state_data_labels
+            ].values
+        for i in range(len(self.bioreactor.process_model.state_est_labels)):
+            predictions_i = predictions[:,i]
+            measurements_i = measurements[:,i]
+            p_has_data = np.logical_and(~np.isnan(predictions_i),~np.isnan(measurements_i))
+            if any(p_has_data):
+                p_star_i = np.sum(np.multiply(predictions_i[p_has_data],measurements_i[p_has_data]))/np.sum(predictions_i**2)
+                p_array_star[i] = np.max((np.min((p_star_i,1.05)),0.95))
+            elif np.isnan(p_array_star[i]):
+                p_array_star[i] = 1
+        self.output_mods_est = p_array_star
+
 
         # Store the new delta_p matrix into the dataframe
         data.loc[
