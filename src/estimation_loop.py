@@ -182,9 +182,9 @@ for curr_vessel in VESSELS:
     bioreactor_config = {
         "Batch Length": 13,
         "Manipulated Variables": "CUMULATIVE_NORMALIZED_FEED",
-        "Constraints": {
-            "Viability": [80,100]
-        }
+        # "Constraints": {
+        #     "Viability": [80,100]
+        # }
     }
 
     # Construct a bioreactor object
@@ -195,103 +195,12 @@ for curr_vessel in VESSELS:
         config=bioreactor_config
     )
 
-    # Construct a controller object
-    ts = np.array(reference_data_this_vessel["Day"])
-
-    # 2024-02-28: original horizons
-    PRED_HORIZON = 30
-    CTRL_HORIZON = 3
-    EST_HORIZON = 3
-
-    # # 2024-02-25: original controller settings
-    # PV_WTS = np.array([1 / (1000) ** 2])
-    # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0, 0.1]])  # feed
-
-    # # 2024-02-28: increased the lower bound
-    # PV_WTS = np.array([1 / (1000) ** 2])
-    # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.002, 0.1]])  # feed
-
-    # # 2024-02-29: decreased the upper bound
-    # PV_WTS = np.array([1 / (1000) ** 2])
-    # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed
-
-    # # 2024-03-01: decreased the lower bound
-    # PV_WTS = np.array([1 / (1000) ** 2])
-    # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.001, 0.03]])  # feed
-
-    # # 2024-03-02: brought the lower bound back to 0.002
-    # PV_WTS = np.array([1 / (1000) ** 2])
-    # MV_WTS = np.array([1 / (0.01) ** 2])
-    # MV_BOUNDS = np.array([[0.002, 0.03]])  # feed
-
-    # 2024-03-03: changed the upper bound to 0.05
-    PV_WTS = np.array([1 / (1000) ** 2])
-    MV_WTS = np.array([1 / (0.01) ** 2])
-    MV_BOUNDS = np.array([[0.002, 0.05]])  # feed
-
-    # 2024-02-22: original weights
-    # EST_WTS = np.array(
-    #     [
-    #         2.5e-07,  # IGG
-    #         0.08,  # VCC
-    #         0.03,  # Viability
-    #         0.05,  # Lactate
-    #         0.007,  # OSMO
-    #         0.001,  # CO2
-    #     ]
-    # )
-
-    # 2024-02-23: increased lactate's weight
-    # EST_WTS = np.array(
-    #     [
-    #         2.5e-07,  # IGG
-    #         0.08,  # VCC
-    #         0.03,  # Viability
-    #         50,  # Lactate
-    #         0.007,  # OSMO
-    #         0.001,  # CO2
-    #     ]
-    # )
-
-    # # 2024-02-25: increased IGG and VCC's weights
-    # EST_WTS = np.array(
-    #     [
-    #         1e-06,  # IGG
-    #         0.4,  # VCC
-    #         0.03,  # Viability
-    #         50,  # Lactate
-    #         0.007,  # OSMO
-    #         0.001,  # CO2
-    #     ]
-    # )
-
-    # 2024-03-03: increased IGG and VCC's weights
-    EST_WTS = np.array(
-        [
-            1e-05,  # IGG
-            2,  # VCC
-            10,  # Viability
-            50,  # Lactate
-            0.007,  # OSMO
-        ]
-    )
-
-    # # 2024-03-02: original weight
-    # EST_FILTER_WT_ON_DATA = 0.75
-
-    # 2024-03-03: increased weight
-    EST_FILTER_WT_ON_DATA = 0.9
-
     # Verify dimensions (YL@2024-01-18)
-    if len(EST_WTS) != len(STATES):
+    if len(np.array(controller_config["Estimation Weights"])) != len(STATES):
         raise ValueError("Wrong estimation weights dimension!")
-    if len(PV_WTS) != len(pv_names):
+    if len(np.array(controller_config["Process Variable Weights"])) != len(pv_names):
         raise ValueError("Wrong PV weights dimension!")
-    if len(MV_WTS) != len(mv_names):
+    if len(np.array(controller_config["Manipulated Variable Weights"])) != len(mv_names):
         raise ValueError("Wrong PV weights dimension!")
     if [x.upper() for x in sim_model_scaler.get_feature_names_out()] != STATES + INPUTS:
         raise ValueError("Model and CSV do not match!")
@@ -309,9 +218,11 @@ for curr_vessel in VESSELS:
         ctrl_horizon=controller_config["Control Horizon"],
         est_horizon=controller_config["Estimation Horizon"],
         est_wts=np.array(controller_config["Estimation Weights"]),
-        constr=np.array(controller_config["Constraints"]),  # feed
+        mv_constr=np.array(controller_config["Constraints"]),  # feed
         output_mods_user=np.array(controller_config["User Specified Modifiers"]),
         filter_wt_on_data=controller_config["Estimation Filter Weight on Data"],
+        eor_names=controller_config["End of Run Names"],
+        eor_constr=np.array(controller_config["End of Run Constraints"])
     )
 
     # Used to create a dictionary for the controller to serialize to json

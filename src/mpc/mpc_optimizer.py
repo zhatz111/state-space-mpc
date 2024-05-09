@@ -77,8 +77,8 @@ class Bioreactor:
         # when the data vector is passed to this class the columns must be mapped
         # correctly to the dataframe initialized at instantiation
         
-        if "Constraints" in config:
-            self.constraints = config["Constraints"]
+        # if "Constraints" in config:
+        #     self.constraints = config["Constraints"]
 
         if data is None:
             self.column_map = config["Column Mapping"]
@@ -444,11 +444,13 @@ class Controller:
         mv_wts: np.ndarray,  # MV cost weights
         pred_horizon: int,
         ctrl_horizon: int,
-        constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
+        mv_constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
         output_mods_user: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE (user specified)
         filter_wt_on_data: float,  # wt on measurement and 1-wt on model predictions
         est_wts: np.ndarray,
         est_horizon: int,
+        eor_names: list[str],
+        eor_constr: np.ndarray,
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters
@@ -505,13 +507,15 @@ class Controller:
         self.mv_wts = mv_wts
         self.pred_horizon = pred_horizon
         self.ctrl_horizon = ctrl_horizon
-        self.constr = constr
+        self.constr = mv_constr
 
         self.output_mods_est = np.array([])  # p estimated from data
         self.output_mods_user = output_mods_user  # p specified by user
         # self.delta_p_a = []
         # self.delta_p_b = []
         self.est_horizon = est_horizon
+        self.eor_names = eor_names
+        self.eor_const = eor_constr
 
         # Data snapshots (2023-10-22)
         self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
@@ -575,7 +579,7 @@ class Controller:
             print(
                 data.loc[
                     data["Day"] == max(data["Day"]),
-                    ["Day", "Bioreactor"] + sp_names + pred_names,
+                    ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
                 ]
             )
             return
@@ -644,7 +648,7 @@ class Controller:
         print(
             data.loc[
                 data["Day"] == max(data["Day"]),
-                ["Day", "Bioreactor"] + sp_names + pred_names,
+                ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
             ]
         )
 
@@ -751,19 +755,19 @@ class Controller:
         (x3_cost).
         """
         # Calculate cost of minimum constraints
-        min_constraints = []
-        max_constraints = []
-        if self.bioreactor.constraints is not None:
-            for state, constraint in self.bioreactor.constraints.items():
+        below_deadband_cost = 0
+        above_deadband_cost = 0
+        if self.eor_names is not None:
+            for (state, constraint) in zip(self.eor_names,self.eor_const):
                 for idx, string in enumerate(self.controller_model.state_pred_labels):
                     if str.upper(state) in string:
                         label = self.controller_model.state_pred_labels[idx]
                 if constraint[0] > self.bioreactor.data[label].iloc[-1]:
-                    diff = (constraint[0] - self.bioreactor.data[label].iloc[-1])**2
-                    min_constraints.append(diff)
+                    sq_diff = (constraint[0] - self.bioreactor.data[label].iloc[-1])**2
+                    below_deadband_cost = below_deadband_cost + sq_diff
                 if constraint[1] < self.bioreactor.data[label].iloc[-1]:
-                    diff = (constraint[1] - self.bioreactor.data[label].iloc[-1])**2
-                    max_constraints.append(diff)
+                    sq_diff = (constraint[1] - self.bioreactor.data[label].iloc[-1])**2
+                    above_deadband_cost = above_deadband_cost + sq_diff
 
         # Trim to keep only future entries
         y2 = y[ts > self.curr_time, :]
@@ -780,7 +784,7 @@ class Controller:
         u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff), axis=0), self.mv_wts))
         y3_diff = y3 - pv_sps3
         y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff), axis=0), self.pv_wts))
-        return u3_cost + y3_cost + np.sum(min_constraints) + np.sum(max_constraints)
+        return u3_cost + y3_cost + below_deadband_cost*1e5 + above_deadband_cost*1e5
 
     def estimate(self):
         """_summary_
