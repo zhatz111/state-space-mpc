@@ -1,4 +1,5 @@
-"""Main code for simulating closed-loop MPC
+"""
+Main code for simulating closed-loop MPC
     Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
     Modified: 2024-04-29
@@ -21,7 +22,7 @@ from InquirerPy.resolver import prompt
 from src.mpc.mpc_optimizer import Bioreactor, Controller
 from src.visualization.visualize import MPCVisualizer
 from src.models.ssm import StateSpaceModel
-from src.data.functions import dict_toscaler, json_to_dict #, dict_to_json
+from src.data.functions import dict_toscaler
 
 
 warnings.filterwarnings("ignore")
@@ -33,9 +34,15 @@ top_dir = Path().absolute()
 # -------------------------------------------------------------------------------------
 # USER SPECIFIED DATA
 
-PARENT_FILE_PATH = Path(
-    r"~\GSK\Biopharm Model Predictive Control - General\data"
-).expanduser()
+# Use this path for experiment folders in MPC teams site
+# PARENT_FILE_PATH = Path(
+#     r"~\GSK\Biopharm Model Predictive Control - General\data"
+# ).expanduser()
+
+# Use this path for experiment folders in GitHub repository
+PARENT_FILE_PATH = top_dir / "data"
+
+
 FOLDER_SEARCH_KEY = "Experiment"
 matching_folders = [
     folder.name
@@ -60,17 +67,6 @@ yaml_data.close()
 
 # Specify the study number, measurement units, current time and vessel
 # Units list contents must equal exactly the number of graphs being plotted
-units_list = [
-    "(mg/L)",
-    "(MM cells/mL)",
-    "(%)",
-    "(g/L)",
-    "(mOsm/kg)",
-    "",
-    "(\N{DEGREE SIGN}C)",
-    "",
-    "",
-]
 
 if (
     len(experiment_config["Bioreactors"]) == 2
@@ -89,18 +85,12 @@ reference_data_all = pd.read_csv(
 # -------------------------------------------------------------------------------------
 # LOAD MODEL DATA
 
-# Import the MinMaxScaler Json file
-json_parameters_path = Path(
-    PATH_DIRECTORY,
-    f"{experiment_config['Experiment Number']}_model_parameters.json",
-)
-
-model_parameters = json_to_dict(json_parameters_path)
-
 # Import the A and B matrices and the scaler
-sim_a_matrix = np.array(model_parameters["a_matrix"])
-sim_b_matrix = np.array(model_parameters["b_matrix"])
-sim_model_scaler = dict_toscaler(dict_file=model_parameters["scaler"])
+sim_a_matrix = np.array(experiment_config["Model Parameters"]["a_matrix"])
+sim_b_matrix = np.array(experiment_config["Model Parameters"]["b_matrix"])
+sim_model_scaler = dict_toscaler(
+    dict_file=experiment_config["Model Parameters"]["scaler"]
+)
 
 # -------------------------------------------------------------------------------------
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
@@ -120,9 +110,7 @@ for curr_vessel in VESSELS:
         if curr_vessel in value:
             controller_key = key
 
-    controller_config = json_to_dict(
-        Path(PATH_DIRECTORY, "Controllers", f"{controller_key}.json")
-    )
+    controller_config = experiment_config[controller_key]
 
     # Create figure folder
     fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
@@ -169,24 +157,23 @@ for curr_vessel in VESSELS:
 
     # Create a state space model for control (identical to bioreactor sim model)
     controller_model = StateSpaceModel(
-        states=list(map(str.upper,model_parameters["Model States"])),
-        inputs=list(map(str.upper,model_parameters["Model Inputs"])),
+        states=list(
+            map(str.upper, experiment_config["Model Parameters"]["Model States"])
+        ),
+        inputs=list(
+            map(str.upper, experiment_config["Model Parameters"]["Model Inputs"])
+        ),
         scaler=sim_model_scaler,
         a_matrix=sim_a_matrix,
         b_matrix=sim_b_matrix,
     )
-
-    bioreactor_config = {
-        "Batch Length": 13,
-        "Manipulated Variables":controller_config["Manipulated Variables"],
-    }
 
     # Construct a bioreactor object
     bioreactor = Bioreactor(
         vessel=curr_vessel,
         process_model=controller_model,
         data=reference_data_this_vessel,
-        config=bioreactor_config
+        config=experiment_config,
     )
 
     # Verify dimensions (YL@2024-01-18)
@@ -194,7 +181,9 @@ for curr_vessel in VESSELS:
         raise ValueError("Wrong estimation weights dimension!")
     if len(np.array(controller_config["Process Variable Weights"])) != len(pv_names):
         raise ValueError("Wrong PV weights dimension!")
-    if len(np.array(controller_config["Manipulated Variable Weights"])) != len(mv_names):
+    if len(np.array(controller_config["Manipulated Variable Weights"])) != len(
+        mv_names
+    ):
         raise ValueError("Wrong PV weights dimension!")
     if [x.upper() for x in sim_model_scaler.get_feature_names_out()] != STATES + INPUTS:
         raise ValueError("Model and CSV do not match!")
@@ -217,7 +206,7 @@ for curr_vessel in VESSELS:
         filter_wt_on_data=controller_config["Estimation Filter Weight on Data"],
         eor_names=controller_config["End of Run Names"],
         eor_constr=np.array(controller_config["End of Run Constraints"]),
-        eor_wts=np.array(controller_config["End of Run Weights"])
+        eor_wts=np.array(controller_config["End of Run Weights"]),
     )
 
     # -------------------------------------------------------------------------------------
@@ -289,7 +278,7 @@ for curr_vessel in VESSELS:
         identifier=f"{experiment_config['Experiment Number']} \
         -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
         _D{experiment_config['Current Day']}-{todays_date}",
-        unit_list=units_list,
+        unit_dict=experiment_config["Units Dictionary"],
         metadata={
             "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
             "Author": "Zach Hatzenbeller, Yu Luo",
@@ -307,7 +296,7 @@ for curr_vessel in VESSELS:
         identifier=f"{experiment_config['Experiment Number']} \
         -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
         _D{experiment_config['Current Day']}-{todays_date}",
-        unit_list=units_list,
+        unit_dict=experiment_config["Units Dictionary"],
         metadata={
             "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
             "Author": "Zach Hatzenbeller, Yu Luo",

@@ -67,7 +67,7 @@ class Bioreactor:
         # Initialize attributes
         self.curr_time = 0
         self.start_date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        self.duration = config["Batch Length"]
+        self.duration = config["Batch Length"] + 1
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
         self.process_model = (
@@ -121,8 +121,12 @@ class Bioreactor:
 
         # 24 columns defined
 
-        self.feed_name = config['Manipulated Variables'][0]
-        self.daily_feed_name = "DAILY_NORMALIZED_FEED"
+        for key, value in config["Controller Dictionary"].items():
+            if self.vessel in value:
+                controller_key = key
+
+        self.feed_name = config[controller_key]['Manipulated Variables'][0]
+        self.daily_feed_name = config[controller_key]["Daily Manipulated Variables"][0]
 
         # Data frame for open_loop simulation results
         self.open_loop_df = pd.DataFrame()

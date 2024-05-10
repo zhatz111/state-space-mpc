@@ -7,7 +7,7 @@
 # Imports from Standard Library
 import math
 import warnings
-from typing import Union
+from typing import Union, Optional
 from pathlib import Path
 
 # Imports from 3rd party library
@@ -56,8 +56,8 @@ class MPCVisualizer:
     def mpc_daily_plot(
         self,
         save_path: Union[str, Path, None] = None,
-        metadata: Union[dict, None] = None,
-        unit_list: Union[list, None] = None,
+        metadata: Optional[dict] = None,
+        unit_dict: Optional[dict] = None,
         PV: str = "",
         identifier: str = "",
         display=False,
@@ -148,8 +148,8 @@ class MPCVisualizer:
                         )
                     except KeyError:
                         pass
-                    if isinstance(unit_list, list):
-                        sub_ax[count].set_title(f"{state} (PV) {unit_list[count]}", fontweight="bold")
+                    if isinstance(unit_dict, dict):
+                        sub_ax[count].set_title(f"{state} (PV) {unit_dict[state]}", fontweight="bold")
                     else:
                         sub_ax[count].set_title(f"{state} (PV)", fontweight="bold")
                     sub_ax[count].legend(prop={"size": 9})
@@ -180,8 +180,8 @@ class MPCVisualizer:
                         "b-o",
                         label="Estimated Output",
                     )
-                    if isinstance(unit_list, list):
-                        sub_ax[count].set_title(f"{state} {unit_list[count]}", fontweight="bold")
+                    if isinstance(unit_dict, dict):
+                        sub_ax[count].set_title(f"{state} {unit_dict[state]}", fontweight="bold")
                     else:
                         sub_ax[count].set_title(f"{state}", fontweight="bold")
                     sub_ax[count].legend(prop={"size": 9})
@@ -225,8 +225,8 @@ class MPCVisualizer:
                             )
                         except KeyError:
                             pass
-                        if isinstance(unit_list, list):
-                            sub_ax[count].set_title(f"{inputs} {unit_list[count]}", fontweight="bold")
+                        if isinstance(unit_dict, dict):
+                            sub_ax[count].set_title(f"{inputs} {unit_dict[inputs]}", fontweight="bold")
                         else:
                             sub_ax[count].set_title(f"{inputs}", fontweight="bold")
                     except KeyError:
@@ -259,9 +259,10 @@ class MPCVisualizer:
                             label="Historical Input Reference",
                             where="post"
                         )
-                        if isinstance(unit_list, list):
+                        if isinstance(unit_dict, dict):
+                            label = self.bioreactor.daily_feed_name_ref.split('--')[0]
                             sub_ax[count].set_title(
-                                f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV) {unit_list[count]}",
+                                f"{label} (MV) {unit_dict[label]}",
                                 fontweight="bold"
                             )
                         else:

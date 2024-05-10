@@ -244,7 +244,7 @@ br_plots.mpc_daily_plot(
     save_path=batch_sheet_path
     / f"BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}.png",
     identifier=f"{EXP_NUM}-MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d}_D{CURR_TIME}-{todays_date}",
-    unit_list=units_list,
+    unit_dict=units_list,
     metadata={
         "Title": f"{EXP_NUM}-D{CURR_TIME}",
         "Author": "Zach Hatzenbeller, Yu Luo",
