@@ -94,18 +94,20 @@ sim_model_scaler = dict_toscaler(
 
 # -------------------------------------------------------------------------------------
 # DIRECTORY CREATION AND PARSING OF STATES & INPUTS
+for curr_time in range(0,experiment_config["Last Day"]):
 
-# Create figure output folder
-fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
-fig_path_top_dir.mkdir(parents=True, exist_ok=True)
+    # Create figure output folder
+    fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
+    fig_path_top_dir.mkdir(parents=True, exist_ok=True)
 
-# Create a daily folder of all reactors
-fig_path_lv2_day = Path(
-    fig_path_top_dir.expanduser(), f"D{experiment_config['Current Day']}-{todays_date}"
-)
-fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
+    # Create a daily folder of all reactors
+    fig_path_lv2_day = Path(
+        fig_path_top_dir.expanduser(), f"D{curr_time}-{todays_date}"
+    )
+    fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
 
-for curr_vessel in VESSELS:
+    curr_vessel = VESSELS[0]
+
     for key, value in experiment_config["Controller Dictionary"].items():
         if curr_vessel in value:
             controller_key = key
@@ -117,44 +119,10 @@ for curr_vessel in VESSELS:
     fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
     # Parse the states from the reference data csv file
-    reference_data_this_vessel = reference_data_all.loc[
+    input_messages = reference_data_all.loc[
         reference_data_all["Bioreactor"] == curr_vessel, :
     ]
-    contains_state_data = reference_data_this_vessel.columns.str.contains(
-        "--STATE_DATA"
-    )
-    contains_input = reference_data_this_vessel.columns.str.contains("--INPUT_DATA")
-
-    # store the states and inputs as a list
-    STATES = [
-        x.split("--")[0]
-        for x in reference_data_this_vessel.columns[contains_state_data]
-    ]
-    INPUTS = [
-        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_input]
-    ]
-
-    # Parse the PV and MV names from the reference data csv file
-    PV_SUFFIX = "--STATE_SP"
-    MV_SUFFIX = "--INPUT_REF"
-    contains_PV = reference_data_this_vessel.columns.str.contains(PV_SUFFIX, case=False)
-    contains_MV = reference_data_this_vessel.columns.str.contains(MV_SUFFIX, case=False)
-
-    # Define the PV and MV names using the parsing from csv file
-    pv_names = [
-        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_PV]
-    ]
-    mv_names = [
-        x.split("--")[0] for x in reference_data_this_vessel.columns[contains_MV]
-    ]
-
-    # Define the suffix after each MV name and index the matrix with these names
-    pv_sps = reference_data_this_vessel[[mv + PV_SUFFIX for mv in pv_names]].values
-    mv_matrix = reference_data_this_vessel[[mv + MV_SUFFIX for mv in mv_names]].values
-
-    # -------------------------------------------------------------------------------------
-    # MODEL, BIOREACTOR, & CONTROLLER CLASS INSTANTIATION
-
+    
     # Create a state space model for control (identical to bioreactor sim model)
     controller_model = StateSpaceModel(
         states=list(
@@ -172,56 +140,85 @@ for curr_vessel in VESSELS:
     bioreactor = Bioreactor(
         vessel=curr_vessel,
         process_model=controller_model,
-        data=reference_data_this_vessel,
-        config=experiment_config,
+        # data=reference_data_this_vessel,
+        experiment_config=experiment_config,
+        controller_config=controller_config,
     )
-
-    # Verify dimensions (YL@2024-01-18)
-    if len(np.array(controller_config["Estimation Weights"])) != len(STATES):
-        raise ValueError("Wrong estimation weights dimension!")
-    if len(np.array(controller_config["Process Variable Weights"])) != len(pv_names):
-        raise ValueError("Wrong PV weights dimension!")
-    if len(np.array(controller_config["Manipulated Variable Weights"])) != len(
-        mv_names
-    ):
-        raise ValueError("Wrong PV weights dimension!")
-    if [x.upper() for x in sim_model_scaler.get_feature_names_out()] != STATES + INPUTS:
-        raise ValueError("Model and CSV do not match!")
 
     controller = Controller(
         controller_model=controller_model,
         bioreactor=bioreactor,
-        ts=np.array(controller_config["Time"]),
-        pv_sps=np.array(controller_config["Process Variable Setpoints"]),
-        pv_names=controller_config["Process Variables"],
-        pv_wts=np.array(controller_config["Process Variable Weights"]),
-        mv_names=controller_config["Manipulated Variables"],
-        mv_wts=np.array(controller_config["Manipulated Variable Weights"]),
-        pred_horizon=controller_config["Prediction Horizon"],
-        ctrl_horizon=controller_config["Control Horizon"],
-        est_horizon=controller_config["Estimation Horizon"],
-        est_wts=np.array(controller_config["Estimation Weights"]),
-        mv_constr=np.array(controller_config["Constraints"]),  # feed
-        output_mods_user=np.array(controller_config["User Specified Modifiers"]),
-        filter_wt_on_data=controller_config["Estimation Filter Weight on Data"],
-        eor_names=controller_config["End of Run Names"],
-        eor_constr=np.array(controller_config["End of Run Constraints"]),
-        eor_wts=np.array(controller_config["End of Run Weights"]),
+        controller_config=controller_config
     )
+    
+    # reference_data_this_vessel = bioreactor.data
+    
+    
+    # contains_state_data = reference_data_this_vessel.columns.str.contains(
+    #     "--STATE_DATA"
+    # )
+    # contains_input = reference_data_this_vessel.columns.str.contains("--INPUT_DATA")
+
+    # # store the states and inputs as a list
+    # STATES = [
+    #     x.split("--")[0]
+    #     for x in reference_data_this_vessel.columns[contains_state_data]
+    # ]
+    # INPUTS = [
+    #     x.split("--")[0] for x in reference_data_this_vessel.columns[contains_input]
+    # ]
+
+    # # Parse the PV and MV names from the reference data csv file
+    # PV_SUFFIX = "--STATE_SP"
+    # MV_SUFFIX = "--INPUT_REF"
+    # contains_PV = reference_data_this_vessel.columns.str.contains(PV_SUFFIX, case=False)
+    # contains_MV = reference_data_this_vessel.columns.str.contains(MV_SUFFIX, case=False)
+
+    # # Define the PV and MV names using the parsing from csv file
+    # pv_names = [
+    #     x.split("--")[0] for x in reference_data_this_vessel.columns[contains_PV]
+    # ]
+    # mv_names = [
+    #     x.split("--")[0] for x in reference_data_this_vessel.columns[contains_MV]
+    # ]
+
+
+    # # Define the suffix after each MV name and index the matrix with these names
+    # pv_sps = reference_data_this_vessel[[mv + PV_SUFFIX for mv in pv_names]].values
+    # # mv_matrix = reference_data_this_vessel[[mv + MV_SUFFIX for mv in mv_names]].values
+
+
+
+
+    # # Verify dimensions (YL@2024-01-18)
+    # if len(np.array(controller_config["Estimation Weights"])) != len(STATES):
+    #     raise ValueError("Wrong estimation weights dimension!")
+    # if len(np.array(controller_config["Process Variable Weights"])) != len(pv_names):
+    #     raise ValueError("Wrong PV weights dimension!")
+    # if len(np.array(controller_config["Manipulated Variable Weights"])) != len(
+    #     mv_names
+    # ):
+    #     raise ValueError("Wrong PV weights dimension!")
+    # if [x.upper() for x in sim_model_scaler.get_feature_names_out()] != STATES + INPUTS:
+    #     raise ValueError("Model and CSV do not match!")
+    
+
 
     # -------------------------------------------------------------------------------------
     # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
 
-    # Update the time cursor
-    bioreactor.curr_time = experiment_config["Current Day"]
+    # # Update the time cursor
+    # bioreactor.curr_time = experiment_config["Current Day"]
 
-    # Estimate CURR_DAY's state
 
-    # Update bioreactor.data>STATE_MOD (curr day)
+    # Ingest data from Input topic
+    input_message = input_messages.loc[input_messages["Day"] == curr_time,:]
+    bioreactor.ingest_vector(input_message)      
+
+    # Update bioreactor.data>STATE_MOD and STATE_EST (curr day)
     controller.estimate()
-    # # Update bioreactor.data>STATE_EST (curr day + 1)
-    # bioreactor.next_day()
-    # Update bioreactor.data>STATE_PRED (curr day + 1:end of pred horizon)
+
+    # Update bioreactor.data>STATE_PRED (curr day to end of pred horizon)
     controller.optimize(open_loop=False)
 
     # -------------------------------------------------------------------------------------

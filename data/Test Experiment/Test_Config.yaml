@@ -1,8 +1,8 @@
 # Experiment Config File
 Asset: aCD96
 Experiment Number: MR24-XXX
-Current Day: 0
-Batch Length: 12
+# Current Day: 0
+Last Day: 12
 
 # If bioreactor list is true, only specify the start and end reactors and a list is created
 # in between these for syntax simplicity, otherwise list out all reactors
@@ -15,6 +15,8 @@ Data Folder: 2024-04-18 Test Experiment
 Figures Folder: Test Figures
 Master Data File: MR24-XXX-Master
 Bioreactor Model File Name: aCD96_model_parameters
+Total Feed Name: "CUMULATIVE_NORMALIZED_FEED"
+Daily Feed Name: "DAILY_NORMALIZED_FEED"
 
 Controller Dictionary:
   Controller1:
@@ -42,158 +44,6 @@ Units Dictionary:
   DO: "%"
   PH: ""
   TEMPERATURE: (\N{DEGREE SIGN}C)
-
-Controller1: {
-    "Time": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12
-    ],
-    "Process Variable Setpoints": [
-        [146.510],
-        [509.830],
-        [997.910],
-        [1505.08],
-        [2119.61],
-        [2716.05],
-        [3307.90],
-        [3888.32],
-        [4309.70],
-        [4805.73],
-        [5302.42],
-        [5791.69],
-        [6118.18]
-    ],
-    "Process Variables": [
-        "IGG"
-    ],
-    "Process Variable Weights": [
-        0.000001
-    ],
-    "Manipulated Variables": [
-        "CUMULATIVE_NORMALIZED_FEED"
-    ],
-    "Daily Manipulated Variables": [
-      "DAILY_NORMALIZED_FEED"
-    ],
-    "Manipulated Variable Weights": [
-        10000.0
-    ],
-    "Prediction Horizon": 30,
-    "Control Horizon": 3,
-    "Estimation Horizon": 3,
-    "Constraints": [
-        [
-            0.002,
-            0.05
-        ]
-    ],
-    "User Specified Modifiers": [],
-    "Estimation Filter Weight on Data": 0.9,
-    "Estimation Weights": [
-        0.00001,
-        2.0,
-        10.0,
-        50.0,
-        0.007
-    ],
-    "Controller States": [
-        "IGG",
-        "VCC",
-        "VIABILITY",
-        "LACTATE",
-        "OSMO"
-    ],
-    "End of Run Names":[],
-    "End of Run Constraints":[],
-    "End of Run Weights":[]
-}
-
-Controller2: {
-    "Time": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12
-    ],
-    "Process Variable Setpoints": [
-        [146.510],
-        [509.830],
-        [997.910],
-        [1505.08],
-        [2119.61],
-        [2716.05],
-        [3307.90],
-        [3888.32],
-        [4309.70],
-        [4805.73],
-        [5302.42],
-        [5791.69],
-        [6118.18]
-    ],
-    "Process Variables": [
-        "IGG"
-    ],
-    "Process Variable Weights": [
-        0.0001
-    ],
-    "Manipulated Variables": [
-        "CUMULATIVE_NORMALIZED_FEED"
-    ],
-    "Daily Manipulated Variables": [
-      "DAILY_NORMALIZED_FEED"
-    ],
-    "Manipulated Variable Weights": [
-        10000.0
-    ],
-    "Prediction Horizon": 30,
-    "Control Horizon": 3,
-    "Estimation Horizon": 4,
-    "Constraints": [
-        [
-            0.002,
-            0.05
-        ]
-    ],
-    "User Specified Modifiers": [],
-    "Estimation Filter Weight on Data": 0.93,
-    "Estimation Weights": [
-        0.001,
-        10.0,
-        3.0,
-        5.0,
-        0.0007
-    ],
-    "Controller States": [
-        "IGG",
-        "VCC",
-        "VIABILITY",
-        "LACTATE",
-        "OSMO"
-    ],
-    "End of Run Names":[],
-    "End of Run Constraints":[],
-    "End of Run Weights":[]
-}
 
 Model Parameters: {
     "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - General\\data\\2024-04-16 aCD96 Robustness Model",
@@ -428,5 +278,190 @@ Column Mapping: {
     "pH": "PH--INPUT_DATA",
     "temperature": "TEMPERATURE--INPUT_DATA",
     "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
-    "nutrient_rate": "FEED_RATE--INPUT_DATA"
+    "nutrient_rate": "FEED_RATE--INPUT_DATA",
+    "batchAge": "Day"
+}
+
+Controller1: {
+  "Time": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+  ],
+  "Process Variables": {
+    "IGG": {
+      "Data": [
+        146.510,
+        509.830,
+        997.910,
+        1505.08,
+        2119.61,
+        2716.05,
+        3307.90,
+        3888.32,
+        4309.70,
+        4805.73,
+        5302.42,
+        5791.69,
+        6118.18          
+      ],
+      "Weight":0.000001
+    },
+    "VIABILITY": {
+      "Data": [
+        100.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        99.0,
+        80.0          
+      ],
+      "Weight":0.00000
+    }
+  },
+  "State Variables":{
+    "IGG": {
+      "Weight": 0.00001,
+      "Modifier": 1,
+      },
+    "VCC": {
+      "Weight": 2.0,
+      "Modifier": 1,
+      },
+    "VIABILITY": {
+      "Weight": 10.0,
+      "Modifier": 1
+      },
+    "LACTATE": {
+      "Weight": 50.0,
+      "Modifier": 1
+      },
+    "OSMO": {
+      "Weight": 0.007,
+      "Modifier": 1
+      }
+  },
+  "End of Run Variables":{
+    "Viability": {
+      "Weight": 0.00001,
+      "Constraint": [
+        80,
+        100
+        ]
+      },
+    "OSMO": {
+      "Weight": 0.0,
+      "Constraint": [
+        300,
+        400
+        ]
+      }
+  },
+  "Manipulated Variables": {
+    "CUMULATIVE_NORMALIZED_FEED": {
+      "Data": [
+        0,
+        0.0045,
+        0.011,
+        0.019,
+        0.0295,
+        0.0375,
+        0.051,
+        0.061,
+        0.0705,
+        0.0795,
+        0.0885,
+        0.097,
+        0.1045
+        ],
+      "Weight": 10000.0,
+      "Constraint": [
+        0.002,
+        0.05
+        ]
+    }
+  },
+  "Input Variables": {
+    "CUMULATIVE_NORMALIZED_FEED": [
+      0,
+      0.0045,
+      0.011,
+      0.019,
+      0.0295,
+      0.0375,
+      0.051,
+      0.061,
+      0.0705,
+      0.0795,
+      0.0885,
+      0.097,
+      0.1045        
+    ],
+    "TEMPERATURE": [
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+    ],
+    "PH_AT_TEMP": [
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+    ],
+    "DO": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+    ],
+  },
+  "Prediction Horizon": 30,
+  "Control Horizon": 30,
+  "Estimation Horizon": 2,
+  "Estimation Filter Weight on Data": 0.9,
 }

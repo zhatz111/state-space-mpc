@@ -34,7 +34,8 @@ class Bioreactor:
         vessel: Union[str, int],
         process_model: StateSpaceModel,
         data: Optional[pd.DataFrame] = None,
-        config: Optional[dict] = None,
+        experiment_config: Optional[dict] = None,
+        controller_config: Optional[dict] = None,
     ):
         """
         This Python function initializes an object with specified attributes and data, performing
@@ -60,14 +61,14 @@ class Bioreactor:
             - Process Variables: list of all process variables to control at a trajectory
             - Manipulated Variables: list of all variables to manipulate controlled trajectory
         """
-        if not isinstance(config, dict):
+        if not isinstance(experiment_config, dict):
             raise ValueError(
                 "Config file must specify batch length, column mapping, PV setpoints and MV reference."
             )
         # Initialize attributes
         self.curr_time = 0
         self.start_date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        self.duration = config["Batch Length"] + 1
+        self.duration = experiment_config["Last Day"] + 1
         # Update attributes based on user input
         self.vessel = vessel  # Vessel name for processing multiple bioreactors
         self.process_model = (
@@ -81,39 +82,51 @@ class Bioreactor:
         #     self.constraints = config["Constraints"]
 
         if data is None:
-            self.column_map = config["Column Mapping"]
-            if (
-                config["Process Variable Setpoints"] is None
-                or config["Manipulated Variable Reference"] is None
-            ):
-                raise ValueError(
-                    "Config file must contain PV setpoints/MV reference trajectory."
-                )
+            self.column_map = experiment_config["Column Mapping"]
+            # if (
+            #     controller_config["Process Variable Setpoints"] is None
+            #     or controller_config["Manipulated Variable Reference"] is None
+            # ):
+            #     raise ValueError(
+            #         "Config file must contain PV setpoints/MV reference trajectory."
+            #     )
+            sp_cols = [f"{x}--STATE_SP" for x in controller_config['Process Variables']]
+            mv_ref_cols = [f"{x}--INPUT_REF" for x in controller_config['Manipulated Variables']]
+            u_cols = [f"{x}--INPUT_DATA" for x in controller_config['Input Variables']]
+            x_cols = [f"{x}--STATE_DATA" for x in controller_config['State Variables']]
             cols = (
-                ["Code_Run_Date", "Bioreactor", "Day", "Date"]
-                + [
-                    f"{config['Process Variables'][0]}--STATE_SP",
-                    f"{config['Manipulated Variables'][0]}--INPUT_REF",
-                ]  # Find way to avoid hard coding these
+                ["Code_Run_Date", "Bioreactor", "Day", "Date"] 
+                + sp_cols
+                + mv_ref_cols
+                # Find way to avoid hard coding these
                 + self.process_model.state_data_labels
                 + self.process_model.input_data_labels
                 + self.process_model.state_pred_labels
                 + self.process_model.state_est_labels
                 + self.process_model.state_mod_labels
             )
-            zero_arr = np.zeros((self.duration + 1, len(cols)))
+            if u_cols != self.process_model.input_data_labels:
+                raise ValueError("Input vectors must be identical between model and controller config.")
+            if x_cols != self.process_model.state_data_labels:
+                raise ValueError("State vectors must be identical between model and controller config.")
+            zero_arr = np.zeros((self.duration, len(cols)))
             zero_arr[:] = np.nan
             data = pd.DataFrame(data=zero_arr, columns=cols)
 
-            # Initialize the dataframe with input values and setpoints
-            data[f"{config['Process Variables'][0]}--STATE_SP"] = config[
-                "Process Variable Setpoints"
-            ]
-            data[f"{config['Manipulated Variables'][0]}--INPUT_REF"] = config[
-                "Manipulated Variable Reference"
-            ]
+            # Initialize reference and nominal data
+            for key in controller_config['Process Variables']:
+                data[f"{key}--STATE_SP"] = np.array(controller_config['Process Variables'][key]["Data"])
+            for key in controller_config["Manipulated Variables"]:
+                data[f"{key}--INPUT_REF"] = np.array(controller_config['Manipulated Variables'][key]["Data"])
+            for key in controller_config["Input Variables"]:
+                data[f"{key}--INPUT_DATA"] = np.array(controller_config['Input Variables'][key])
 
-            data["Day"] = np.arange(0, self.duration + 1)
+            # # Initialize the dataframe with input values and setpoints
+            # data[sp_cols] = np.array(controller_config["Process Variable Setpoints"])
+            # data[mv_ref_cols] = np.array(controller_config["Manipulated Variable Reference"])
+            # data[u_cols] = np.array(controller_config["Nominal Input Recipe"])
+
+            data["Day"] = np.arange(0, self.duration)
             data["Bioreactor"] = str(self.vessel)
             self.data = data.copy(deep=True)
         else:
@@ -121,12 +134,12 @@ class Bioreactor:
 
         # 24 columns defined
 
-        for key, value in config["Controller Dictionary"].items():
-            if self.vessel in value:
-                controller_key = key
+        # for key, value in experiment_config["Controller Dictionary"].items():
+        #     if self.vessel in value:
+        #         controller_key = key
 
-        self.feed_name = config[controller_key]['Manipulated Variables'][0]
-        self.daily_feed_name = config[controller_key]["Daily Manipulated Variables"][0]
+        self.total_feed_name = experiment_config['Total Feed Name']
+        self.daily_feed_name = experiment_config["Daily Feed Name"]
 
         # Data frame for open_loop simulation results
         self.open_loop_df = pd.DataFrame()
@@ -135,11 +148,11 @@ class Bioreactor:
         if self.data["Day"].values[0] != 0:
             raise ValueError("Data set does not start on Day 0!")
 
-        # self.state = self.data.filter(items=self.process_model.states)
-        self.duration = self.data["Day"].values[-1]
+        # # self.state = self.data.filter(items=self.process_model.states)
+        # self.duration = self.data["Day"].values[-1]
 
         # Check if the data set ends on Day duration
-        if self.data.shape[0] - 1 != self.duration:
+        if self.data.shape[0] != self.duration:
             raise ValueError("Data set has missing or duplicate days!")
 
         # Check if days are consecutive (2023-10-21)
@@ -147,9 +160,9 @@ class Bioreactor:
             raise ValueError("Data set is not in 1-day increments!")
 
         # Convert cumulative feed (data) to daily feed
-        if np.isin(f"{self.feed_name}--INPUT_DATA", self.data.columns):
-            self.data[f"{self.feed_name}--INPUT_DATA"] = np.append(
-                np.diff(self.data.loc[:, f"{self.feed_name}--INPUT_DATA"]), 0
+        if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
+            self.data[f"{self.total_feed_name}--INPUT_DATA"] = np.append(
+                np.diff(self.data.loc[:, f"{self.total_feed_name}--INPUT_DATA"]), 0
             )
             self.has_cumulative_feed_data = True
             warnings.warn(
@@ -160,9 +173,9 @@ class Bioreactor:
         self.daily_feed_name_data = f"{self.daily_feed_name}--INPUT_DATA"
 
         # Convert cumulative feed (reference) to daily feed
-        if np.isin(f"{self.feed_name}--INPUT_REF", self.data.columns):
-            self.data[f"{self.feed_name}--INPUT_REF"] = np.append(
-                np.diff(self.data.loc[:, f"{self.feed_name}--INPUT_REF"]), 0
+        if np.isin(f"{self.total_feed_name}--INPUT_REF", self.data.columns):
+            self.data[f"{self.total_feed_name}--INPUT_REF"] = np.append(
+                np.diff(self.data.loc[:, f"{self.total_feed_name}--INPUT_REF"]), 0
             )
             self.has_cumulative_feed_ref = True
             warnings.warn(
@@ -224,14 +237,29 @@ class Bioreactor:
             self.process_model.state_data_labels + self.process_model.input_data_labels
         )
         if renamed_vector is not None:
-            insert_index = self.data[self.data["Day"] == renamed_vector["batchAge"]].index[
+            insert_index = self.data[self.data["Day"] == renamed_vector["Day"][0]].index[
                 0
             ]
         else:
             raise ValueError(
                 "Vector does not contain data, check that vector is not None or column mapping is correct"
             )
-        self.data[selected_col].loc[insert_index] = renamed_vector[selected_col]
+        
+        # Convert bioreactor feed data from daily to total
+        if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
+            feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"]
+            feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
+            feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"][0]
+            feed_daily = np.append(np.diff(feed_total), 0)
+
+        # Replace current day's data
+        self.data.loc[insert_index,selected_col] = renamed_vector.loc[0,selected_col]
+
+        # Replace daily feed
+        if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
+            self.data[f"{self.total_feed_name}--INPUT_DATA"] = feed_daily
+
+        # NEED TO THINK ABOUT percent feed
 
     def return_data(self, show_daily_feed: bool, exec_date: bool = False):
         """
@@ -440,22 +468,7 @@ class Controller:
         self,
         controller_model: StateSpaceModel,
         bioreactor: Bioreactor,
-        ts: np.ndarray,  # A 1D, length-T array of time
-        pv_sps: np.ndarray,  # A T by P array (P process variables)
-        pv_names: list[str],  # Controlled process variable names
-        pv_wts: np.ndarray,  # SP tracking weights
-        mv_names: list[str],  # Manipulated variables
-        mv_wts: np.ndarray,  # MV cost weights
-        pred_horizon: int,
-        ctrl_horizon: int,
-        mv_constr: np.ndarray,  # A 2 by U array (lower and upper limits only)
-        output_mods_user: np.ndarray,  # Diagonal of the C matrix/correction factor for MHE (user specified)
-        filter_wt_on_data: float,  # wt on measurement and 1-wt on model predictions
-        est_wts: np.ndarray,
-        est_horizon: int,
-        eor_names: list[str],
-        eor_constr: np.ndarray,
-        eor_wts: np.ndarray,
+        controller_config: Optional[dict] = None,
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters
@@ -498,6 +511,25 @@ class Controller:
         represents the
         """
 
+        # Use config file to construct other tuning parameters
+        ts=np.array(controller_config["Time"])
+        pv_sps = np.transpose(np.array([controller_config["Process Variables"][key]["Data"] for key in controller_config["Process Variables"]]))
+        pv_wts = np.array([controller_config["Process Variables"][key]["Weight"] for key in controller_config["Process Variables"]])
+        pv_names = list(controller_config["Process Variables"].keys())
+        mv_wts = np.array([controller_config["Manipulated Variables"][key]["Weight"] for key in controller_config["Manipulated Variables"]])
+        mv_names = list(controller_config["Manipulated Variables"].keys())
+        mv_constr = np.transpose(np.array([controller_config["Manipulated Variables"][key]["Constraint"] for key in controller_config["Manipulated Variables"]]))
+        est_wts = np.array([controller_config["State Variables"][key]["Weight"] for key in controller_config["State Variables"]])
+        output_mods_user = np.array([controller_config["State Variables"][key]["Modifier"] for key in controller_config["State Variables"]])
+        eor_names = list(controller_config["End of Run Variables"].keys())
+        eor_constr = np.transpose(np.array([controller_config["End of Run Variables"][key]["Constraint"] for key in controller_config["End of Run Variables"]]))
+        eor_wts = np.array([controller_config["End of Run Variables"][key]["Weight"] for key in controller_config["End of Run Variables"]])
+
+        pred_horizon=controller_config["Prediction Horizon"]
+        ctrl_horizon=controller_config["Control Horizon"]
+        est_horizon=controller_config["Estimation Horizon"]
+        filter_wt_on_data=controller_config["Estimation Filter Weight on Data"]
+
         # The basics
         self.controller_model = controller_model
         self.bioreactor = bioreactor
@@ -512,7 +544,7 @@ class Controller:
         self.mv_wts = mv_wts
         self.pred_horizon = pred_horizon
         self.ctrl_horizon = ctrl_horizon
-        self.constr = mv_constr
+        self.mv_constr = mv_constr
 
         self.output_mods_est = np.array([])  # p estimated from data
         self.output_mods_user = output_mods_user  # p specified by user
@@ -533,9 +565,9 @@ class Controller:
         MV_SUFFIX = "--INPUT_DATA"
         self.mv_names = [x + MV_SUFFIX for x in mv_names]
 
-        self.bioreactor.data[
-            "IGG--STATE_SP"
-        ] = self.pv_sps  # find a way to avoid hard coding target setpoint name
+        # self.bioreactor.data[
+        #     "IGG--STATE_SP"
+        # ] = self.pv_sps  # find a way to avoid hard coding target setpoint name
 
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
@@ -596,9 +628,9 @@ class Controller:
         mv_array = control_matrix.flatten()
 
         # Create constraint matrix
-        constr_low_matrix = np.tile(self.constr[:, 0], (control_matrix.shape[0], 1))
+        constr_low_matrix = np.tile(self.mv_constr[0, :], (control_matrix.shape[0], 1))
         constr_low_array = constr_low_matrix.flatten()
-        constr_high_matrix = np.tile(self.constr[:, 1], (control_matrix.shape[0], 1))
+        constr_high_matrix = np.tile(self.mv_constr[1, :], (control_matrix.shape[0], 1))
         constr_high_array = constr_high_matrix.flatten()
         bounds = np.vstack((constr_low_array, constr_high_array)).transpose()
 
