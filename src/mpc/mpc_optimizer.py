@@ -237,7 +237,7 @@ class Bioreactor:
             self.process_model.state_data_labels + self.process_model.input_data_labels
         )
         if renamed_vector is not None:
-            insert_index = self.data[self.data["Day"] == renamed_vector["Day"][0]].index[
+            insert_index = self.data[self.data["Day"] == renamed_vector["Day"].values[0]].index[
                 0
             ]
         else:
@@ -249,11 +249,11 @@ class Bioreactor:
         if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
             feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"]
             feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-            feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"][0]
+            feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"].values[0]
             feed_daily = np.append(np.diff(feed_total), 0)
 
         # Replace current day's data
-        self.data.loc[insert_index,selected_col] = renamed_vector.loc[0,selected_col]
+        self.data.loc[insert_index,selected_col] = renamed_vector.loc[:,selected_col].values
 
         # Replace daily feed
         if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
@@ -762,7 +762,9 @@ class Controller:
         # above_deadband_cost = 0
         e = np.array([])
         if self.eor_names is not None:
-            for (state, constraint, eor_wt) in zip(self.eor_names,self.eor_const,self.eor_wts):
+            for state_count,state in enumerate(self.eor_names):
+                constraint = self.eor_const[:,state_count]
+                eor_wt = self.eor_wts[state_count]
                 for idx, string in enumerate(self.controller_model.state_pred_labels):
                     if str.upper(state) in string:
                         if constraint[0] > y_out[-1,idx]:

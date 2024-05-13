@@ -71,8 +71,7 @@ class MPCVisualizer:
             self.controller, Controller
         ):
             if not PV:
-                PV = self.controller.pv_names[0]
-                y_var = PV.split("--")[0]
+                y_var = [x.split("--")[0] for x in self.controller.pv_names]
             else:
                 y_var = PV
 
@@ -111,7 +110,7 @@ class MPCVisualizer:
                     for m in range(sum(~pd.isnull(modifiers_data)) - self.controller.est_horizon):
                         modifiers[m] = modifiers_data[m + self.controller.est_horizon - 1]
 
-                if state == y_var:
+                if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
                     sub_ax[count].plot(
                         plot_data["Day"][measured_mask],

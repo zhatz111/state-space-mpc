@@ -2,7 +2,7 @@
 Main code for simulating closed-loop MPC
     Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2024-04-29
+    Modified: 2024-05-13
 """
 
 # Standard Library Imports
@@ -42,7 +42,7 @@ top_dir = Path().absolute()
 # Use this path for experiment folders in GitHub repository
 PARENT_FILE_PATH = top_dir / "data"
 
-
+# Locate the experiment folder by searching for the KEY
 FOLDER_SEARCH_KEY = "Experiment"
 matching_folders = [
     folder.name
@@ -58,12 +58,16 @@ questions = {
 answer = prompt(questions)
 DATA_FOLDER_NAME = str(answer["folder"])
 
+# Load config
 PATH_DIRECTORY = Path(PARENT_FILE_PATH, DATA_FOLDER_NAME)
-yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
-yaml_data = open(yaml_files[0], "r", encoding="utf-8")
-experiment_config = yaml.safe_load(yaml_data)
-yaml_data.close()
+def read_config():
+    yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
+    yaml_data = open(yaml_files[0], "r", encoding="utf-8")
+    experiment_config = yaml.safe_load(yaml_data)
+    yaml_data.close()
+    return experiment_config
 
+experiment_config = read_config()
 
 # Specify the study number, measurement units, current time and vessel
 # Units list contents must equal exactly the number of graphs being plotted
@@ -78,7 +82,8 @@ if (
 else:
     VESSELS = np.array(experiment_config["Bioreactors"])
 
-reference_data_all = pd.read_csv(
+# Load a historical dataset as a mock dataframe
+mock_df = pd.read_csv(
     Path(PATH_DIRECTORY, f"{experiment_config['Master Data File']}.csv")
 )
 
@@ -92,51 +97,47 @@ sim_model_scaler = dict_toscaler(
     dict_file=experiment_config["Model Parameters"]["scaler"]
 )
 
+# Create a state space model for control
+controller_model = StateSpaceModel(
+    states=list(
+        map(str.upper, experiment_config["Model Parameters"]["Model States"])
+    ),
+    inputs=list(
+        map(str.upper, experiment_config["Model Parameters"]["Model Inputs"])
+    ),
+    scaler=sim_model_scaler,
+    a_matrix=sim_a_matrix,
+    b_matrix=sim_b_matrix,
+)
+
 # -------------------------------------------------------------------------------------
-# DIRECTORY CREATION AND PARSING OF STATES & INPUTS
-for curr_time in range(0,experiment_config["Last Day"]):
+# ITERATE FROM DAY 0 TO THE CURRENT DAY (SIMULATION)
 
-    # Create figure output folder
-    fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
-    fig_path_top_dir.mkdir(parents=True, exist_ok=True)
+# Mock current time (end of time iteration)
+curr_time_end = 3
 
-    # Create a daily folder of all reactors
-    fig_path_lv2_day = Path(
-        fig_path_top_dir.expanduser(), f"D{curr_time}-{todays_date}"
-    )
-    fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
+# Create figure output folder
+fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
+fig_path_top_dir.mkdir(parents=True, exist_ok=True)
 
-    curr_vessel = VESSELS[0]
+# Create a daily folder of all reactors
+fig_path_lv2_day = Path(
+    fig_path_top_dir.expanduser(), f"D{curr_time_end}-{todays_date}"
+)
+fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
 
+# Iterate bioreactors to initialize a bioreactor instance
+bioreactors = []
+for curr_vessel in VESSELS:
+
+    # Locate the bioreactor-specific controller setting
     for key, value in experiment_config["Controller Dictionary"].items():
         if curr_vessel in value:
             controller_key = key
 
     controller_config = experiment_config[controller_key]
 
-    # Create figure folder
-    fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
-    fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
-
-    # Parse the states from the reference data csv file
-    input_messages = reference_data_all.loc[
-        reference_data_all["Bioreactor"] == curr_vessel, :
-    ]
-    
-    # Create a state space model for control (identical to bioreactor sim model)
-    controller_model = StateSpaceModel(
-        states=list(
-            map(str.upper, experiment_config["Model Parameters"]["Model States"])
-        ),
-        inputs=list(
-            map(str.upper, experiment_config["Model Parameters"]["Model Inputs"])
-        ),
-        scaler=sim_model_scaler,
-        a_matrix=sim_a_matrix,
-        b_matrix=sim_b_matrix,
-    )
-
-    # Construct a bioreactor object
+    # Initialize a bioreactor instance
     bioreactor = Bioreactor(
         vessel=curr_vessel,
         process_model=controller_model,
@@ -144,82 +145,63 @@ for curr_time in range(0,experiment_config["Last Day"]):
         experiment_config=experiment_config,
         controller_config=controller_config,
     )
+    bioreactors.append(bioreactor)
 
-    controller = Controller(
-        controller_model=controller_model,
-        bioreactor=bioreactor,
-        controller_config=controller_config
-    )
+# Iterate bioreactors
+for count_vessel, curr_vessel in enumerate(VESSELS):
+
+    # Create bioreactor-specific output folders
+    fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
+    fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
     
-    # reference_data_this_vessel = bioreactor.data
-    
-    
-    # contains_state_data = reference_data_this_vessel.columns.str.contains(
-    #     "--STATE_DATA"
-    # )
-    # contains_input = reference_data_this_vessel.columns.str.contains("--INPUT_DATA")
+    # Iterate times
+    for curr_time in range(0,curr_time_end + 1):
 
-    # # store the states and inputs as a list
-    # STATES = [
-    #     x.split("--")[0]
-    #     for x in reference_data_this_vessel.columns[contains_state_data]
-    # ]
-    # INPUTS = [
-    #     x.split("--")[0] for x in reference_data_this_vessel.columns[contains_input]
-    # ]
+        # Read config again every day for tuning parameter changes
+        experiment_config = read_config()
 
-    # # Parse the PV and MV names from the reference data csv file
-    # PV_SUFFIX = "--STATE_SP"
-    # MV_SUFFIX = "--INPUT_REF"
-    # contains_PV = reference_data_this_vessel.columns.str.contains(PV_SUFFIX, case=False)
-    # contains_MV = reference_data_this_vessel.columns.str.contains(MV_SUFFIX, case=False)
+        # Locate the bioreactor-specific controller setting
+        for key, value in experiment_config["Controller Dictionary"].items():
+            if curr_vessel in value:
+                controller_key = key
 
-    # # Define the PV and MV names using the parsing from csv file
-    # pv_names = [
-    #     x.split("--")[0] for x in reference_data_this_vessel.columns[contains_PV]
-    # ]
-    # mv_names = [
-    #     x.split("--")[0] for x in reference_data_this_vessel.columns[contains_MV]
-    # ]
+        controller_config = experiment_config[controller_key]
 
+        # Parse the states from the reference data csv file
+        input_messages = mock_df.loc[
+            mock_df["Bioreactor"] == curr_vessel, :
+        ]
+        
+        # # Construct a bioreactor object
+        # bioreactor = Bioreactor(
+        #     vessel=curr_vessel,
+        #     process_model=controller_model,
+        #     # data=reference_data_this_vessel,
+        #     experiment_config=experiment_config,
+        #     controller_config=controller_config,
+        # )
 
-    # # Define the suffix after each MV name and index the matrix with these names
-    # pv_sps = reference_data_this_vessel[[mv + PV_SUFFIX for mv in pv_names]].values
-    # # mv_matrix = reference_data_this_vessel[[mv + MV_SUFFIX for mv in mv_names]].values
+        # Create/update a controller instance
+        bioreactor = bioreactors[count_vessel]
+        controller = Controller(
+            controller_model=controller_model,
+            bioreactor=bioreactor,
+            controller_config=controller_config
+        )
+        
+        # -------------------------------------------------------------------------------------
+        # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
 
+        # Ingest data from Input topic
+        bioreactor.curr_time = curr_time
+        input_message = input_messages.loc[input_messages["Day"] == curr_time,:]
+        bioreactor.ingest_vector(input_message)      
 
+        # Update bioreactor.data>STATE_MOD and STATE_EST (curr day)
+        controller.estimate()
 
-
-    # # Verify dimensions (YL@2024-01-18)
-    # if len(np.array(controller_config["Estimation Weights"])) != len(STATES):
-    #     raise ValueError("Wrong estimation weights dimension!")
-    # if len(np.array(controller_config["Process Variable Weights"])) != len(pv_names):
-    #     raise ValueError("Wrong PV weights dimension!")
-    # if len(np.array(controller_config["Manipulated Variable Weights"])) != len(
-    #     mv_names
-    # ):
-    #     raise ValueError("Wrong PV weights dimension!")
-    # if [x.upper() for x in sim_model_scaler.get_feature_names_out()] != STATES + INPUTS:
-    #     raise ValueError("Model and CSV do not match!")
-    
-
-
-    # -------------------------------------------------------------------------------------
-    # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
-
-    # # Update the time cursor
-    # bioreactor.curr_time = experiment_config["Current Day"]
-
-
-    # Ingest data from Input topic
-    input_message = input_messages.loc[input_messages["Day"] == curr_time,:]
-    bioreactor.ingest_vector(input_message)      
-
-    # Update bioreactor.data>STATE_MOD and STATE_EST (curr day)
-    controller.estimate()
-
-    # Update bioreactor.data>STATE_PRED (curr day to end of pred horizon)
-    controller.optimize(open_loop=False)
+        # Update bioreactor.data>STATE_PRED (curr day to end of pred horizon)
+        controller.optimize(open_loop=False)
 
     # -------------------------------------------------------------------------------------
     # BIOREACTOR DATA SAVED
@@ -271,13 +253,13 @@ for curr_time in range(0,experiment_config["Last Day"]):
     br_plots = MPCVisualizer(bioreactor, controller)
     br_plots.mpc_daily_plot(
         save_path=fig_path_lv2_BR
-        / f"BR{bioreactor.vessel:02d}_D{experiment_config['Current Day']}-{todays_date}.png",
+        / f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}.png",
         identifier=f"{experiment_config['Experiment Number']} \
         -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
-        _D{experiment_config['Current Day']}-{todays_date}",
+        _D{curr_time_end}-{todays_date}",
         unit_dict=experiment_config["Units Dictionary"],
         metadata={
-            "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
+            "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",
             "Author": "Zach Hatzenbeller, Yu Luo",
             "Description": f"MPC plot for {experiment_config['Experiment Number']}. \
             Developed within GSK R&D in BDSD",
@@ -289,13 +271,13 @@ for curr_time in range(0,experiment_config["Last Day"]):
     )
     br_plots.mpc_daily_plot(
         save_path=fig_path_lv2_day
-        / f"BR{bioreactor.vessel:02d}_D{experiment_config['Current Day']}-{todays_date}.png",
+        / f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}.png",
         identifier=f"{experiment_config['Experiment Number']} \
         -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
-        _D{experiment_config['Current Day']}-{todays_date}",
+        _D{curr_time_end}-{todays_date}",
         unit_dict=experiment_config["Units Dictionary"],
         metadata={
-            "Title": f"{experiment_config['Experiment Number']}-D{experiment_config['Current Day']}",
+            "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",
             "Author": "Zach Hatzenbeller, Yu Luo",
             "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
             "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
