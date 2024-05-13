@@ -572,7 +572,7 @@ class Controller:
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
 
-    def optimize(self, open_loop=False):
+    def optimize(self, open_loop=False, print_pred=False):
         """
         The `optimize` function optimizes future inputs for a bioreactor system and updates the dataset
         with the optimized inputs.
@@ -683,12 +683,13 @@ class Controller:
         ]
 
         # Print final PV (2024-03-01)
-        print(
-            data.loc[
-                data["Day"] == max(data["Day"]),
-                ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
-            ]
-        )
+        if print_pred:
+            print(
+                data.loc[
+                    data["Day"] == max(data["Day"]),
+                    ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
+                ]
+            )
 
     def obj_func_wrapper(self, mv_array):
         """

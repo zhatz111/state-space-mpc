@@ -201,7 +201,11 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
         controller.estimate()
 
         # Update bioreactor.data>STATE_PRED (curr day to end of pred horizon)
-        controller.optimize(open_loop=False)
+        if curr_time == curr_time_end:
+            print_pred = True
+        else:
+            print_pred = False
+        controller.optimize(open_loop=False,print_pred=print_pred)
 
     # -------------------------------------------------------------------------------------
     # BIOREACTOR DATA SAVED
