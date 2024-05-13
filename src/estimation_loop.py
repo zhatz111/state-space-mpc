@@ -153,7 +153,7 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     # Create bioreactor-specific output folders
     fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
     fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
-    
+
     # Iterate times
     for curr_time in range(0,curr_time_end + 1):
 
@@ -171,7 +171,7 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
         input_messages = mock_df.loc[
             mock_df["Bioreactor"] == curr_vessel, :
         ]
-        
+
         # # Construct a bioreactor object
         # bioreactor = Bioreactor(
         #     vessel=curr_vessel,
@@ -188,24 +188,25 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
             bioreactor=bioreactor,
             controller_config=controller_config
         )
-        
+
         # -------------------------------------------------------------------------------------
         # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
 
         # Ingest data from Input topic
         bioreactor.curr_time = curr_time
         input_message = input_messages.loc[input_messages["Day"] == curr_time,:]
-        bioreactor.ingest_vector(input_message)      
+        bioreactor.ingest_vector(input_message)
 
         # Update bioreactor.data>STATE_MOD and STATE_EST (curr day)
         controller.estimate()
 
         # Update bioreactor.data>STATE_PRED (curr day to end of pred horizon)
         if curr_time == curr_time_end:
-            print_pred = True
+            PRINT_PRED = True
         else:
-            print_pred = False
-        controller.optimize(open_loop=False,print_pred=print_pred)
+            PRINT_PRED = False
+
+        controller.optimize(open_loop=False,print_pred=PRINT_PRED)
 
     # -------------------------------------------------------------------------------------
     # BIOREACTOR DATA SAVED
