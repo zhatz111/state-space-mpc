@@ -39,7 +39,7 @@ Units Dictionary:
   CUMULATIVE_NORMALIZED_FEED: mL
   DAILY_NORMALIZED_FEED: mL
   DO: "%"
-  PH: ""
+  PH_AT_TEMP: ""
   TEMPERATURE: (\N{DEGREE SIGN}C)
 
 Model Parameters: {
