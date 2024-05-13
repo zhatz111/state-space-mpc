@@ -114,7 +114,7 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY (SIMULATION)
 
 # Mock current time (end of time iteration)
-curr_time_end = 11
+curr_time_end = 8
 
 # Create figure output folder
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
