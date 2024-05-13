@@ -141,6 +141,10 @@ class Bioreactor:
         self.total_feed_name = experiment_config['Total Feed Name']
         self.daily_feed_name = experiment_config["Daily Feed Name"]
 
+        # Scale
+        self.scale = experiment_config["Scale"]
+        self.init_vol = experiment_config["Initial Volumes"][self.scale]
+
         # Data frame for open_loop simulation results
         self.open_loop_df = pd.DataFrame()
 
@@ -199,6 +203,26 @@ class Bioreactor:
     #     self.curr_time = 0
     #     self.state = self.data.filter(items=self.process_model.states).values
 
+    def get_result(self):
+        feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"].values
+        feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
+        feed_daily_ml = feed_daily * self.init_vol
+        feed_total_ml = feed_total * self.init_vol
+
+        result = {
+            "Time": self.data["Day"].values,
+            "DailyFeed": feed_daily_ml,
+            "TotalFeed": feed_total_ml,
+            "TiterPred": self.data["IGG--STATE_PRED"].values,
+            "ViabilityPred": self.data["VIABILITY--STATE_PRED"].values,
+            "VCCPred": self.data["VCC--STATE_PRED"].values,
+            "LactatePred": self.data["LACTATE--STATE_PRED"].values,
+            "OSMOPred": self.data["OSMO--STATE_PRED"].values,
+        }
+
+        return result
+
+
     def show_data(self):
         """
         The function `show_data` prints the dataset for a bioreactor, with accurate column names.
@@ -232,7 +256,14 @@ class Bioreactor:
             raise ValueError(
                 "Need to instantiate column mapping to correctly ingest input vector to dataframe."
             )
-        renamed_vector = vector.rename(self.column_map)
+        
+        if "nutrient_total" in vector.columns:
+
+            # Scale feed based on init_vol
+            vector["nutrient_total"] = vector["nutrient_total"] / self.init_vol
+
+
+        renamed_vector = vector.rename(columns=self.column_map)
         selected_col = (
             self.process_model.state_data_labels + self.process_model.input_data_labels
         )
@@ -585,18 +616,17 @@ class Controller:
         """
 
         # Retrieve MVs from curr_time to EoR
-        data = self.bioreactor.data
         self.curr_time = self.bioreactor.curr_time
         is_in_ctrl_horizon = np.logical_and(
             np.logical_and(
-                data["Day"] >= self.curr_time,
-                data["Day"] < (self.curr_time + self.ctrl_horizon),
+                self.bioreactor.data["Day"] >= self.curr_time,
+                self.bioreactor.data["Day"] < (self.curr_time + self.ctrl_horizon),
             ),
-            data["Day"] < max(data["Day"]),
+            self.bioreactor.data["Day"] < max(self.bioreactor.data["Day"]),
         )
         is_in_pred_horizon = np.logical_and(
-            data["Day"] >= self.curr_time,
-            data["Day"] < (self.curr_time + self.pred_horizon),
+            self.bioreactor.data["Day"] >= self.curr_time,
+            self.bioreactor.data["Day"] < (self.curr_time + self.pred_horizon),
         )
 
         # Do not run MPC on EoR
@@ -604,10 +634,10 @@ class Controller:
         sp_names = [x.replace("--STATE_DATA", "--STATE_SP") for x in self.pv_names]
         if not (np.any(is_in_ctrl_horizon)):
             # Update pred horizon
-            data.loc[
+            self.bioreactor.data.loc[
                 is_in_pred_horizon, self.controller_model.state_pred_labels
             ] = np.multiply(
-                data.loc[
+                self.bioreactor.data.loc[
                     is_in_pred_horizon, self.controller_model.state_est_labels
                 ].values,
                 self.output_mods_est,
@@ -615,14 +645,14 @@ class Controller:
 
             # Update command line output
             print(
-                data.loc[
-                    data["Day"] == max(data["Day"]),
+                self.bioreactor.data.loc[
+                    self.bioreactor.data["Day"] == max(self.bioreactor.data["Day"]),
                     ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
                 ]
             )
             return
 
-        control_matrix = data.loc[is_in_ctrl_horizon, self.mv_names].values
+        control_matrix = self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names].values
 
         # Flatten initial mv
         mv_array = control_matrix.flatten()
@@ -673,10 +703,10 @@ class Controller:
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset with new inputs
-        data.loc[is_in_ctrl_horizon, self.mv_names] = control_matrix_star
+        self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names] = control_matrix_star
 
         # Update the dataset with new predictions
-        data.loc[
+        self.bioreactor.data.loc[
             is_in_pred_horizon, self.controller_model.state_pred_labels
         ] = data_after_optim.loc[
             is_in_pred_horizon, self.controller_model.state_pred_labels
@@ -685,8 +715,8 @@ class Controller:
         # Print final PV (2024-03-01)
         if print_pred:
             print(
-                data.loc[
-                    data["Day"] == max(data["Day"]),
+                self.bioreactor.data.loc[
+                    self.bioreactor.data["Day"] == max(self.bioreactor.data["Day"]),
                     ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
                 ]
             )
@@ -842,9 +872,6 @@ class Controller:
 
         N = self.est_horizon
 
-        # Point to the bioreactor data
-        data = self.bioreactor.data
-
         # ensure curr_time is set to the time of the bioreactor
         self.curr_time = self.bioreactor.curr_time
         # print(
@@ -853,17 +880,17 @@ class Controller:
 
         # select days in the MHE horizon
         is_in_est_horizon = np.logical_and(
-            data["Day"] <= self.curr_time,
-            data["Day"] > (self.curr_time - N),
+            self.bioreactor.data["Day"] <= self.curr_time,
+            self.bioreactor.data["Day"] > (self.curr_time - N),
         )
 
         def est_x_obj_func(x):
             # Retrieve measurements
-            measurements = data.loc[
+            measurements = self.bioreactor.data.loc[
                 is_in_est_horizon, self.bioreactor.process_model.state_data_labels
             ].values
 
-            previous_estimates = data.loc[
+            previous_estimates = self.bioreactor.data.loc[
                 is_in_est_horizon, self.bioreactor.process_model.state_est_labels
             ].values
 
@@ -890,7 +917,7 @@ class Controller:
             return cost
 
         # Re-estimate the initial state of the horizon
-        t0 = data.loc[is_in_est_horizon, "Day"].values[0]
+        t0 = self.bioreactor.data.loc[is_in_est_horizon, "Day"].values[0]
         x0 = self.bioreactor.state(t0)
         res1 = optimize.minimize(
             fun=est_x_obj_func,
@@ -900,7 +927,7 @@ class Controller:
         x_star = res1.x
         x_out, _, _, _ = self.bioreactor.sim_from_day(day=t0, initial_state=x_star)
         new_estimates = x_out[0 : sum(is_in_est_horizon),]
-        data.loc[
+        self.bioreactor.data.loc[
             is_in_est_horizon, self.bioreactor.process_model.state_est_labels
         ] = new_estimates
 
@@ -963,10 +990,10 @@ class Controller:
 
         # Linear reg with no intercept to get mods (YL: 2024-05-09)
         p_array_star = self.output_mods_est.flatten()
-        predictions = data.loc[
+        predictions = self.bioreactor.data.loc[
             is_in_est_horizon, self.bioreactor.process_model.state_est_labels
             ].values
-        measurements = data.loc[
+        measurements = self.bioreactor.data.loc[
             is_in_est_horizon, self.bioreactor.process_model.state_data_labels
             ].values
         for i in range(len(self.bioreactor.process_model.state_est_labels)):
@@ -982,100 +1009,7 @@ class Controller:
 
 
         # Store the new delta_p matrix into the dataframe
-        data.loc[
-            data["Day"] == self.curr_time,
+        self.bioreactor.data.loc[
+            self.bioreactor.data["Day"] == self.curr_time,
             self.bioreactor.process_model.state_mod_labels,
         ] = self.output_mods_est
-
-        # # create a matrix with values in control horizon
-        # control_matrix = data.loc[is_in_est_horizon, self.mv_names].values
-
-        # # find the values within the MHE horizon
-        # ctrl_horizon_where = np.where(
-        #     np.logical_and(
-        #         self.bioreactor.data["Day"] <= self.curr_time,
-        #         self.bioreactor.data["Day"] > (self.curr_time - N),
-        #     )
-        # )[0]
-
-        # # Retrieve input from day 0 to EoR
-        # u_matrix_daily = self.bioreactor.data.loc[
-        #     :, self.controller_model.input_data_labels
-        # ].values
-
-        # loc_mv_in_inputs = np.where(
-        #     np.isin(
-        #         np.array(self.controller_model.input_data_labels), self.mv_names
-        #     )
-        # )[0]
-
-        # u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where, :]
-        # u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = control_matrix
-        # # u_matrix_daily[ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon
-        # # u_matrix_cumulative = u_matrix_daily
-
-        # ts = np.arange(
-        #     u_matrix_daily[
-        #         self.bioreactor.data["Day"] >= self.curr_time - N, :
-        #     ].shape[0]
-        # )
-
-        # if self.curr_time - N < 0:
-        #     start_of_horizon = 0
-        # else:
-        #     start_of_horizon = self.curr_time - N
-
-        # x_out, y_out = self.controller_model.ssm_lsim(
-        #     initial_state=data.loc[
-        #         data["Day"] == start_of_horizon,
-        #         self.bioreactor.process_model.state_est_labels,
-        #     ].values[0],
-        #     input_matrix=u_matrix_daily[
-        #         self.bioreactor.data["Day"] >= self.curr_time - N, :
-        #     ],
-        #     time=ts,
-        #     output_mods=self.output_mods,
-        # )
-
-        # if self.curr_time - N < 0:
-        #     data.loc[
-        #         data["Day"] == self.curr_time,
-        #         self.bioreactor.process_model.state_est_labels,
-        #     ] = x_out[self.curr_time, :]
-        # else:
-        #     data.loc[
-        #         data["Day"] == self.curr_time,
-        #         self.bioreactor.process_model.state_est_labels,
-        #     ] = x_out[self.bioreactor.duration - self.curr_time, :]
-
-        # if self.curr_time - N < 0:
-        #     data.loc[
-        #         data["Day"] == self.curr_time,
-        #         self.bioreactor.process_model.state_pred_labels,
-        #     ] = y_out[self.curr_time, :]
-        # else:
-        #     data.loc[
-        #         data["Day"] == self.curr_time,
-        #         self.bioreactor.process_model.state_pred_labels,
-        #     ] = y_out[self.bioreactor.duration - self.curr_time, :]
-
-        # # Unravel delta_p back to matrix
-        # delta_p = p_array[: len(self.output_mods.flatten())].reshape(
-        #     self.output_mods.shape[0], self.output_mods.shape[1]
-        # )
-
-        # Cost function
-        # cost = np.nansum(
-        #     np.multiply(np.square(predictions - measurements), self.est_wts)
-        #     + np.square(p_array - 1)
-        #     + np.sum(
-        #         np.square(p_array - self.output_mods
-        #             # np.diff(
-        #             #     data.loc[
-        #             #         is_in_est_horizon,
-        #             #         self.bioreactor.process_model.state_mod_labels,
-        #             #     ]
-        #             # )
-        #         )
-        #     )
-        # )

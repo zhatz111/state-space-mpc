@@ -114,7 +114,7 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY (SIMULATION)
 
 # Mock current time (end of time iteration)
-curr_time_end = 3
+curr_time_end = 11
 
 # Create figure output folder
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
@@ -207,6 +207,8 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
             PRINT_PRED = False
 
         controller.optimize(open_loop=False,print_pred=PRINT_PRED)
+
+        result = bioreactor.get_result()
 
     # -------------------------------------------------------------------------------------
     # BIOREACTOR DATA SAVED

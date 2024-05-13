@@ -2,6 +2,11 @@
 Asset: aCD96
 Experiment Number: MR24-XXX
 Last Day: 12
+Scale: "3L"
+Initial Volumes: # Initial volumes in mL
+  ambr250: 200.0
+  3L: 1800.0
+  1000L: 600000.0
 
 # If bioreactor list is true, only specify the start and end reactors and a list is created
 # in between these for syntax simplicity, otherwise list out all reactors
