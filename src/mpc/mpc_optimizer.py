@@ -90,6 +90,8 @@ class Bioreactor:
             #     raise ValueError(
             #         "Config file must contain PV setpoints/MV reference trajectory."
             #     )
+            if controller_config is None:
+                raise ValueError("Must pass a controller configuration to this class.")
             sp_cols = [f"{x}--STATE_SP" for x in controller_config['Process Variables']]
             mv_ref_cols = [f"{x}--INPUT_REF" for x in controller_config['Manipulated Variables']]
             u_cols = [f"{x}--INPUT_DATA" for x in controller_config['Input Variables']]
@@ -256,35 +258,35 @@ class Bioreactor:
             raise ValueError(
                 "Need to instantiate column mapping to correctly ingest input vector to dataframe."
             )
-        
-        if "nutrient_total" in vector.columns:
+
+        if "nutrient_total" in vector:
 
             # Scale feed based on init_vol
             vector["nutrient_total"] = vector["nutrient_total"] / self.init_vol
 
 
-        renamed_vector = vector.rename(columns=self.column_map)
+        renamed_vector = vector.rename(self.column_map)
         selected_col = (
             self.process_model.state_data_labels + self.process_model.input_data_labels
         )
         if renamed_vector is not None:
-            insert_index = self.data[self.data["Day"] == renamed_vector["Day"].values[0]].index[
+            insert_index = self.data[self.data["Day"] == renamed_vector["Day"]].index[
                 0
             ]
         else:
             raise ValueError(
                 "Vector does not contain data, check that vector is not None or column mapping is correct"
             )
-        
+
         # Convert bioreactor feed data from daily to total
         if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
             feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"]
             feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-            feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"].values[0]
+            feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
             feed_daily = np.append(np.diff(feed_total), 0)
 
         # Replace current day's data
-        self.data.loc[insert_index,selected_col] = renamed_vector.loc[:,selected_col].values
+        self.data.loc[insert_index,selected_col] = renamed_vector[selected_col]
 
         # Replace daily feed
         if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
@@ -499,7 +501,7 @@ class Controller:
         self,
         controller_model: StateSpaceModel,
         bioreactor: Bioreactor,
-        controller_config: Optional[dict] = None,
+        controller_config: dict,
     ):
         """
         The function is the initialization method for a controller object, taking in various parameters

@@ -24,7 +24,6 @@ from src.visualization.visualize import MPCVisualizer
 from src.models.ssm import StateSpaceModel
 from src.data.functions import dict_toscaler
 
-
 warnings.filterwarnings("ignore")
 
 # Store todays date and the top level directory in variables
@@ -61,11 +60,19 @@ DATA_FOLDER_NAME = str(answer["folder"])
 # Load config
 PATH_DIRECTORY = Path(PARENT_FILE_PATH, DATA_FOLDER_NAME)
 def read_config():
+    """
+    The `read_config` function reads a YAML file containing experiment configuration data and returns
+    the parsed configuration.
+    
+    Returns:
+      The function `read_config` returns the experiment configuration data loaded from the first YAML
+    file found in the specified directory.
+    """
     yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
     yaml_data = open(yaml_files[0], "r", encoding="utf-8")
-    experiment_config = yaml.safe_load(yaml_data)
+    yaml_config = yaml.safe_load(yaml_data)
     yaml_data.close()
-    return experiment_config
+    return yaml_config
 
 experiment_config = read_config()
 
@@ -154,6 +161,9 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
     fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
+    # store Controller objects in list to use last one for plotting
+    controller_list = []
+
     # Iterate times
     for curr_time in range(0,curr_time_end + 1):
 
@@ -188,13 +198,14 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
             bioreactor=bioreactor,
             controller_config=controller_config
         )
+        controller_list.append(controller)
 
         # -------------------------------------------------------------------------------------
         # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
 
         # Ingest data from Input topic
         bioreactor.curr_time = curr_time
-        input_message = input_messages.loc[input_messages["Day"] == curr_time,:]
+        input_message = input_messages.loc[input_messages["Day"] == curr_time,:].squeeze()
         bioreactor.ingest_vector(input_message)
 
         # Update bioreactor.data>STATE_MOD and STATE_EST (curr day)
@@ -257,7 +268,8 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     # GENERATED PLOTS SAVED
 
     # Plot the MPC Controller for each Bioreactor
-    br_plots = MPCVisualizer(bioreactor, controller)
+    # Use the last controller from the list which is the controller from the current day
+    br_plots = MPCVisualizer(bioreactor, controller_list[-1])
     br_plots.mpc_daily_plot(
         save_path=fig_path_lv2_BR
         / f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}.png",
