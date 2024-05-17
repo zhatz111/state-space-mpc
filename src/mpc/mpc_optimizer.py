@@ -122,6 +122,8 @@ class Bioreactor:
                 data[f"{key}--INPUT_REF"] = np.array(controller_config['Manipulated Variables'][key]["Data"])
             for key in controller_config["Input Variables"]:
                 data[f"{key}--INPUT_DATA"] = np.array(controller_config['Input Variables'][key])
+            for key in controller_config["State Variables"]:
+                data[f"{key}--STATE_DATA"][0] = controller_config["State Variables"][key]["Initial"]
 
             # # Initialize the dataframe with input values and setpoints
             # data[sp_cols] = np.array(controller_config["Process Variable Setpoints"])
@@ -210,11 +212,13 @@ class Bioreactor:
         feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
         feed_daily_ml = feed_daily * self.init_vol
         feed_total_ml = feed_total * self.init_vol
+        feed_daily_ml_h = feed_daily_ml / 24 / 60
 
         result = {
-            "Time": self.data["Day"].values,
-            "DailyFeed": feed_daily_ml,
-            "TotalFeed": feed_total_ml,
+            "CurrentTime": self.curr_time,
+            "FeedRate": feed_daily_ml_h[self.data["Day"] == self.curr_time][0],
+            "Times": self.data["Day"].values,
+            "FeedRates": feed_daily_ml_h,
             "TiterPred": self.data["IGG--STATE_PRED"].values,
             "ViabilityPred": self.data["VIABILITY--STATE_PRED"].values,
             "VCCPred": self.data["VCC--STATE_PRED"].values,
@@ -285,8 +289,9 @@ class Bioreactor:
             feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
             feed_daily = np.append(np.diff(feed_total), 0)
 
-        # Replace current day's data
-        self.data.loc[insert_index,selected_col] = renamed_vector[selected_col]
+        # Replace current day's data with non-NAN values in input
+        # self.data.loc[insert_index,selected_col] = renamed_vector[selected_col]
+        self.data.loc[insert_index,renamed_vector[selected_col].dropna().index] = renamed_vector[selected_col].dropna()
 
         # Replace daily feed
         if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):

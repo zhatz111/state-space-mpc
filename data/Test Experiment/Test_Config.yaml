@@ -525,22 +525,27 @@ Controller2: {
   },
   "State Variables":{
     "IGG": {
+      "Initial": 160.05,
       "Weight": 0.00001,
       "Modifier": [],
       },
     "VCC": {
+      "Initial": 13.83,
       "Weight": 2.0,
       "Modifier": [],
       },
     "VIABILITY": {
+      "Initial": 98.19,
       "Weight": 10.0,
       "Modifier": []
       },
     "LACTATE": {
+      "Initial": 1.05,
       "Weight": 50.0,
       "Modifier": []
       },
     "OSMO": {
+      "Initial": 315,
       "Weight": 0.007,
       "Modifier": []
       }
