@@ -162,7 +162,7 @@ class ModelTraining:
             fun=self.objective_func,
             x0=combined_mat,
             bounds=[(-1, 1)] * len(combined_mat),
-            method="L-BFGS-B",
+            method="SLSQP",
             options={"maxiter": iterations, "disp": False, "ftol": 1e-09},
         )
         print("")
@@ -182,21 +182,21 @@ class ModelTraining:
         )
 
         save_time = datetime.now().strftime("%Y-%m-%d %H%M%S")
-        historic_path = Path(save_path, "historic_matrices")
-        historic_path.mkdir(parents=True, exist_ok=True)
+
+        # historic_path = Path(save_path, "historic_matrices")
+        # historic_path.mkdir(parents=True, exist_ok=True)
+        # pd.DataFrame(self.a_matrix).to_csv(
+        #     rf"{save_path}\A_Matrix.csv", index=False, header=False
+        # )
+        # pd.DataFrame(self.b_matrix).to_csv(
+        #     rf"{save_path}\B_Matrix.csv", index=False, header=False
+        # )
 
         pd.DataFrame(self.a_matrix).to_csv(
-            rf"{save_path}\A_Matrix.csv", index=False, header=False
+            rf"{save_path}\{save_time} A_Matrix.csv", index=False, header=False
         )
         pd.DataFrame(self.b_matrix).to_csv(
-            rf"{save_path}\B_Matrix.csv", index=False, header=False
-        )
-
-        pd.DataFrame(self.a_matrix).to_csv(
-            rf"{historic_path}\{save_time} A_Matrix.csv", index=False, header=False
-        )
-        pd.DataFrame(self.b_matrix).to_csv(
-            rf"{historic_path}\{save_time} B_Matrix.csv", index=False, header=False
+            rf"{save_path}\{save_time} B_Matrix.csv", index=False, header=False
         )
 
     def objective_func(self, x0):

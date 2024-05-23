@@ -10,7 +10,6 @@ import warnings
 from pathlib import Path
 
 # Imports from third party
-import yaml
 import numpy as np
 import pandas as pd
 from InquirerPy.resolver import prompt
@@ -25,9 +24,14 @@ from src.data.functions import scaler_tojson, json_toscaler, json_to_dict
 # suppress warnings
 warnings.filterwarnings("ignore")
 
-PARENT_FILE_PATH = Path(
-    r"~\GSK\Biopharm Model Predictive Control - General\data"
-).expanduser()
+# PARENT_FILE_PATH = Path(
+#     r"~\GSK\Biopharm Model Predictive Control - General\data"
+# ).expanduser()
+
+# Use this path for experiment folders in GitHub repository
+top_dir = Path().absolute()
+PARENT_FILE_PATH = top_dir / "models"
+
 FOLDER_SEARCH_KEY = "Model"
 matching_folders = [
     folder.name
@@ -43,12 +47,9 @@ questions = {
 answer = prompt(questions)
 MODELING_DATA_FOLDER_NAME = str(answer["folder"])
 
-
 PATH_DIRECTORY = Path(PARENT_FILE_PATH, MODELING_DATA_FOLDER_NAME)
-yaml_files = glob.glob(str(Path(PATH_DIRECTORY, "*.yaml")))
-yaml_data = open(yaml_files[0], "r", encoding="utf-8")
-model_config = yaml.safe_load(yaml_data)
-yaml_data.close()
+json_files = glob.glob(str(Path(PATH_DIRECTORY, "*.json")))
+model_config = json_to_dict(json_files[0])
 
 
 def main():

@@ -155,6 +155,28 @@ def dict_toscaler(dict_file: dict, minmaxscaler=True):
 
     return reconstructed_scaler
 
+def scaler_todict(scaler: MinMaxScaler):
+    """
+    The function `scaler_tojson` takes a scaler object and saves its attributes to a JSON file.
+    
+    Args:
+      scaler: The `scaler` parameter is an instance of a scaler object. It could be any scaler object
+    from a machine learning library, such as `StandardScaler` from scikit-learn. The scaler object is
+    used to scale or normalize data.
+      save_path: The `save_path` parameter is the file path where the JSON file will be saved. It should
+    include the file name and extension. For example, if you want to save the JSON file as
+    "scaler_attributes.json" in the current directory, you can set `save_path` as "sc
+    """
+    # Prepare a dictionary to hold the scaler's attributes
+    scaler_attributes = {
+        attr_name: getattr(scaler, attr_name).tolist()
+        if hasattr(getattr(scaler, attr_name), "tolist")
+        else getattr(scaler, attr_name)
+        for attr_name in vars(scaler)
+    }
+
+    return scaler_attributes
+
 def json_to_dict(json_file_path: Union[str, Path]):
   
     with open(json_file_path, "r", encoding="utf-8") as file:
