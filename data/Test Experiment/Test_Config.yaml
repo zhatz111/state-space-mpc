@@ -13,7 +13,7 @@ Initial Volumes: # Initial volumes in mL
 # in between these for syntax simplicity, otherwise list out all reactors
 Arange Bioreactors: True
 Bioreactors:
-- 1
+- 20
 
 Data Folder: 2024-04-18 Test Experiment
 Figures Folder: Test Figures
@@ -23,8 +23,8 @@ Total Feed Name: "CUMULATIVE_NORMALIZED_FEED"
 Daily Feed Name: "DAILY_NORMALIZED_FEED"
 
 Controller Dictionary:
-  Controller2:
-  - 1
+  ControllerForTuning:
+  - 20
   # Controller2:
   # - 2
   # - 3
@@ -279,215 +279,173 @@ Column Mapping: {
     "batchAge": "Day"
 }
 
-# # Controller 1: for debugging purposes only
-# Controller1: {
-#   "Time": [
-#       0,
-#       1,
-#       2,
-#       3,
-#       4,
-#       5,
-#       6,
-#       7,
-#       8,
-#       9,
-#       10,
-#       11,
-#       12
-#   ],
-#   "Process Variables": {
-#     "IGG": {
-#       "Data": [
-#         146.510,
-#         509.830,
-#         997.910,
-#         1505.08,
-#         2119.61,
-#         2716.05,
-#         3307.90,
-#         3888.32,
-#         4309.70,
-#         4805.73,
-#         5302.42,
-#         5791.69,
-#         6118.18
-#       ],
-#       "Weight": 0.000001
-#     },
-#     "VIABILITY": {
-#       "Data": [
-#         100.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         99.0,
-#         80.0
-#       ],
-#       "Weight": 0.00000
-#     }
-#   },
-#   "State Variables":{
-#     "IGG": {
-#       "Weight": 0.00001,
-#       "Modifier": [],
-#       },
-#     "VCC": {
-#       "Weight": 2.0,
-#       "Modifier": [],
-#       },
-#     "VIABILITY": {
-#       "Weight": 10.0,
-#       "Modifier": []
-#       },
-#     "LACTATE": {
-#       "Weight": 50.0,
-#       "Modifier": []
-#       },
-#     "OSMO": {
-#       "Weight": 0.007,
-#       "Modifier": []
-#       }
-#   },
-#   "End of Run Variables":{
-#     "Viability": {
-#       "Weight": 0.00001,
-#       "Constraint": [
-#         80,
-#         100
-#         ]
-#       },
-#     "OSMO": {
-#       "Weight": 0.0,
-#       "Constraint": [
-#         300,
-#         400
-#         ]
-#       }
-#   },
-#   "Manipulated Variables": {
-#     "CUMULATIVE_NORMALIZED_FEED": {
-#       "Data": [
-#         0,
-#         0.0045,
-#         0.011,
-#         0.019,
-#         0.0295,
-#         0.0375,
-#         0.051,
-#         0.061,
-#         0.0705,
-#         0.0795,
-#         0.0885,
-#         0.097,
-#         0.1045
-#         ],
-#       "Weight": 10000.0,
-#       "Constraint": [
-#         0.002,
-#         0.05
-#         ]
-#     },
-#     "DO": {
-#       "Data": [
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         0.5,
-#         ],
-#       "Weight": 0.1,
-#       "Constraint": [
-#         0.4,
-#         0.6
-#         ]
-#     }    
-#   },
-#   "Input Variables": {
-#     "CUMULATIVE_NORMALIZED_FEED": [
-#       0,
-#       0.0045,
-#       0.011,
-#       0.019,
-#       0.0295,
-#       0.0375,
-#       0.051,
-#       0.061,
-#       0.0705,
-#       0.0795,
-#       0.0885,
-#       0.097,
-#       0.1045
-#     ],
-#     "TEMPERATURE": [
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#       34,
-#     ],
-#     "PH_AT_TEMP": [
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#       7.2,
-#     ],
-#     "DO": [
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#       0.5,
-#     ],
-#   },
-#   "Prediction Horizon": 30,
-#   "Control Horizon": 30,
-#   "Estimation Horizon": 2,
-#   "Estimation Filter Weight on Data": 0.9,
-# }
-
 # Controller 2: actual controller configuration
 Controller2: {
+  "Time": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+  ],
+  "Process Variables": {
+    "IGG": {
+      "Data": [
+        146.510,
+        509.830,
+        997.910,
+        1505.08,
+        2119.61,
+        2716.05,
+        3307.90,
+        3888.32,
+        4309.70,
+        4805.73,
+        5302.42,
+        5791.69,
+        6118.18
+      ],
+      "Weight": 0.000001
+    },
+  },
+  "State Variables":{
+    "IGG": {
+      "Initial": 160.05,
+      "Weight": 0.00001,
+      "Modifier": [],
+      },
+    "VCC": {
+      "Initial": 13.83,
+      "Weight": 2.0,
+      "Modifier": [],
+      },
+    "VIABILITY": {
+      "Initial": 98.19,
+      "Weight": 10.0,
+      "Modifier": []
+      },
+    "LACTATE": {
+      "Initial": 1.05,
+      "Weight": 50.0,
+      "Modifier": []
+      },
+    "OSMO": {
+      "Initial": 315,
+      "Weight": 0.007,
+      "Modifier": []
+      }
+  },
+  "End of Run Variables":{
+    "Viability": {
+      "Weight": 0.00001,
+      "Constraint": [
+        80,
+        100
+        ]
+      },
+  },
+  "Manipulated Variables": {
+    "CUMULATIVE_NORMALIZED_FEED": {
+      "Data": [
+        0,
+        0.0045,
+        0.011,
+        0.019,
+        0.0295,
+        0.0375,
+        0.051,
+        0.061,
+        0.0705,
+        0.0795,
+        0.0885,
+        0.097,
+        0.1045
+        ],
+      "Weight": 10000.0,
+      "Constraint": [
+        0.0045,
+        0.05
+        ]
+    }
+  },
+  "Input Variables": {
+    "CUMULATIVE_NORMALIZED_FEED": [
+      0,
+      0.0045,
+      0.011,
+      0.019,
+      0.0295,
+      0.0375,
+      0.051,
+      0.061,
+      0.0705,
+      0.0795,
+      0.0885,
+      0.097,
+      0.1045
+    ],
+    "TEMPERATURE": [
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+    ],
+    "PH_AT_TEMP": [
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+    ],
+    "DO": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+    ],
+  },
+  "Prediction Horizon": 30,
+  "Control Horizon": 30,
+  "Estimation Horizon": 2,
+  "Estimation Filter Weight on Data": 0.9,
+}
+
+# Controller 2: actual controller configuration
+ControllerForTuning: {
   "Time": [
       0,
       1,
