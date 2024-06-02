@@ -13,7 +13,7 @@ Initial Volumes: # Initial volumes in mL
 # in between these for syntax simplicity, otherwise list out all reactors
 Arange Bioreactors: True
 Bioreactors:
-- 20
+- 99
 
 Data Folder: 2024-04-18 Test Experiment
 Figures Folder: Test Figures
@@ -24,7 +24,7 @@ Daily Feed Name: "DAILY_NORMALIZED_FEED"
 
 Controller Dictionary:
   ControllerForTuning:
-  - 20
+  - 99
   # Controller2:
   # - 2
   # - 3
@@ -444,7 +444,7 @@ Controller2: {
   "Estimation Filter Weight on Data": 0.9,
 }
 
-# Controller 2: actual controller configuration
+# ControllerForTuning: based on Controller 2; testing only
 ControllerForTuning: {
   "Time": [
       0,
@@ -510,7 +510,7 @@ ControllerForTuning: {
   },
   "End of Run Variables":{
     "Viability": {
-      "Weight": 0.00001,
+      "Weight": 0, # 0.0001, # 0.00001,
       "Constraint": [
         80,
         100
