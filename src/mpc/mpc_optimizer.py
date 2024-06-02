@@ -611,6 +611,9 @@ class Controller:
         MV_SUFFIX = "--INPUT_DATA"
         self.mv_names = [x + MV_SUFFIX for x in mv_names]
 
+        MV_REF_SUFFIX = "--INPUT_REF"
+        self.mv_ref_names = [x + MV_REF_SUFFIX for x in mv_names]
+
         # self.bioreactor.data[
         #     "IGG--STATE_SP"
         # ] = self.pv_sps  # find a way to avoid hard coding target setpoint name
@@ -668,6 +671,9 @@ class Controller:
             return
 
         control_matrix = self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names].values
+        
+        # Update reference input with current input data and previously optimized data
+        self.bioreactor.data[self.mv_ref_names] = self.bioreactor.data[self.mv_names]
 
         # Flatten initial mv
         mv_array = control_matrix.flatten()
