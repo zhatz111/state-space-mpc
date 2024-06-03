@@ -209,9 +209,9 @@ class Bioreactor:
 
     def get_result(self):
         feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"].values
-        feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
+        # feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
         feed_daily_ml = feed_daily * self.init_vol
-        feed_total_ml = feed_total * self.init_vol
+        # feed_total_ml = feed_total * self.init_vol
         feed_daily_ml_h = feed_daily_ml / 24 / 60
 
         result = {

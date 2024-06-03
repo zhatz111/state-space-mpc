@@ -259,24 +259,24 @@ Model Parameters: {
 }
 
 Column Mapping: {
-    "time": "Date",
-    "batchid": "Bioreactor",
-    "SampleAmount": "Sample Volume",
-    "CellCultureViability": "VIABILITY--STATE_DATA",
-    "TotalViableCellConcentration": "VCC--STATE_DATA",
-    "Titre": "IGG--STATE_DATA",
+    "Sample Time": "Date",
+    "Batch": "Bioreactor",
+    "Sample Volume": "Sample Volume",
+    "Viability": "VIABILITY--STATE_DATA",
+    "VCC": "VCC--STATE_DATA",
+    "IGG": "IGG--STATE_DATA",
     "Osmolality": "OSMO--STATE_DATA",
-    "pHatTemperature": "PH_AT_TEMP--STATE_DATA",
-    "GlucoseConcentration": "GLUCOSE--INPUT_DATA",
-    "LactateConcentration": "LACTATE--STATE_DATA",
+    "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    "Glucose": "GLUCOSE--INPUT_DATA",
+    "Lactate": "LACTATE--STATE_DATA",
     "pCO2atTemperature": "PCO2--INPUT_DATA",
-    "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
-    "dissolved_oxygen": "DO--INPUT_DATA",
-    "pH": "PH--INPUT_DATA",
-    "temperature": "TEMPERATURE--INPUT_DATA",
-    "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
-    "nutrient_rate": "FEED_RATE--INPUT_DATA",
-    "batchAge": "Day"
+    "Ammonium": "AMMONIUM--STATE_DATA",
+    "DO (%)": "DO--INPUT_DATA",
+    "Online pH": "PH--INPUT_DATA",
+    "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
+    "Cumulative_Normalized_Feed_Current": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
+    "Feed Flow Rate (mL/hr)": "FEED_RATE--INPUT_DATA",
+    "Day": "Day"
 }
 
 # Controller 2: actual controller configuration
