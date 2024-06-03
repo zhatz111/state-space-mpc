@@ -286,8 +286,16 @@ class Bioreactor:
         if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
             feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"]
             feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-            feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
+
+            # Adjust future daily values based on the offset between predicted and measured
+            curr_time_feed_offset = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"] - feed_total[insert_index]
+            feed_total[insert_index:] = feed_total[insert_index:] + curr_time_feed_offset
+            # feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
             feed_daily = np.append(np.diff(feed_total), 0)
+
+            # Check for negative daily feeds
+            if np.any(feed_daily<0):
+                raise ValueError('Negative daily feeds!')
 
         # Replace current day's data with non-NAN values in input
         # self.data.loc[insert_index,selected_col] = renamed_vector[selected_col]
@@ -408,6 +416,14 @@ class Bioreactor:
             state_labels = self.process_model.state_est_labels
 
         return self.data.loc[self.data["Day"] == curr_time, state_labels].values[0]
+    
+    def measurement(self, day=-1):
+        if day >= 0:
+            curr_time = day
+        else:
+            curr_time = self.curr_time
+
+        return self.data.loc[self.data["Day"] == curr_time, self.process_model.state_data_labels].values[0]        
 
     def sim_from_day(self, day=-1, initial_state=np.array([])):
         # If not from current day
@@ -603,6 +619,9 @@ class Controller:
         MV_SUFFIX = "--INPUT_DATA"
         self.mv_names = [x + MV_SUFFIX for x in mv_names]
 
+        MV_REF_SUFFIX = "--INPUT_REF"
+        self.mv_ref_names = [x + MV_REF_SUFFIX for x in mv_names]
+
         # self.bioreactor.data[
         #     "IGG--STATE_SP"
         # ] = self.pv_sps  # find a way to avoid hard coding target setpoint name
@@ -660,6 +679,9 @@ class Controller:
             return
 
         control_matrix = self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names].values
+        
+        # Update reference input with current input data and previously optimized data
+        self.bioreactor.data[self.mv_ref_names] = self.bioreactor.data[self.mv_names]
 
         # Flatten initial mv
         mv_array = control_matrix.flatten()
@@ -802,7 +824,10 @@ class Controller:
         if self.eor_names is not None:
             for state_count,state in enumerate(self.eor_names):
                 constraint = self.eor_const[:,state_count]
-                eor_wt = self.eor_wts[state_count]
+                
+                # Take the sqrt to be consistent with weight multiplied by squares in obj
+                eor_wt = np.sqrt(self.eor_wts[state_count])
+                
                 for idx, string in enumerate(self.controller_model.state_pred_labels):
                     if str.upper(state) in string:
                         if constraint[0] > y_out[-1,idx]:
@@ -925,18 +950,32 @@ class Controller:
 
         # Re-estimate the initial state of the horizon
         t0 = self.bioreactor.data.loc[is_in_est_horizon, "Day"].values[0]
-        x0 = self.bioreactor.state(t0)
+        x0_est = self.bioreactor.state(t0)
+        x0_data = self.bioreactor.measurement(t0)
+        
+        # First assign data to x0 estimate
+        x0 = x0_data
+
+        # Replace missing value with the latest estimate
+        if np.any(np.isnan(x0_data)):
+
+            ind_to_estimate = np.where(np.isnan(x0_data))[0]
+            x0[ind_to_estimate] = x0_est[ind_to_estimate]
+        
         res1 = optimize.minimize(
             fun=est_x_obj_func,
             x0=x0,
             method="SLSQP",
         )
         x_star = res1.x
+        
         x_out, _, _, _ = self.bioreactor.sim_from_day(day=t0, initial_state=x_star)
         new_estimates = x_out[0 : sum(is_in_est_horizon),]
         self.bioreactor.data.loc[
             is_in_est_horizon, self.bioreactor.process_model.state_est_labels
         ] = new_estimates
+
+        # self.output_mods_est = np.ones((1, len(self.controller_model.state_mod_labels)))
 
         # Use the previous output_mods if available
         if self.output_mods_user.size == 0:
@@ -952,64 +991,31 @@ class Controller:
         else:
             self.output_mods_est = self.output_mods_user
 
-        # def est_mod_obj_func(p_array):
-        #     # Apply the output modifiers to the stored states
-        #     predictions = np.multiply(
-        #         data.loc[
-        #             is_in_est_horizon, self.bioreactor.process_model.state_est_labels
-        #         ].values,
-        #         p_array,
-        #     )
-
-        #     # Retrieve measurements
-        #     measurements = data.loc[
-        #         is_in_est_horizon, self.bioreactor.process_model.state_data_labels
+        # # Linear reg with no intercept to get mods (YL: 2024-05-09)
+        # p_array_star = self.output_mods_est.flatten()
+        # predictions = self.bioreactor.data.loc[
+        #     is_in_est_horizon, self.bioreactor.process_model.state_est_labels
+        #     ].values
+        # measurements = self.bioreactor.data.loc[
+        #     is_in_est_horizon, self.bioreactor.process_model.state_data_labels
         #     ].values
 
-        #     cost = (
-        #         np.nansum(
-        #             np.nanmean(
-        #                 np.multiply(
-        #                     np.square(predictions - measurements), self.est_wts
-        #                 ),
-        #                 axis=0,
-        #             )
-        #         )
-        #         + np.nansum(np.square(p_array - 1))
-        #         + np.nansum(np.square(p_array - self.output_mods_est))
-        #     )
-
-        #     return cost
-
-        # # flatten the optimization parameters
-        # p_array0 = self.output_mods_est.flatten()
-
-        # res2 = optimize.minimize(
-        #     fun=est_mod_obj_func,
-        #     x0=p_array0,
-        #     method="SLSQP",
-        # )
-
-        # # Unravel final delta_p matrix back to correct shape
-        # self.output_mods_est = res2.x  # [: len(self.output_mods.flatten())].reshape(
-        # # self.output_mods.shape[0], self.output_mods.shape[1]
-        # # )
-
-        # Linear reg with no intercept to get mods (YL: 2024-05-09)
+        # Linear reg with no intercept to get mods from D0 to current
         p_array_star = self.output_mods_est.flatten()
         predictions = self.bioreactor.data.loc[
-            is_in_est_horizon, self.bioreactor.process_model.state_est_labels
+            self.bioreactor.data["Day"] <= self.curr_time, self.bioreactor.process_model.state_est_labels
             ].values
         measurements = self.bioreactor.data.loc[
-            is_in_est_horizon, self.bioreactor.process_model.state_data_labels
-            ].values
+            self.bioreactor.data["Day"] <= self.curr_time, self.bioreactor.process_model.state_data_labels
+            ].values        
+        
         for i in range(len(self.bioreactor.process_model.state_est_labels)):
             predictions_i = predictions[:,i]
             measurements_i = measurements[:,i]
             p_has_data = np.logical_and(~np.isnan(predictions_i),~np.isnan(measurements_i))
             if any(p_has_data):
                 p_star_i = np.sum(np.multiply(predictions_i[p_has_data],measurements_i[p_has_data]))/np.sum(predictions_i**2)
-                p_array_star[i] = np.max((np.min((p_star_i,1.05)),0.95))
+                p_array_star[i] = np.max((np.min((p_star_i,1.1)),0.9))
             elif np.isnan(p_array_star[i]):
                 p_array_star[i] = 1
         self.output_mods_est = p_array_star
