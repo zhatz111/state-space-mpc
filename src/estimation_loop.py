@@ -89,10 +89,22 @@ if (
 else:
     VESSELS = np.array(experiment_config["Bioreactors"])
 
-# Load a historical dataset as a mock dataframe
-mock_df = pd.read_csv(
-    Path(PATH_DIRECTORY, f"{experiment_config['Master Data File']}.csv")
-)
+# Load the master data sheet
+if '.xlsx' in experiment_config['Master Data File']:
+    master_sheet = pd.read_excel(
+        Path(PATH_DIRECTORY, experiment_config['Master Data File']),
+        skiprows=[0],
+    ).rename(
+        columns={
+            "Batch": "Bioreactor",
+        }
+    )
+elif '.csv' in experiment_config['Master Data File']:
+    master_sheet = pd.read_csv(
+        Path(PATH_DIRECTORY, experiment_config['Master Data File'])
+    )    
+else:
+    raise ValueError('Wrong master sheet file extension!')
 
 # -------------------------------------------------------------------------------------
 # LOAD MODEL DATA
@@ -121,7 +133,7 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY (SIMULATION)
 
 # Mock current time (end of time iteration)
-curr_time_end = 8
+curr_time_end = 12
 
 # Create figure output folder
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
@@ -158,7 +170,10 @@ for curr_vessel in VESSELS:
 for count_vessel, curr_vessel in enumerate(VESSELS):
 
     # Create bioreactor-specific output folders
-    fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
+    if isinstance(curr_vessel,str):
+        fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), curr_vessel)
+    else:
+        fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
     fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
     # store Controller objects in list to use last one for plotting
@@ -178,8 +193,8 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
         controller_config = experiment_config[controller_key]
 
         # Parse the states from the reference data csv file
-        input_messages = mock_df.loc[
-            mock_df["Bioreactor"] == curr_vessel, :
+        input_messages = master_sheet.loc[
+            master_sheet["Bioreactor"] == curr_vessel, :
         ]
 
         # # Construct a bioreactor object
@@ -270,12 +285,17 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     # Plot the MPC Controller for each Bioreactor
     # Use the last controller from the list which is the controller from the current day
     br_plots = MPCVisualizer(bioreactor, controller_list[-1])
+    
+    if isinstance(curr_vessel,str):
+        identifier = f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}"
+    else:
+        identifier = f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}"
+    
     br_plots.mpc_daily_plot(
         save_path=fig_path_lv2_BR
-        / f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}.png",
+        / f"{identifier}.png",
         identifier=f"{experiment_config['Experiment Number']} \
-        -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
-        _D{curr_time_end}-{todays_date}",
+        -MPC/{identifier}",
         unit_dict=experiment_config["Units Dictionary"],
         metadata={
             "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",
@@ -286,14 +306,13 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
             "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "Software": f"Python v{sys.version}",
         },
-        display=False,
+        display=True,
     )
     br_plots.mpc_daily_plot(
         save_path=fig_path_lv2_day
-        / f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}.png",
+        / f"{identifier}.png",
         identifier=f"{experiment_config['Experiment Number']} \
-        -MPC/BR{bioreactor.vessel:02d}/BR{bioreactor.vessel:02d} \
-        _D{curr_time_end}-{todays_date}",
+        -MPC/{identifier}",
         unit_dict=experiment_config["Units Dictionary"],
         metadata={
             "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",

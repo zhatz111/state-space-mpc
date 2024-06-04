@@ -17,7 +17,7 @@ Bioreactors:
 
 Data Folder: 2024-04-18 Test Experiment
 Figures Folder: Test Figures
-Master Data File: MR24-XXX-Master
+Master Data File: MR24-XXX-Master.csv
 Bioreactor Model File Name: aCD96_model_parameters
 Total Feed Name: "CUMULATIVE_NORMALIZED_FEED"
 Daily Feed Name: "DAILY_NORMALIZED_FEED"
@@ -320,27 +320,31 @@ Controller2: {
     "IGG": {
       "Initial": 160.05,
       "Weight": 0.00001,
-      "Modifier": [],
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
-      "Modifier": [],
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "VIABILITY": {
       "Initial": 98.19,
       "Weight": 10.0,
-      "Modifier": []
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "LACTATE": {
       "Initial": 1.05,
-      "Weight": 50.0,
-      "Modifier": []
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
-      "Modifier": []
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       }
   },
   "End of Run Variables":{
@@ -485,27 +489,32 @@ ControllerForTuning: {
     "IGG": {
       "Initial": 160.05,
       "Weight": 0.00001,
-      "Modifier": [],
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
-      "Modifier": [],
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "VIABILITY": {
       "Initial": 98.19,
       "Weight": 10.0,
-      "Modifier": []
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "LACTATE": {
       "Initial": 1.05,
       "Weight": 50.0,
-      "Modifier": []
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
-      "Modifier": []
+      "Update modifier": True,
+      "Initial modifier": 1.0,
       }
   },
   "End of Run Variables":{

@@ -14,28 +14,28 @@ Initial Volumes: # Initial volumes in mL
 # in between these for syntax simplicity, otherwise list out all reactors
 Arange Bioreactors: False
 Bioreactors:
-- 801
-- 802
-- 803
-- 804
-- 805
-- 806
+  # - MR24-030-801
+  - MR24-030-802
+  # - MR24-030-803
+  # - MR24-030-804
+  # - MR24-030-805
+  # - MR24-030-806
 
 Data Folder: MR24-030 Experiment
 Figures Folder: MR24-030 Figures
-Master Data File: MR24-030-Master
+Master Data File: MR24-030-MasterDataTable.xlsx
 Bioreactor Model File Name: aCD96_model_parameters
 Total Feed Name: "CUMULATIVE_NORMALIZED_FEED"
 Daily Feed Name: "DAILY_NORMALIZED_FEED"
 
 Controller Dictionary:
   MainController:
-  - 801
-  - 802
-  - 803
-  - 804
-  - 805
-  - 806
+    - MR24-030-801
+    - MR24-030-802
+    - MR24-030-803
+    - MR24-030-804
+    - MR24-030-805
+    - MR24-030-806
 
 Units Dictionary:
   IGG: mg/L
@@ -268,23 +268,37 @@ Model Parameters: {
 
 Column Mapping: {
     "Sample Time": "Date",
+    "time": "Date",
     "Batch": "Bioreactor",
-    "Sample Volume": "Sample Volume",
+    "batchid": "Bioreactor",
+    "SampleAmount": "Sample Volume",
     "Viability": "VIABILITY--STATE_DATA",
+    "CellCultureViability": "VIABILITY--STATE_DATA",
     "VCC": "VCC--STATE_DATA",
+    "TotalViableCellConcentration": "VCC--STATE_DATA",
     "IGG": "IGG--STATE_DATA",
+    "Titre": "IGG--STATE_DATA",
     "Osmolality": "OSMO--STATE_DATA",
     "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    "pHatTemperature": "PH_AT_TEMP--STATE_DATA",
     "Glucose": "GLUCOSE--INPUT_DATA",
+    "GlucoseConcentration": "GLUCOSE--INPUT_DATA",
     "Lactate": "LACTATE--STATE_DATA",
+    "LactateConcentration": "LACTATE--STATE_DATA",
     "pCO2atTemperature": "PCO2--INPUT_DATA",
     "Ammonium": "AMMONIUM--STATE_DATA",
+    "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
     "DO (%)": "DO--INPUT_DATA",
-    "Online pH": "PH--INPUT_DATA",
+    "dissolved_oxygen": "DO--INPUT_DATA",
+    # "Online pH": "PH--INPUT_DATA",
+    # "pH": "PH--INPUT_DATA",
     "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
+    "temperature": "TEMPERATURE--INPUT_DATA",
     "Cumulative_Normalized_Feed_Current": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
+    "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
     "Feed Flow Rate (mL/hr)": "FEED_RATE--INPUT_DATA",
-    "Day": "Day"
+    "nutrient_rate": "FEED_RATE--INPUT_DATA",
+    "batchAge": "Day"    
 }
 
 # Controller 2: actual controller configuration
@@ -328,32 +342,37 @@ MainController: {
     "IGG": {
       "Initial": 160.05,
       "Weight": 0.00001,
-      "Modifier": [],
+      "Update modifier": False,
+      "Initial modifier": 1.0,
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
-      "Modifier": [],
+      "Update modifier": False,
+      "Initial modifier": 1.0,
       },
     "VIABILITY": {
       "Initial": 98.19,
       "Weight": 10.0,
-      "Modifier": []
+      "Update modifier": False,
+      "Initial modifier": 1.0,
       },
     "LACTATE": {
       "Initial": 1.05,
       "Weight": 50.0,
-      "Modifier": []
+      "Update modifier": False,
+      "Initial modifier": 1.0,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
-      "Modifier": []
+      "Update modifier": False,
+      "Initial modifier": 1.0,
       }
   },
   "End of Run Variables":{
     "Viability": {
-      "Weight": 0.00001,
+      "Weight": 0.0,
       "Constraint": [
         80,
         100

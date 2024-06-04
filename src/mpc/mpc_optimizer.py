@@ -574,7 +574,8 @@ class Controller:
         mv_names = list(controller_config["Manipulated Variables"].keys())
         mv_constr = np.transpose(np.array([controller_config["Manipulated Variables"][key]["Constraint"] for key in controller_config["Manipulated Variables"]]))
         est_wts = np.array([controller_config["State Variables"][key]["Weight"] for key in controller_config["State Variables"]])
-        output_mods_user = np.array([controller_config["State Variables"][key]["Modifier"] for key in controller_config["State Variables"]])
+        output_mods_init = np.array([controller_config["State Variables"][key]["Initial modifier"] for key in controller_config["State Variables"]])
+        output_mods_update = np.array([controller_config["State Variables"][key]["Update modifier"] for key in controller_config["State Variables"]])
         eor_names = list(controller_config["End of Run Variables"].keys())
         eor_constr = np.transpose(np.array([controller_config["End of Run Variables"][key]["Constraint"] for key in controller_config["End of Run Variables"]]))
         eor_wts = np.array([controller_config["End of Run Variables"][key]["Weight"] for key in controller_config["End of Run Variables"]])
@@ -600,8 +601,8 @@ class Controller:
         self.ctrl_horizon = ctrl_horizon
         self.mv_constr = mv_constr
 
-        self.output_mods_est = np.array([])  # p estimated from data
-        self.output_mods_user = output_mods_user  # p specified by user
+        self.output_mods_est = output_mods_init  # p estimated from data
+        self.output_mods_update = output_mods_update  # p specified by user or updated automatically
         # self.delta_p_a = []
         # self.delta_p_b = []
         self.est_horizon = est_horizon
@@ -977,19 +978,19 @@ class Controller:
 
         # self.output_mods_est = np.ones((1, len(self.controller_model.state_mod_labels)))
 
-        # Use the previous output_mods if available
-        if self.output_mods_user.size == 0:
-            if self.curr_time == 0:
-                self.output_mods_est = np.ones(
-                    (1, len(self.controller_model.state_mod_labels))
-                )
-            else:
-                self.output_mods_est = self.bioreactor.data.loc[
-                    self.bioreactor.data["Day"] == self.curr_time - 1,
-                    self.controller_model.state_mod_labels,
-                ].values
-        else:
-            self.output_mods_est = self.output_mods_user
+        # # Use the previous output_mods if available
+        # if self.output_mods_update.size == 0:
+        #     if self.curr_time == 0:
+        #         self.output_mods_est = np.ones(
+        #             (1, len(self.controller_model.state_mod_labels))
+        #         )
+        #     else:
+        #         self.output_mods_est = self.bioreactor.data.loc[
+        #             self.bioreactor.data["Day"] == self.curr_time - 1,
+        #             self.controller_model.state_mod_labels,
+        #         ].values
+        # else:
+        #     self.output_mods_est = self.output_mods_update
 
         # # Linear reg with no intercept to get mods (YL: 2024-05-09)
         # p_array_star = self.output_mods_est.flatten()
@@ -999,7 +1000,7 @@ class Controller:
         # measurements = self.bioreactor.data.loc[
         #     is_in_est_horizon, self.bioreactor.process_model.state_data_labels
         #     ].values
-
+        
         # Linear reg with no intercept to get mods from D0 to current
         p_array_star = self.output_mods_est.flatten()
         predictions = self.bioreactor.data.loc[
@@ -1010,14 +1011,15 @@ class Controller:
             ].values        
         
         for i in range(len(self.bioreactor.process_model.state_est_labels)):
+            update_mod_i = self.output_mods_update[i]
             predictions_i = predictions[:,i]
             measurements_i = measurements[:,i]
             p_has_data = np.logical_and(~np.isnan(predictions_i),~np.isnan(measurements_i))
-            if any(p_has_data):
+            if any(p_has_data) and update_mod_i:
                 p_star_i = np.sum(np.multiply(predictions_i[p_has_data],measurements_i[p_has_data]))/np.sum(predictions_i**2)
                 p_array_star[i] = np.max((np.min((p_star_i,1.1)),0.9))
-            elif np.isnan(p_array_star[i]):
-                p_array_star[i] = 1
+            # elif np.isnan(p_array_star[i]):
+            #     p_array_star[i] = 1
         self.output_mods_est = p_array_star
 
 
