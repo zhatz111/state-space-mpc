@@ -144,7 +144,11 @@ else:
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
 fig_path_top_dir.mkdir(parents=True, exist_ok=True)
 
-# Create a daily folder of all reactors
+# Create CSV data output folder
+csv_path_top_dir = Path(PATH_DIRECTORY, experiment_config["CSV Export Folder"])
+csv_path_top_dir.mkdir(parents=True, exist_ok=True)
+
+# Create a daily figures folder of all reactors
 fig_path_lv2_day = Path(
     fig_path_top_dir.expanduser(), f"D{curr_time_end}-{todays_date}"
 )
@@ -174,12 +178,19 @@ for curr_vessel in VESSELS:
 # Iterate bioreactors
 for count_vessel, curr_vessel in enumerate(VESSELS):
 
-    # Create bioreactor-specific output folders
+    # Create bioreactor-specific figure output folders
     if isinstance(curr_vessel,str):
         fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), curr_vessel)
     else:
         fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
     fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
+
+    # Create bioreactor-specific CSV output folders
+    if isinstance(curr_vessel,str):
+        csv_path_lv2_BR = Path(csv_path_top_dir.expanduser(), curr_vessel)
+    else:
+        csv_path_lv2_BR = Path(csv_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
+    csv_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
     # store Controller objects in list to use last one for plotting
     controller_list = []
@@ -244,45 +255,62 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     # -------------------------------------------------------------------------------------
     # BIOREACTOR DATA SAVED
 
-    # Search if files are in directory
+    # OLD CODE TO CONCAT VESSELS TOGETHER INTO ONE CSV FILE
+    # # Search if files are in directory
+    # filenames = [
+    #     f"{experiment_config['Experiment Number']}-daily_feed.csv",
+    #     f"{experiment_config['Experiment Number']}-total_feed.csv",
+    # ]
+    # dir_paths = [x.name for x in list(PATH_DIRECTORY.iterdir())]
+
+    # if all(item in filenames for item in dir_paths):
+    #     # Read in CSV files
+    #     df_br_daily = pd.read_csv(PATH_DIRECTORY / filenames[0])
+    #     df_br_total = pd.read_csv(PATH_DIRECTORY / filenames[1])
+
+    #     # Daily feed csv
+    #     df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
+    #     df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
+
+    #     df_final_daily = df_combined_daily.drop_duplicates(
+    #         subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    #     )
+    #     df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    #     df_final_daily.to_csv(PATH_DIRECTORY / filenames[0], index=False)
+
+    #     # Total feed csv
+    #     df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
+    #     df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
+
+    #     df_final_total = df_combined_total.drop_duplicates(
+    #         subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    #     )
+    #     df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    #     df_final_total.to_csv(PATH_DIRECTORY / filenames[1], index=False)
+    # else:
+    #     # If no file exist currently
+    #     bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
+    #         PATH_DIRECTORY / filenames[0], index=False
+    #     )
+    #     bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
+    #         PATH_DIRECTORY / filenames[1], index=False
+    #     )
+
+
+    # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
+    # DEVELOPED: 2024-06-06
     filenames = [
-        f"{experiment_config['Experiment Number']}-daily_feed.csv",
-        f"{experiment_config['Experiment Number']}-total_feed.csv",
+        f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}-daily_feed.csv",
+        # f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}-total_feed.csv",
     ]
-    dir_paths = [x.name for x in list(PATH_DIRECTORY.iterdir())]
 
-    if all(item in filenames for item in dir_paths):
-        # Read in CSV files
-        df_br_daily = pd.read_csv(PATH_DIRECTORY / filenames[0])
-        df_br_total = pd.read_csv(PATH_DIRECTORY / filenames[1])
-
-        # Daily feed csv
-        df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
-        df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
-
-        df_final_daily = df_combined_daily.drop_duplicates(
-            subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
-        )
-        df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_daily.to_csv(PATH_DIRECTORY / filenames[0], index=False)
-
-        # Total feed csv
-        df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
-        df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
-
-        df_final_total = df_combined_total.drop_duplicates(
-            subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
-        )
-        df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
-        df_final_total.to_csv(PATH_DIRECTORY / filenames[1], index=False)
-    else:
-        # If no file exist currently
-        bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
-            PATH_DIRECTORY / filenames[0], index=False
-        )
-        bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
-            PATH_DIRECTORY / filenames[1], index=False
-        )
+    # If no file exist currently
+    bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
+        csv_path_lv2_BR / filenames[0], index=False
+    )
+    # bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
+    #     csv_path_lv2_BR / filenames[1], index=False
+    # )
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED
@@ -290,12 +318,12 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     # Plot the MPC Controller for each Bioreactor
     # Use the last controller from the list which is the controller from the current day
     br_plots = MPCVisualizer(bioreactor, controller_list[-1])
-    
+
     if isinstance(curr_vessel,str):
         identifier = f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}"
     else:
         identifier = f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}"
-    
+
     br_plots.mpc_daily_plot(
         save_path=fig_path_lv2_BR
         / f"{identifier}.png",

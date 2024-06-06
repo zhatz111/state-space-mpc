@@ -24,6 +24,7 @@ Bioreactors:
 
 Data Folder: MR24-030 Experiment
 Figures Folder: MR24-030 Figures
+CSV Export Folder: MR24-030 CSV Files
 Master Data File: MR24-030-MasterDataTable.xlsx
 Bioreactor Model File Name: aCD96_model_parameters
 Total Feed Name: "CUMULATIVE_NORMALIZED_FEED"
@@ -297,7 +298,7 @@ Column Mapping: {
     "temperature": "TEMPERATURE--INPUT_DATA",
     "Cumulative_Normalized_Feed_Current WV": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
     "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
-    "Feed Flow Rate (mL/hr)": "FEED_RATE--INPUT_DATA",
+    "Feed Flow Rate (mL/min)": "FEED_RATE--INPUT_DATA",
     "nutrient_rate": "FEED_RATE--INPUT_DATA",
     "batchAge": "Day"    
 }
