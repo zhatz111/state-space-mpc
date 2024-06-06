@@ -289,7 +289,7 @@ Column Mapping: {
     "pCO2atTemperature": "PCO2--INPUT_DATA",
     "Ammonium": "AMMONIUM--STATE_DATA",
     "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
-    "DO (%)": "DO--INPUT_DATA",
+    "DO": "DO--INPUT_DATA",
     "dissolved_oxygen": "DO--INPUT_DATA",
     # "Online pH": "PH--INPUT_DATA",
     # "pH": "PH--INPUT_DATA",
@@ -397,7 +397,7 @@ MainController: {
         0.097,
         0.1045
         ],
-      "Weight": 10000.0,
+      "Weight": 2000.0,
       "Constraint": [
         0.0045,
         0.05
