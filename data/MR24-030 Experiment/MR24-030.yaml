@@ -2,6 +2,7 @@
 Asset: aCD96
 Experiment Number: MR24-030
 ELN Number: EXXXXX
+Inoc Date: "2024-06-06"
 Last Day: 12
 Scale: "3L"
 Initial Volumes: # Initial volumes in mL
@@ -16,7 +17,7 @@ Arange Bioreactors: False
 Bioreactors:
   # - MR24-030-801
   - MR24-030-802
-  # - MR24-030-803
+  - MR24-030-803
   # - MR24-030-804
   # - MR24-030-805
   # - MR24-030-806

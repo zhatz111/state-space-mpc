@@ -133,7 +133,12 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY (SIMULATION)
 
 # Mock current time (end of time iteration)
-curr_time_end = 12
+curr_time_user = -1
+if "Inoc Date" in experiment_config and curr_time_user < 0:
+    date_delta = datetime.today().date() - datetime.strptime(experiment_config["Inoc Date"],"%Y-%m-%d").date()
+    curr_time_end = date_delta.days
+else:
+    curr_time_end = curr_time_user
 
 # Create figure output folder
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
