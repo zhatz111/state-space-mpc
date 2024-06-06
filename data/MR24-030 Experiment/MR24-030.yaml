@@ -294,7 +294,7 @@ Column Mapping: {
     # "pH": "PH--INPUT_DATA",
     "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
     "temperature": "TEMPERATURE--INPUT_DATA",
-    "Cumulative_Normalized_Feed_Current": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
+    "Cumulative_Normalized_Feed_Current WV": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
     "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
     "Feed Flow Rate (mL/hr)": "FEED_RATE--INPUT_DATA",
     "nutrient_rate": "FEED_RATE--INPUT_DATA",
