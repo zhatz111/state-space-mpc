@@ -80,6 +80,11 @@ target/
 /data/interim/
 /data/processed/
 /data/raw/
+/data/MR24-030 Experiment/MR24-030 Figures-old/
+/data/Test Experiment/Test Figures-old/
+/data/Test Experiment/Test Figures/
+/data/Test Experiment/master-data-old/
+
 
 # exclude reports from source control by default
 /reports/

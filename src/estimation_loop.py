@@ -325,8 +325,10 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
         identifier = f"BR{bioreactor.vessel:02d}_D{curr_time_end}-{todays_date}"
 
     br_plots.mpc_daily_plot(
-        save_path=fig_path_lv2_BR
-        / f"{identifier}.png",
+        save_paths=(
+            fig_path_lv2_BR / f"{identifier}.png",
+            fig_path_lv2_day / f"{identifier}.png",
+            ),
         identifier=f"{experiment_config['Experiment Number']} \
         -MPC/{identifier}",
         unit_dict=experiment_config["Units Dictionary"],
@@ -341,19 +343,19 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
         },
         display=True,
     )
-    br_plots.mpc_daily_plot(
-        save_path=fig_path_lv2_day
-        / f"{identifier}.png",
-        identifier=f"{experiment_config['Experiment Number']} \
-        -MPC/{identifier}",
-        unit_dict=experiment_config["Units Dictionary"],
-        metadata={
-            "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",
-            "Author": "Zach Hatzenbeller, Yu Luo",
-            "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
-            "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
-            "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            "Software": f"Python v{sys.version}",
-        },
-        display=False,
-    )
+    # br_plots.mpc_daily_plot(
+    #     save_path=fig_path_lv2_day
+    #     / f"{identifier}.png",
+    #     identifier=f"{experiment_config['Experiment Number']} \
+    #     -MPC/{identifier}",
+    #     unit_dict=experiment_config["Units Dictionary"],
+    #     metadata={
+    #         "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",
+    #         "Author": "Zach Hatzenbeller, Yu Luo",
+    #         "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
+    #         "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
+    #         "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+    #         "Software": f"Python v{sys.version}",
+    #     },
+    #     display=False,
+    # )

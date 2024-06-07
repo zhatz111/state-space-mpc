@@ -55,7 +55,7 @@ class MPCVisualizer:
 
     def mpc_daily_plot(
         self,
-        save_path: Union[str, Path, None] = None,
+        save_paths: Union[list, tuple, None] = None,
         metadata: Optional[dict] = None,
         unit_dict: Optional[dict] = None,
         PV: str = "",
@@ -290,10 +290,11 @@ class MPCVisualizer:
             plt.subplots_adjust(right=0.95, left=0.04, top=0.96, bottom=0.04)
 
             # Save the figure if the arguments passed are the correct instances
-            if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
-                fig.savefig(fname=save_path, metadata=metadata)
-            elif isinstance(save_path, (str, Path)):
-                fig.savefig(fname=save_path)
+            for save_path in save_paths:
+                if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
+                    fig.savefig(fname=save_path, metadata=metadata)
+                elif isinstance(save_path, (str, Path)):
+                    fig.savefig(fname=save_path)
 
             if display:
                 plt.show()

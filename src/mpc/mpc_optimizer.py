@@ -288,10 +288,11 @@ class Bioreactor:
             feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
 
             # Adjust future daily values based on the offset between predicted and measured
-            curr_time_feed_offset = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"] - feed_total[insert_index]
-            feed_total[insert_index:] = feed_total[insert_index:] + curr_time_feed_offset
-            # feed_total[insert_index] = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
-            feed_daily = np.append(np.diff(feed_total), 0)
+            curr_feed_total = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
+            if not np.isnan(curr_feed_total):
+                curr_time_feed_offset = curr_feed_total - feed_total[insert_index]
+                feed_total[insert_index:] = feed_total[insert_index:] + curr_time_feed_offset
+                feed_daily = np.append(np.diff(feed_total), 0)
 
             # Check for negative daily feeds
             if np.any(feed_daily<0):
