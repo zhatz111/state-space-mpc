@@ -575,6 +575,7 @@ class Controller:
         mv_names = list(controller_config["Manipulated Variables"].keys())
         mv_constr = np.transpose(np.array([controller_config["Manipulated Variables"][key]["Constraint"] for key in controller_config["Manipulated Variables"]]))
         est_wts = np.array([controller_config["State Variables"][key]["Weight"] for key in controller_config["State Variables"]])
+        slider_wts_on_model = np.array([controller_config["State Variables"][key]["Slider weight on model"] for key in controller_config["State Variables"]])
         output_mods_init = np.array([controller_config["State Variables"][key]["Initial modifier"] for key in controller_config["State Variables"]])
         output_mods_update = np.array([controller_config["State Variables"][key]["Update modifier"] for key in controller_config["State Variables"]])
         eor_names = list(controller_config["End of Run Variables"].keys())
@@ -596,6 +597,7 @@ class Controller:
         self.pv_wts = pv_wts
         self.est_wts = est_wts
         self.filter_wt_on_data = filter_wt_on_data
+        self.slider_wts_on_model = slider_wts_on_model
 
         self.mv_wts = mv_wts
         self.pred_horizon = pred_horizon
@@ -952,8 +954,10 @@ class Controller:
 
         # Re-estimate the initial state of the horizon
         t0 = self.bioreactor.data.loc[is_in_est_horizon, "Day"].values[0]
+        t1 = self.bioreactor.data.loc[is_in_est_horizon, "Day"].values[-1]
         x0_est = self.bioreactor.state(t0)
         x0_data = self.bioreactor.measurement(t0)
+        x1_data = self.bioreactor.measurement(t1)
         
         # First assign data to x0 estimate
         x0 = x0_data
@@ -973,6 +977,13 @@ class Controller:
         
         x_out, _, _, _ = self.bioreactor.sim_from_day(day=t0, initial_state=x_star)
         new_estimates = x_out[0 : sum(is_in_est_horizon),]
+
+        # Adjust current estimate based on sliders
+        x1_has_data = np.where(~np.isnan(x1_data))[0]
+        if len(x1_has_data) > 0:
+            new_estimates[-1,x1_has_data] = np.multiply(new_estimates[-1,x1_has_data],self.slider_wts_on_model[x1_has_data]) + np.multiply(x1_data[x1_has_data],1 - self.slider_wts_on_model[x1_has_data])
+
+        # Update data
         self.bioreactor.data.loc[
             is_in_est_horizon, self.bioreactor.process_model.state_est_labels
         ] = new_estimates
