@@ -35,9 +35,11 @@ def daily_to_cumulative_feed(model, u_matrix_daily):
     cumulative_feed_loc = np.where(np.isin(model.inputs, "CUMULATIVE_NORMALIZED_FEED"))[
         0
     ]
-    u_matrix_cumulative[:, cumulative_feed_loc] = np.cumsum(
-        u_matrix_cumulative[:, cumulative_feed_loc]
-    ).reshape([-1, 1])
+    u_matrix_cumulative[:, cumulative_feed_loc] = np.append(
+        0,
+        np.cumsum(
+            u_matrix_cumulative[:-1, cumulative_feed_loc])
+            ).reshape([-1, 1])
     return u_matrix_cumulative
 
 def update_json(json_path: Union[str, Path], values_dict: dict):
