@@ -343,33 +343,38 @@ MainController: {
   "State Variables":{
     "IGG": {
       "Initial": 160.05,
-      "Weight": 0.00001,
+      "Weight": 0.0001,
       "Update modifier": False,
       "Initial modifier": 1.0,
+      "Slider weight on model": 0.5,
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
       "Update modifier": False,
       "Initial modifier": 1.0,
+      "Slider weight on model": 0.5,
       },
     "VIABILITY": {
       "Initial": 98.19,
       "Weight": 10.0,
       "Update modifier": False,
       "Initial modifier": 1.0,
+      "Slider weight on model": 0.5,
       },
     "LACTATE": {
       "Initial": 1.05,
       "Weight": 50.0,
       "Update modifier": False,
       "Initial modifier": 1.0,
+      "Slider weight on model": 0.5,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
       "Update modifier": False,
       "Initial modifier": 1.0,
+      "Slider weight on model": 0.5,
       }
   },
   "End of Run Variables":{
@@ -470,5 +475,5 @@ MainController: {
   "Prediction Horizon": 30,
   "Control Horizon": 30,
   "Estimation Horizon": 2,
-  "Estimation Filter Weight on Data": 0.9,
+  "Estimation Filter Weight on Data": 0.5,
 }
