@@ -337,7 +337,7 @@ MainController: {
         5791.69,
         6118.18
       ],
-      "Weight": 0.000001
+      "Weight": 0.000005
     },
   },
   "State Variables":{
@@ -398,7 +398,7 @@ MainController: {
         0.097,
         0.1045
         ],
-      "Weight": 2000.0,
+      "Weight": 1000.0,
       "Constraint": [
         0.0045,
         0.05
