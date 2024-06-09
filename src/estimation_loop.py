@@ -9,6 +9,7 @@ Main code for simulating closed-loop MPC
 import sys
 import glob
 import warnings
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -59,7 +60,7 @@ DATA_FOLDER_NAME = str(answer["folder"])
 
 # Load config
 PATH_DIRECTORY = Path(PARENT_FILE_PATH, DATA_FOLDER_NAME)
-def read_config():
+def read_config(export=False):
     """
     The `read_config` function reads a YAML file containing experiment configuration data and returns
     the parsed configuration.
@@ -72,9 +73,17 @@ def read_config():
     yaml_data = open(yaml_files[0], "r", encoding="utf-8")
     yaml_config = yaml.safe_load(yaml_data)
     yaml_data.close()
+
+    if export:
+        src_path = Path(yaml_files[0])
+        dest_file = f"{src_path.stem}-{todays_date}{src_path.suffix}"
+        csv_path_top_dir = Path(PATH_DIRECTORY, yaml_config["CSV Export Folder"])
+        csv_path_top_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src_path,Path(csv_path_top_dir,dest_file))
+
     return yaml_config
 
-experiment_config = read_config()
+experiment_config = read_config(export=True)
 
 # Specify the study number, measurement units, current time and vessel
 # Units list contents must equal exactly the number of graphs being plotted

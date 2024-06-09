@@ -288,6 +288,8 @@ class MPCVisualizer:
             )
             plt.tight_layout(pad=1, h_pad=1, w_pad=1)
             plt.subplots_adjust(right=0.95, left=0.04, top=0.96, bottom=0.04)
+            if display:
+                plt.show()
 
             # Save the figure if the arguments passed are the correct instances
             for save_path in save_paths:
@@ -296,8 +298,6 @@ class MPCVisualizer:
                 elif isinstance(save_path, (str, Path)):
                     fig.savefig(fname=save_path)
 
-            if display:
-                plt.show()
 
         else:
             raise ValueError(
