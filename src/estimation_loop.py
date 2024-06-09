@@ -83,7 +83,7 @@ def read_config(export=False):
 
     return yaml_config
 
-experiment_config = read_config(export=True)
+experiment_config = read_config()
 
 # Specify the study number, measurement units, current time and vessel
 # Units list contents must equal exactly the number of graphs being plotted
@@ -305,22 +305,6 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     #         PATH_DIRECTORY / filenames[1], index=False
     #     )
 
-
-    # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
-    # DEVELOPED: 2024-06-06
-    filenames = [
-        f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}-daily_feed.csv",
-        # f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}-total_feed.csv",
-    ]
-
-    # If no file exist currently
-    bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
-        csv_path_lv2_BR / filenames[0], index=False
-    )
-    # bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
-    #     csv_path_lv2_BR / filenames[1], index=False
-    # )
-
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED
 
@@ -368,3 +352,22 @@ for count_vessel, curr_vessel in enumerate(VESSELS):
     #     },
     #     display=False,
     # )
+
+    # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
+    # DEVELOPED: 2024-06-06
+    filenames = [
+        f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}-daily_feed.csv",
+        # f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}-total_feed.csv",
+    ]
+
+    # If no file exist currently
+    bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
+        csv_path_lv2_BR / filenames[0], index=False
+    )
+    # bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
+    #     csv_path_lv2_BR / filenames[1], index=False
+    # )    
+
+
+# Save the current config file
+read_config(export=True) 
