@@ -749,7 +749,7 @@ class Controller:
         if print_pred:
             print(
                 self.bioreactor.data.loc[
-                    self.bioreactor.data["Day"] == max(self.bioreactor.data["Day"]),
+                    self.bioreactor.data["Day"].isin((np.max(self.bioreactor.data.loc[is_in_pred_horizon,"Day"]),np.max(self.bioreactor.data["Day"]))),
                     ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
                 ]
             )
