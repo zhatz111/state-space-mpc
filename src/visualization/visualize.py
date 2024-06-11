@@ -186,6 +186,8 @@ class MPCVisualizer:
                     sub_ax[count].legend(prop={"size": 9})
                 last_ax_used = count
 
+                sub_ax[count].set_xlim([0,np.max(plot_data["Day"])])
+
             # Plot the Controller Actions
             for count, inputs in enumerate(
                 self.bioreactor.process_model.inputs, start=last_ax_used + 1
@@ -270,6 +272,8 @@ class MPCVisualizer:
                                 fontweight="bold"
                             )
                     sub_ax[count].legend(prop={"size": 9})
+
+                sub_ax[count].set_xlim([0,np.max(plot_data["Day"])])
 
             font = {
                 "family": "sans-serif",
