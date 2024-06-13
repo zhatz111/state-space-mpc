@@ -656,7 +656,7 @@ class Controller:
         )
         is_in_pred_horizon = np.logical_and(
             self.bioreactor.data["Day"] >= self.curr_time,
-            self.bioreactor.data["Day"] < (self.curr_time + self.pred_horizon),
+            self.bioreactor.data["Day"] < (self.curr_time + self.pred_horizon + 1),
         )
 
         # Do not run MPC on EoR
