@@ -850,9 +850,10 @@ class Controller:
             self.ctrl_obj_func(
                 ts + self.curr_time,
                 y_out[:, pv_loc],
-                u_matrix_daily[self.bioreactor.data["Day"] >= self.curr_time, :][
-                    :, mv_loc
-                ],
+                # u_matrix_daily[self.bioreactor.data["Day"] >= self.curr_time, :][
+                #     :, mv_loc
+                # ],
+                u_matrix_daily[:, mv_loc],
                 e,
             ),
             y_out,
@@ -878,16 +879,19 @@ class Controller:
 
         # Trim to keep only future entries
         y2 = y[ts > self.curr_time, :]
-        u2 = u[ts >= self.curr_time, :]
+        # u2 = u[ts >= self.curr_time, :]
         pv_sps2 = self.pv_sps[self.ts > self.curr_time, :]
 
         # Trim to keep the prediction and control horizons
         y3 = y2[0 : self.pred_horizon, :]
         pv_sps3 = pv_sps2[0 : self.pred_horizon, :]
-        u3 = u2[0 : self.ctrl_horizon, :]
+        # u3 = u2[0 : self.ctrl_horizon, :]
 
         # Calculate the cost
-        u3_diff = np.diff(u3, axis=0)
+        # u3_diff = np.diff(u3, axis=0)
+        u_diff = np.diff(u, axis=0, prepend=0)
+        u2_diff = u_diff[self.ts >= self.curr_time, :]
+        u3_diff = u2_diff[0 : self.ctrl_horizon, :]
         u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff), axis=0), self.mv_wts))
         y3_diff = y3 - pv_sps3
         y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff), axis=0), self.pv_wts))
