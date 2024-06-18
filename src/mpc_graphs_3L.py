@@ -55,10 +55,12 @@ DISP_VARS = [
     "Cedex Titer",
     "Total Feed",
     "Daily Feed",
-    # "Total Glucose",
-    # "Daily Glucose",
+    "Total Glucose",
+    "Daily Glucose",
     "Viability",
     "VCC",
+    "Lactate",
+    "Glucose"
 ]  # ,"HPLC Titer","Lactate","Glucose","pCO2"]
 PALETTE = sns.color_palette("rocket", 6)
 
@@ -74,8 +76,8 @@ df_data = (
     pd.read_excel(data_path, skiprows=[0])
     .rename(
         columns={
-            "Cumulative_Normalized_Feed_Current WV": "Total Feed",
-            # "Cumulative_Glucose": "Total Glucose",
+            "Cumulative Feed Amount (mL)": "Total Feed",
+            "Cumulative Glucose Amount (mL)": "Total Glucose",
             "pCO2 at Temp": "pCO2",
             "IGG": "Cedex Titer",
             "Vessel Temp (*C)":"Temp",
@@ -94,10 +96,10 @@ total_feed_diff = np.append(np.diff(df_data["Total Feed"]), 0)
 daily_feed = np.zeros((len(total_feed_diff),))
 daily_feed[total_feed_diff > 0] = total_feed_diff[total_feed_diff > 0]
 df_data["Daily Feed"] = daily_feed
-# total_glc_diff = np.append(np.diff(df_data["Total Glucose"]), 0)
-# daily_glc = np.zeros((len(total_glc_diff),))
-# daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
-# df_data["Daily Glucose"] = daily_glc
+total_glc_diff = np.append(np.diff(df_data["Total Glucose"]), 0)
+daily_glc = np.zeros((len(total_glc_diff),))
+daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
+df_data["Daily Glucose"] = daily_glc
 df_data_selected = df_data.loc[
     df_data["Controller"].str.contains(CONFIG[MPC_GRP]["controller"]),
     [
@@ -118,9 +120,9 @@ df_data_selected = df_data.loc[
         "pCO2",
         # "Temp/pH",
         "Total Feed",
-        # "Total Glucose",
+        "Total Glucose",
         "Daily Feed",
-        # "Daily Glucose",
+        "Daily Glucose",
     ],
 ]
 
