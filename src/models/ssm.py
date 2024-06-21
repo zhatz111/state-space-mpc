@@ -5,11 +5,123 @@ from typing import Union
 
 # Third party library imports
 import numpy as np
-from scipy.signal import lsim, StateSpace
+from numpy import (atleast_1d, squeeze, zeros, dot, transpose)
+from scipy.signal import lsim, StateSpace, lti, dlti
+from scipy import linalg
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # Create type hint for the scaler object being passed to SSM class
 ScalerType = Union[MinMaxScaler, StandardScaler]
+
+def lsim_mod(system, U, T, X0=None, interp=True, output_mods_scaled=0):
+    """
+    This function is identical to scipy.signal.lsim except the offset to error is applied at each time step
+    """
+    if isinstance(system, lti):
+        sys = system._as_ss()
+    elif isinstance(system, dlti):
+        raise AttributeError('lsim can only be used with continuous-time '
+                            'systems.')
+    else:
+        sys = lti(*system)._as_ss()
+    T = atleast_1d(T)
+    if len(T.shape) != 1:
+        raise ValueError("T must be a rank-1 array.")
+
+    A, B, C, D = map(np.asarray, (sys.A, sys.B, sys.C, sys.D))
+    n_states = A.shape[0]
+    n_inputs = B.shape[1]
+
+    n_steps = T.size
+    if X0 is None:
+        X0 = zeros(n_states, sys.A.dtype)
+    xout = np.empty((n_steps, n_states), sys.A.dtype)
+
+    if T[0] == 0:
+        xout[0] = X0
+    elif T[0] > 0:
+        # step forward to initial time, with zero input
+        xout[0] = dot(X0, linalg.expm(transpose(A) * T[0]))
+    else:
+        raise ValueError("Initial time must be nonnegative")
+
+    no_input = (U is None or
+                (isinstance(U, (int, float)) and U == 0.) or
+                not np.any(U))
+
+    if n_steps == 1:
+        yout = squeeze(dot(xout, transpose(C)))
+        if not no_input:
+            yout += squeeze(dot(U, transpose(D)))
+        return T, squeeze(yout), squeeze(xout)
+
+    dt = T[1] - T[0]
+    if not np.allclose(np.diff(T), dt):
+        raise ValueError("Time steps are not equally spaced.")
+
+    if no_input:
+        # Zero input: just use matrix exponential
+        # take transpose because state is a row vector
+        expAT_dt = linalg.expm(transpose(A) * dt)
+        for i in range(1, n_steps):
+            xout[i] = dot(xout[i-1], expAT_dt) + output_mods_scaled
+        yout = squeeze(dot(xout, transpose(C)))
+        return T, squeeze(yout), squeeze(xout)
+
+    # Nonzero input
+    U = atleast_1d(U)
+    if U.ndim == 1:
+        U = U[:, np.newaxis]
+
+    if U.shape[0] != n_steps:
+        raise ValueError("U must have the same number of rows "
+                        "as elements in T.")
+
+    if U.shape[1] != n_inputs:
+        raise ValueError("System does not define that many inputs.")
+
+    if not interp:
+        # Zero-order hold
+        # Algorithm: to integrate from time 0 to time dt, we solve
+        #   xdot = A x + B u,  x(0) = x0
+        #   udot = 0,          u(0) = u0.
+        #
+        # Solution is
+        #   [ x(dt) ]       [ A*dt   B*dt ] [ x0 ]
+        #   [ u(dt) ] = exp [  0     0    ] [ u0 ]
+        M = np.vstack([np.hstack([A * dt, B * dt]),
+                    np.zeros((n_inputs, n_states + n_inputs))])
+        # transpose everything because the state and input are row vectors
+        expMT = linalg.expm(transpose(M))
+        Ad = expMT[:n_states, :n_states]
+        Bd = expMT[n_states:, :n_states]
+        for i in range(1, n_steps):
+            xout[i] = dot(xout[i-1], Ad) + dot(U[i-1], Bd) + output_mods_scaled
+    else:
+        # Linear interpolation between steps
+        # Algorithm: to integrate from time 0 to time dt, with linear
+        # interpolation between inputs u(0) = u0 and u(dt) = u1, we solve
+        #   xdot = A x + B u,        x(0) = x0
+        #   udot = (u1 - u0) / dt,   u(0) = u0.
+        #
+        # Solution is
+        #   [ x(dt) ]       [ A*dt  B*dt  0 ] [  x0   ]
+        #   [ u(dt) ] = exp [  0     0    I ] [  u0   ]
+        #   [u1 - u0]       [  0     0    0 ] [u1 - u0]
+        M = np.vstack([np.hstack([A * dt, B * dt,
+                                np.zeros((n_states, n_inputs))]),
+                    np.hstack([np.zeros((n_inputs, n_states + n_inputs)),
+                                np.identity(n_inputs)]),
+                    np.zeros((n_inputs, n_states + 2 * n_inputs))])
+        expMT = linalg.expm(transpose(M))
+        Ad = expMT[:n_states, :n_states]
+        Bd1 = expMT[n_states+n_inputs:, :n_states]
+        Bd0 = expMT[n_states:n_states + n_inputs, :n_states] - Bd1
+        for i in range(1, n_steps):
+            xout[i] = (dot(xout[i-1], Ad) + dot(U[i-1], Bd0) + dot(U[i], Bd1)) + output_mods_scaled
+
+    yout = (squeeze(dot(xout, transpose(C))) + squeeze(dot(U, transpose(D))))
+    return T, squeeze(yout), squeeze(xout)
 
 class StateSpaceModel:
     """
@@ -113,10 +225,6 @@ class StateSpaceModel:
                 "Initial condition matrix X0 must have at least 1 dimension"
             )
 
-        # Default vector of ones
-        if output_mods.size == 0:
-            output_mods = np.ones((1, len(self.states)))
-
         # Check if U is 1d or 2d and reshape accordingly
         if input_matrix.ndim == 1:
             u_row = input_matrix.reshape(1, -1)
@@ -144,11 +252,22 @@ class StateSpaceModel:
             x_scaled = xu_mask_scaled[:, : x_row.shape[1]]
             u_scaled = ux_mask_scaled[:, x_row.shape[1] :]
 
+        # Scale offset
+        if output_mods.size == 0:
+
+            # Default no offset
+            output_mods_scaled = 0
+        else:
+            
+            # Use only the scale and not the min/mean for offset
+            x_scales = self.scaler.scale_[:len(self.states)]
+            output_mods_scaled = np.multiply(output_mods,x_scales)
+
         # Predict the next days states based on a continuous system using lsim
         bioreactor = StateSpace(
             self.a_matrix, self.b_matrix, self.c_matrix, self.d_matrix
         )
-        _, y_out, _ = lsim(bioreactor, U=u_scaled, T=time, X0=x_scaled)
+        _, y_out, _ = lsim_mod(bioreactor, U=u_scaled, T=time, X0=x_scaled, output_mods_scaled=output_mods_scaled)
 
         # Reshape the output, if X and U were the same initial shape, to a row matrix
         if x_row.shape[0] == u_row.shape[0]:
@@ -161,8 +280,8 @@ class StateSpaceModel:
             :, : x_row.shape[1]
         ]
 
-        # Modify measurement based on the correction factor delta_p (diagonal of the C matrix)
-        # delta_p_matrix = np.tile(output_mods,(x_hat.shape[0],1))
-        y_hat = np.multiply(x_hat, output_mods)
+        # Output = state in the new offset scheme
+        y_hat = x_hat
 
         return x_hat, y_hat
+    
