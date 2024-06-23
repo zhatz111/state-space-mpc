@@ -531,7 +531,7 @@ class Controller:
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
 
-    def optimize(self, open_loop=False, print_pred=False):
+    def optimize(self, open_loop=False, print_pred=False, end_of_run=False):
         """
         The `optimize` function optimizes future inputs for a bioreactor system and updates the dataset
         with the optimized inputs.
@@ -560,25 +560,25 @@ class Controller:
         # Do not run MPC on EoR
         pred_names = [x.replace("--STATE_DATA", "--STATE_PRED") for x in self.pv_names]
         sp_names = [x.replace("--STATE_DATA", "--STATE_SP") for x in self.pv_names]
-        if not (np.any(is_in_ctrl_horizon)):
-            # Update pred horizon
-            self.bioreactor.data.loc[
-                is_in_pred_horizon, self.controller_model.state_pred_labels
-            ] = np.multiply(
-                self.bioreactor.data.loc[
-                    is_in_pred_horizon, self.controller_model.state_est_labels
-                ].values,
-                self.output_mods_est,
-            )
+        # if not (np.any(is_in_ctrl_horizon)):
+        #     # Update pred horizon
+        #     self.bioreactor.data.loc[
+        #         is_in_pred_horizon, self.controller_model.state_pred_labels
+        #     ] = np.multiply(
+        #         self.bioreactor.data.loc[
+        #             is_in_pred_horizon, self.controller_model.state_est_labels
+        #         ].values,
+        #         self.output_mods_est,
+        #     )
 
-            # Update command line output
-            print(
-                self.bioreactor.data.loc[
-                    self.bioreactor.data["Day"] == max(self.bioreactor.data["Day"]),
-                    ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
-                ]
-            )
-            return
+        #     # Update command line output
+        #     print(
+        #         self.bioreactor.data.loc[
+        #             self.bioreactor.data["Day"] == max(self.bioreactor.data["Day"]),
+        #             ["Day", "Bioreactor"] + sp_names + pred_names + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
+        #         ]
+        #     )
+        #     return
 
         control_matrix = self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names].values
         
@@ -610,6 +610,9 @@ class Controller:
             # No change of inputs in open loop
             y_out_after_optim = y_out_before_optim
             control_matrix_star = mv_array.reshape([-1, len(self.mv_names)])
+        elif end_of_run:
+            y_out_after_optim = self.bioreactor.state()
+            control_matrix_star = []
         else:
             # Solve the optimization problem
             mv_array_star = optimize.minimize(

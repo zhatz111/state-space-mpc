@@ -135,12 +135,12 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY
 
 # User specified current culture day: determined automatically if -1
-curr_time_user = -1
-if "Inoc Date" in experiment_config and curr_time_user < 0:
+CURR_TIME_USER = -1
+if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
     date_delta = datetime.today().date() - datetime.strptime(experiment_config["Inoc Date"],"%Y-%m-%d").date()
-    curr_time_end = np.min((experiment_config["Last Day"] - 1,date_delta.days))
+    curr_time_end = np.min((experiment_config["Last Day"],date_delta.days))
 else:
-    curr_time_end = curr_time_user
+    curr_time_end = CURR_TIME_USER
 
 # Create figure output folder
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
@@ -225,13 +225,19 @@ for count_vessel, curr_vessel in enumerate(vessels):
         # Estimate the current state
         controller.estimate()
 
-        # Optimize feeds
+        # Print current optimization result at the end of the time loop
         if curr_time == curr_time_end:
-            PRINT_PRED = True
+            print_pred = True
         else:
-            PRINT_PRED = False
+            print_pred = False
 
-        controller.optimize(open_loop=False,print_pred=PRINT_PRED)
+        # Do not optimize at EoR
+        if curr_time == experiment_config["Last Day"]:
+            end_of_run = True
+        else:
+            end_of_run = False            
+
+        controller.optimize(open_loop=False,print_pred=print_pred,end_of_run=end_of_run)
 
     # Retrieve and print current feed rate (mL/min) for the feed pump
     result = bioreactor.get_result()

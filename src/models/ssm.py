@@ -13,7 +13,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler
 # Create type hint for the scaler object being passed to SSM class
 ScalerType = Union[MinMaxScaler, StandardScaler]
 
-def lsim_mod(system, U, T, X0=None, interp=True, output_mods_scaled=0):
+def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
     """
     This function is identical to scipy.signal.lsim except the offset to error is applied at each time step
     """
@@ -267,7 +267,7 @@ class StateSpaceModel:
         bioreactor = StateSpace(
             self.a_matrix, self.b_matrix, self.c_matrix, self.d_matrix
         )
-        _, y_out, _ = lsim_mod(bioreactor, U=u_scaled, T=time, X0=x_scaled, output_mods_scaled=output_mods_scaled)
+        _, y_out, _ = lsim_mod(bioreactor, U=u_scaled, T=time, interp=False, X0=x_scaled, output_mods_scaled=output_mods_scaled)
 
         # Reshape the output, if X and U were the same initial shape, to a row matrix
         if x_row.shape[0] == u_row.shape[0]:
