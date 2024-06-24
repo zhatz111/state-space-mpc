@@ -230,7 +230,7 @@ class ModelTraining:
             a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
             b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
             state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
-            _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0)
+            _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0, interp=False)
 
             if iter_counter == 0:
                 y_sim_all = np.array(objfunc_yout, dtype=np.float64)
@@ -316,7 +316,7 @@ class ModelTraining:
                 self.a_matrix, self.b_matrix, c_matrix, d_matrix
             )
             _, y_out, _ = signal.lsim(
-                system=bioreactor, U=u_matrix, T=time, X0=x0_matrix
+                system=bioreactor, U=u_matrix, T=time, X0=x0_matrix, interp=False
             )
             simulation_data = pd.DataFrame(
                 data=np.array(

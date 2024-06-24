@@ -116,7 +116,7 @@ def main():
         save_path=Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}"),
         test_label=model_config["Target Plotting Label"],
         iterations=model_config["Training Iterations"],
-        first_train=model_config["First Training"],
+        first_train=False,
     )
 
     # Update the model config file
