@@ -345,27 +345,32 @@ MainController: {
     "IGG": {
       "Initial": 160.05,
       "Weight": 0.0001,
-      "Offset Gain": 0.5,
+      "Offset Proportional Gain": 0.15,
+      "Offset Integral Gain": 0.6,
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
-      "Offset Gain": 0.5,
+      "Offset Proportional Gain": 0.1,
+      "Offset Integral Gain": 1.0,
       },
     "VIABILITY": {
       "Initial": 98.19,
       "Weight": 10.0,
-      "Offset Gain": 0.5,
+      "Offset Proportional Gain": 0.1,
+      "Offset Integral Gain": 1.0,
       },
     "LACTATE": {
       "Initial": 1.05,
       "Weight": 50.0,
-      "Offset Gain": 0.5,
+      "Offset Proportional Gain": 0.1,
+      "Offset Integral Gain": 1.0,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
-      "Offset Gain": 0.5,
+      "Offset Proportional Gain": 0.15,
+      "Offset Integral Gain": 0.6,
       }
   },
   "End of Run Variables":{
@@ -467,4 +472,6 @@ MainController: {
   "Control Horizon": 2,
   "Estimation Horizon": 2,
   "Estimation Filter Weight on Data": 0.5,
+  "Offset Proportional Gain": 0.1, # Override individual gains if >= 0
+  "Offset Integral Gain": 1.0, # Override individual gains if >= 0
 }

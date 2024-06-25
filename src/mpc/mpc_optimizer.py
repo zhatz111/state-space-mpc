@@ -483,7 +483,10 @@ class Controller:
         mv_names = list(controller_config["Manipulated Variables"].keys())
         mv_constr = np.transpose(np.array([controller_config["Manipulated Variables"][key]["Constraint"] for key in controller_config["Manipulated Variables"]]))
         est_wts = np.array([controller_config["State Variables"][key]["Weight"] for key in controller_config["State Variables"]])
-        offset_gains = np.array([controller_config["State Variables"][key]["Offset Gain"] for key in controller_config["State Variables"]])
+        offset_individual_kps = np.array([controller_config["State Variables"][key]["Offset Proportional Gain"] for key in controller_config["State Variables"]])
+        offset_individual_kis = np.array([controller_config["State Variables"][key]["Offset Integral Gain"] for key in controller_config["State Variables"]])
+        offset_single_kp = controller_config["Offset Proportional Gain"]
+        offset_single_ki = controller_config["Offset Integral Gain"]
         eor_names = list(controller_config["End of Run Variables"].keys())
         eor_constr = np.transpose(np.array([controller_config["End of Run Variables"][key]["Constraint"] for key in controller_config["End of Run Variables"]]))
         eor_wts = np.array([controller_config["End of Run Variables"][key]["Weight"] for key in controller_config["End of Run Variables"]])
@@ -502,7 +505,14 @@ class Controller:
         self.pv_wts = pv_wts
         self.est_wts = est_wts
         self.filter_wt_on_data = filter_wt_on_data
-        self.slider_wts_on_model = offset_gains
+        if offset_single_kp >= 0:
+            self.offset_kp = offset_single_kp
+        else:
+            self.offset_kp = offset_individual_kps
+        if offset_single_ki >= 0:
+            self.offset_ki = offset_single_ki
+        else:
+            self.offset_ki = offset_individual_kis
 
         self.mv_wts = mv_wts
         self.pred_horizon = pred_horizon
@@ -510,6 +520,8 @@ class Controller:
         self.mv_constr = mv_constr
 
         self.output_mods_est = np.zeros((1,len(est_wts)))
+        self.est_curr_error = np.zeros((1,len(est_wts)))
+        self.est_prev_error = np.zeros((1,len(est_wts)))
         self.est_horizon = est_horizon
         self.eor_names = eor_names
         self.eor_const = eor_constr
@@ -879,12 +891,13 @@ class Controller:
             self.bioreactor.data["Day"] == self.curr_time, self.bioreactor.process_model.state_est_labels
         ] = new_estimates_x[-1]             
 
-        # Dynamic matrix control integral correction offset gain
+        # PI control of model error
+        self.est_prev_error = self.est_curr_error
         curr_estimate = new_estimates_x[-1]
         curr_measurement = x1_data
-        curr_offset = curr_measurement - curr_estimate
-        curr_offset[np.isnan(curr_offset)] = 0        
-        self.output_mods_est += np.multiply(curr_offset, self.slider_wts_on_model)
+        self.est_curr_error = curr_measurement - curr_estimate
+        self.est_curr_error[np.isnan(self.est_curr_error)] = 0        
+        self.output_mods_est += np.multiply(self.est_curr_error - self.est_prev_error, self.offset_kp) + np.multiply(self.est_curr_error, self.offset_ki)
         
         # # Linear reg with no intercept to get mods from D0 to current
         # p_array_star = self.output_mods_est.flatten()
