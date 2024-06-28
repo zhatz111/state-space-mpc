@@ -109,6 +109,7 @@ def main():
         pv_wghts=model_config["Process Variable Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
+        algorithm="basin",
     )
     time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
@@ -124,7 +125,7 @@ def main():
     model_config["b_matrix"] = model_train_obj.b_matrix.tolist()
     model_config["Iterations"] += model_train_obj.iters
     model_config["Model RMSE"] = model_train_obj.model_error
-    model_config["States RMSE"] = model_train_obj.model_error_dict
+    model_config["States RMSE"] = model_train_obj.true_model_error_dict
     model_config["Last Model Training"] = time
 
     # Export updated data back to JSON file

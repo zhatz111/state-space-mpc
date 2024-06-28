@@ -19,7 +19,7 @@ from sklearn.preprocessing import MinMaxScaler
 from src.data.make_dataset import ModelData
 from src.models.train_model import ModelTraining
 from src.visualization.pdf_report import generate_report
-from src.data.functions import scaler_tojson, json_toscaler, json_to_dict
+from src.data.functions import json_toscaler, json_to_dict
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -98,33 +98,8 @@ def main():
         win_len=model_config["Window Length"],
     )
 
-    a_matrix = np.array(
-        pd.read_csv(
-            Path(
-                PATH_DIRECTORY,
-                f"{model_config['A & B Matrices Folder Name']}/A_Matrix.csv",
-            ),
-            header=None,
-        )
-    )
-
-    b_matrix = np.array(
-        pd.read_csv(
-            Path(
-                PATH_DIRECTORY,
-                f"{model_config['A & B Matrices Folder Name']}/B_Matrix.csv",
-            ),
-            header=None,
-        )
-    )
-
-    scaler_tojson(
-        scaler=scaler_train,
-        save_path=Path(
-            PATH_DIRECTORY,
-            f"{model_config['A & B Matrices Folder Name']}/{model_config['Asset']}_scaler.json",
-        ),
-    )
+    a_matrix = np.array(model_config["a_matrix"])
+    b_matrix = np.array(model_config["b_matrix"])
 
     model_train_obj = ModelTraining(
         train_data,

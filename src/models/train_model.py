@@ -39,6 +39,7 @@ class ModelTraining:
         pv_wghts: list,
         num_days: int,
         scaler: Union[MinMaxScaler, StandardScaler],
+        algorithm: str = "minimize",
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -81,10 +82,12 @@ class ModelTraining:
         self.state_len = len(states)
         self.input_len = len(inputs)
         self.total = self.state_len + self.input_len
+        self.algorithm = algorithm
 
         self.iters = 0
         self.model_error = 0
         self.model_error_dict = {}
+        self.true_model_error_dict = {}
 
         self.c_matrix = np.identity(self.state_len)
         self.d_matrix = np.zeros([self.state_len, self.input_len])
@@ -158,13 +161,38 @@ class ModelTraining:
         b_sim = self.b_matrix.reshape(-1, 1)
         combined_mat = np.vstack([a_sim, b_sim]).flatten()
 
-        res = optimize.minimize(
-            fun=self.objective_func,
-            x0=combined_mat,
-            bounds=[(-1, 1)] * len(combined_mat),
-            method="SLSQP",
-            options={"maxiter": iterations, "disp": False, "ftol": 1e-09},
-        )
+        if self.algorithm == "minimize":
+            res = optimize.minimize(
+                fun=self.objective_func,
+                x0=combined_mat,
+                bounds=[(-1, 1)] * len(combined_mat),
+                method="SLSQP",
+                options={"maxiter": iterations, "disp": False, "ftol": 1e-07},
+            )
+        elif self.algorithm == "evolution":
+            res = optimize.differential_evolution(
+                func=self.objective_func,
+                bounds=[(-1, 1)] * len(combined_mat),
+                maxiter=iterations,
+                disp=False
+            )
+        elif self.algorithm == "basin":
+            minimizer_kwargs = {
+                "method": "SLSQP",
+                "bounds": [(-1, 1)] * len(combined_mat),
+                "options": {"maxiter": iterations*10, "disp": False, "ftol": 1e-07}
+            }
+            res = optimize.basinhopping(
+                    func=self.objective_func,
+                    x0=combined_mat,
+                    minimizer_kwargs=minimizer_kwargs,
+                    niter=iterations,
+                    disp=True,
+                    T=2000,
+                )
+        else:
+            raise KeyError("Must use either Minimize or Basin Hopping algorithms")
+
         print("")
         for key, value in self.model_error_dict.items():
             print(f"{key} Error: {value:.5f}")
@@ -274,7 +302,14 @@ class ModelTraining:
             print("--------------------")
             print(f"Total Error: {wghtd_cost:.5f}")
         self.iters += 1
-        self.model_error = wghtd_cost
+        if (wghtd_cost < self.model_error) or self.iters == 1:
+
+            for count, state in enumerate(self.states):
+                rmse = np.sqrt(
+                    np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0]
+                )
+                self.true_model_error_dict[state] = rmse
+            self.model_error = wghtd_cost
 
         return wghtd_cost
 
