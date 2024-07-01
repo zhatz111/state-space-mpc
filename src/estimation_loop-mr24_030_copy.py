@@ -34,15 +34,20 @@ top_dir = Path().absolute()
 # -------------------------------------------------------------------------------------
 # USER SPECIFIED DATA
 
+# Use this path for experiment folders in MPC teams site
+# PARENT_FILE_PATH = Path(
+#     r"~\GSK\Biopharm Model Predictive Control - General\data"
+# ).expanduser()
+
 # Use this path for experiment folders in GitHub repository
 PARENT_FILE_PATH = top_dir / "data"
 
-# Locate the experiment folder by searching for the KEY (case insensitive)
+# Locate the experiment folder by searching for the KEY
 FOLDER_SEARCH_KEY = "Experiment"
 matching_folders = [
     folder.name
     for folder in PARENT_FILE_PATH.iterdir()
-    if folder.is_dir() and FOLDER_SEARCH_KEY.upper() in folder.name.upper()
+    if folder.is_dir() and FOLDER_SEARCH_KEY in folder.name
 ]
 questions = {
     "type": "list",
@@ -80,18 +85,20 @@ def read_config(export=False):
 
 experiment_config = read_config()
 
-# Set up vessels
+# Specify the study number, measurement units, current time and vessel
+# Units list contents must equal exactly the number of graphs being plotted
+
 if (
     len(experiment_config["Bioreactors"]) == 2
     and experiment_config["Arange Bioreactors"]
 ):
-    vessels = np.arange(
+    VESSELS = np.arange(
         experiment_config["Bioreactors"][0], experiment_config["Bioreactors"][1] + 1
     )
 else:
-    vessels = np.array(experiment_config["Bioreactors"])
+    VESSELS = np.array(experiment_config["Bioreactors"])
 
-# Load the master data sheet (mock INPUT TOPIC storing table)
+# Load the master data sheet
 if '.xlsx' in experiment_config['Master Data File']:
     master_sheet = pd.read_excel(
         Path(PATH_DIRECTORY, experiment_config['Master Data File']),
@@ -132,15 +139,15 @@ controller_model = StateSpaceModel(
 )
 
 # -------------------------------------------------------------------------------------
-# ITERATE FROM DAY 0 TO THE CURRENT DAY
+# ITERATE FROM DAY 0 TO THE CURRENT DAY (SIMULATION)
 
-# User specified current culture day: determined automatically if -1
-CURR_TIME_USER = -1
-if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
+# Mock current time (end of time iteration)
+curr_time_user = -1
+if "Inoc Date" in experiment_config and curr_time_user < 0:
     date_delta = datetime.today().date() - datetime.strptime(experiment_config["Inoc Date"],"%Y-%m-%d").date()
-    curr_time_end = np.min((experiment_config["Last Day"],date_delta.days))
+    curr_time_end = date_delta.days
 else:
-    curr_time_end = CURR_TIME_USER
+    curr_time_end = curr_time_user
 
 # Create figure output folder
 fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
@@ -156,10 +163,9 @@ fig_path_lv2_day = Path(
 )
 fig_path_lv2_day.mkdir(parents=True, exist_ok=True)
 
-# Create bioreactor and controller instances
+# Iterate bioreactors to initialize a bioreactor instance
 bioreactors = []
-controllers = []
-for curr_vessel in vessels:
+for curr_vessel in VESSELS:
 
     # Locate the bioreactor-specific controller setting
     for key, value in experiment_config["Controller Dictionary"].items():
@@ -172,21 +178,14 @@ for curr_vessel in vessels:
     bioreactor = Bioreactor(
         vessel=curr_vessel,
         process_model=controller_model,
+        # data=reference_data_this_vessel,
         experiment_config=experiment_config,
         controller_config=controller_config,
     )
     bioreactors.append(bioreactor)
 
-    # Initialize the controller for each bioreactor (2024-06-20)
-    controller = Controller(
-        controller_model=controller_model,
-        bioreactor=bioreactor,
-        controller_config=controller_config
-        )
-    controllers.append(controller)
-
-# Iterate the main code for each bioreactor
-for count_vessel, curr_vessel in enumerate(vessels):
+# Iterate bioreactors
+for count_vessel, curr_vessel in enumerate(VESSELS):
 
     # Create bioreactor-specific figure output folders
     if isinstance(curr_vessel,str):
@@ -202,17 +201,44 @@ for count_vessel, curr_vessel in enumerate(vessels):
         csv_path_lv2_BR = Path(csv_path_top_dir.expanduser(), f"BR{curr_vessel:02d}")
     csv_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
-    # Retrieve bioreactor and controller instances
-    bioreactor = bioreactors[count_vessel]
-    controller = controllers[count_vessel]
+    # store Controller objects in list to use last one for plotting
+    controller_list = []
 
-    # Iterate from Day 0 to the current day
+    # Iterate times
     for curr_time in range(0,curr_time_end + 1):
+
+        # Read config again every day for tuning parameter changes
+        experiment_config = read_config()
+
+        # Locate the bioreactor-specific controller setting
+        for key, value in experiment_config["Controller Dictionary"].items():
+            if curr_vessel in value:
+                controller_key = key
+
+        controller_config = experiment_config[controller_key]
 
         # Parse the states from the reference data csv file
         input_messages = master_sheet.loc[
             master_sheet["Bioreactor"] == curr_vessel, :
         ]
+
+        # # Construct a bioreactor object
+        # bioreactor = Bioreactor(
+        #     vessel=curr_vessel,
+        #     process_model=controller_model,
+        #     # data=reference_data_this_vessel,
+        #     experiment_config=experiment_config,
+        #     controller_config=controller_config,
+        # )
+
+        # Create/update a controller instance
+        bioreactor = bioreactors[count_vessel]
+        controller = Controller(
+            controller_model=controller_model,
+            bioreactor=bioreactor,
+            controller_config=controller_config
+        )
+        controller_list.append(controller)
 
         # -------------------------------------------------------------------------------------
         # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
@@ -222,33 +248,69 @@ for count_vessel, curr_vessel in enumerate(vessels):
         input_message = input_messages.loc[input_messages["Day"] == curr_time,:].squeeze()
         bioreactor.ingest_vector(input_message)
 
-        # Estimate the current state
+        # Update bioreactor.data>STATE_MOD and STATE_EST (curr day)
         controller.estimate()
 
-        # Print current optimization result at the end of the time loop
+        # Update bioreactor.data>STATE_PRED (curr day to end of pred horizon)
         if curr_time == curr_time_end:
-            print_pred = True
+            PRINT_PRED = True
         else:
-            print_pred = False
+            PRINT_PRED = False
 
-        # Do not optimize at EoR
-        if curr_time == experiment_config["Last Day"]:
-            end_of_run = True
-        else:
-            end_of_run = False            
+        controller.optimize(open_loop=False,print_pred=PRINT_PRED)
 
-        controller.optimize(open_loop=False,print_pred=print_pred,end_of_run=end_of_run)
+        result = bioreactor.get_result()
 
-    # Retrieve and print current feed rate (mL/min) for the feed pump
-    result = bioreactor.get_result()
-    print(f"Day {curr_time}'s feed rate (mL/min): {result['FeedRate_mL_min']}")
+    # -------------------------------------------------------------------------------------
+    # BIOREACTOR DATA SAVED
+
+    # OLD CODE TO CONCAT VESSELS TOGETHER INTO ONE CSV FILE
+    # # Search if files are in directory
+    # filenames = [
+    #     f"{experiment_config['Experiment Number']}-daily_feed.csv",
+    #     f"{experiment_config['Experiment Number']}-total_feed.csv",
+    # ]
+    # dir_paths = [x.name for x in list(PATH_DIRECTORY.iterdir())]
+
+    # if all(item in filenames for item in dir_paths):
+    #     # Read in CSV files
+    #     df_br_daily = pd.read_csv(PATH_DIRECTORY / filenames[0])
+    #     df_br_total = pd.read_csv(PATH_DIRECTORY / filenames[1])
+
+    #     # Daily feed csv
+    #     df_new_daily = bioreactor.return_data(show_daily_feed=True, exec_date=True)
+    #     df_combined_daily = pd.concat([df_br_daily, df_new_daily], ignore_index=True)
+
+    #     df_final_daily = df_combined_daily.drop_duplicates(
+    #         subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    #     )
+    #     df_final_daily.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    #     df_final_daily.to_csv(PATH_DIRECTORY / filenames[0], index=False)
+
+    #     # Total feed csv
+    #     df_new_total = bioreactor.return_data(show_daily_feed=False, exec_date=True)
+    #     df_combined_total = pd.concat([df_br_total, df_new_total], ignore_index=True)
+
+    #     df_final_total = df_combined_total.drop_duplicates(
+    #         subset=["Code_Run_Date", "Bioreactor", "Day"], keep="last"
+    #     )
+    #     df_final_total.sort_values(by=["Code_Run_Date", "Bioreactor"], inplace=True)
+    #     df_final_total.to_csv(PATH_DIRECTORY / filenames[1], index=False)
+    # else:
+    #     # If no file exist currently
+    #     bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
+    #         PATH_DIRECTORY / filenames[0], index=False
+    #     )
+    #     bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
+    #         PATH_DIRECTORY / filenames[1], index=False
+    #     )
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED
 
     # Plot the MPC Controller for each Bioreactor
     # Use the last controller from the list which is the controller from the current day
-    br_plots = MPCVisualizer(bioreactor, controller)
+    br_plots = MPCVisualizer(bioreactor, controller_list[-1])
 
     if isinstance(curr_vessel,str):
         identifier = f"{bioreactor.vessel}_D{curr_time_end}-{todays_date}"
@@ -274,7 +336,23 @@ for count_vessel, curr_vessel in enumerate(vessels):
         },
         display=True,
     )
-    
+    # br_plots.mpc_daily_plot(
+    #     save_path=fig_path_lv2_day
+    #     / f"{identifier}.png",
+    #     identifier=f"{experiment_config['Experiment Number']} \
+    #     -MPC/{identifier}",
+    #     unit_dict=experiment_config["Units Dictionary"],
+    #     metadata={
+    #         "Title": f"{experiment_config['Experiment Number']}-D{curr_time_end}",
+    #         "Author": "Zach Hatzenbeller, Yu Luo",
+    #         "Description": f"MPC plot for {experiment_config['Experiment Number']}. Developed within GSK R&D in BDSD",
+    #         "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
+    #         "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+    #         "Software": f"Python v{sys.version}",
+    #     },
+    #     display=False,
+    # )
+
     # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
     # DEVELOPED: 2024-06-06
     filenames = [
@@ -286,6 +364,10 @@ for count_vessel, curr_vessel in enumerate(vessels):
     bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
         csv_path_lv2_BR / filenames[0], index=False
     )
+    # bioreactor.return_data(show_daily_feed=False, exec_date=True).to_csv(
+    #     csv_path_lv2_BR / filenames[1], index=False
+    # )    
 
-# Save and export the current config file
+
+# Save the current config file
 read_config(export=True) 

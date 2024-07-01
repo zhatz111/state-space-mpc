@@ -103,12 +103,16 @@ class MPCVisualizer:
                 modifiers_data = plot_data[state + '--STATE_MOD'].values
                 latest_modifier = modifiers_data[~pd.isnull(modifiers_data)][-1]
 
-                # Use the correct modifiers for days outside the est horizon (2024-02-26)
+                # # Use the correct modifiers for days outside the est horizon (2024-02-26)
+                # modifiers = modifiers_data.copy()
+                # modifiers[:] = latest_modifier
+                # if sum(~pd.isnull(modifiers_data)) > self.controller.est_horizon:
+                #     for m in range(sum(~pd.isnull(modifiers_data)) - self.controller.est_horizon):
+                #         modifiers[m] = modifiers_data[m + self.controller.est_horizon - 1]
+
+                # Additive modifier (2024-06-20)
                 modifiers = modifiers_data.copy()
-                modifiers[:] = latest_modifier
-                if sum(~pd.isnull(modifiers_data)) > self.controller.est_horizon:
-                    for m in range(sum(~pd.isnull(modifiers_data)) - self.controller.est_horizon):
-                        modifiers[m] = modifiers_data[m + self.controller.est_horizon - 1]
+                modifiers[np.where(np.isnan(modifiers))] = latest_modifier   
 
                 if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
@@ -131,10 +135,11 @@ class MPCVisualizer:
                     )
                     sub_ax[count].plot(
                         plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                        np.multiply(
-                            plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                            modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
-                            ),
+                        plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                        # np.add(
+                        #     plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                        #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
+                        #     ),
                         "b-o",
                         label="Estimated Output",
                     )
@@ -172,10 +177,11 @@ class MPCVisualizer:
                     )
                     sub_ax[count].plot(
                         plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                        np.multiply(
-                            plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                            modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
-                            ),
+                        plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                        # np.add(
+                        #     plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                        #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
+                        #     ),
                         "b-o",
                         label="Estimated Output",
                     )
