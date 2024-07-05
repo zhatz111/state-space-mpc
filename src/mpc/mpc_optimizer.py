@@ -226,7 +226,7 @@ class Bioreactor:
         # Assemble result
         result = {
             "CurrentTime_day": self.curr_time,
-            "FeedRate_mL_min": feed_rates_ml_min[self.data["Day"] == self.curr_time],
+            "FeedRate_mL_min": feed_rates_ml_min[self.data["Day"] == self.curr_time][0],
             "Times_day": self.data["Day"].values,
             "FeedRates_mL_min": feed_rates_ml_min,
             "TiterPred_mg_L": self.data["IGG--STATE_PRED"].values,

@@ -19,6 +19,9 @@ import matplotlib.pyplot as plt
 # Imports from Classes in Repository
 from src.mpc.mpc_optimizer import Bioreactor, Controller
 
+# RMSE
+from sklearn.metrics import mean_squared_error
+
 # suppress warnings
 warnings.filterwarnings("ignore")
 
@@ -114,6 +117,12 @@ class MPCVisualizer:
                 modifiers = modifiers_data.copy()
                 modifiers[np.where(np.isnan(modifiers))] = latest_modifier   
 
+                # Calculate est. error
+                y_data = plot_data[state + PV_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
+                y_est = plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
+                y_data_est_have_values = ~np.logical_and(np.isnan(y_data),np.isnan(y_est))
+                rmse_est = np.sqrt(mean_squared_error(y_data[y_data_est_have_values],y_est[y_data_est_have_values]))
+
                 if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
                     sub_ax[count].plot(
@@ -133,6 +142,7 @@ class MPCVisualizer:
                         "r-o",
                         label="Predicted Output",
                     )
+
                     sub_ax[count].plot(
                         plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
                         plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
@@ -141,14 +151,19 @@ class MPCVisualizer:
                         #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
                         #     ),
                         "b-o",
-                        label="Estimated Output",
+                        label=f"Estimated Output ({np.round(rmse_est,2)})",
                     )
                     try:
+
+                        y_sp = plot_data[state + PV_SP_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
+                        y_data_sp_have_values = ~np.logical_and(np.isnan(y_data),np.isnan(y_est))
+                        rmse_ctrl = np.sqrt(mean_squared_error(y_data[y_data_sp_have_values],y_sp[y_data_sp_have_values]))
+
                         sub_ax[count].plot(
                             plot_data["Day"],
                             plot_data[state + PV_SP_SUFFIX],
                             "g--",
-                            label="Reference Trajectory (setpoint)",
+                            label=f"Setpoint ({np.round(rmse_ctrl,2)})",
                         )
                     except KeyError:
                         pass
@@ -183,7 +198,7 @@ class MPCVisualizer:
                         #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
                         #     ),
                         "b-o",
-                        label="Estimated Output",
+                        label=f"Estimated Output ({np.round(rmse_est,2)})",
                     )
                     if isinstance(unit_dict, dict):
                         sub_ax[count].set_title(f"{state} {unit_dict[state]}", fontweight="bold")
