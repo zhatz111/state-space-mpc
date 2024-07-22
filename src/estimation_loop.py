@@ -213,7 +213,9 @@ for count_vessel, curr_vessel in enumerate(vessels):
 
     # Retrieve and print current feed rate (mL/min) for the feed pump
     result = bioreactor.get_result()
-    print(f"Day {curr_time}'s feed rate (mL/min): {result['FeedRate_mL_min']}")
+    print(f"{curr_vessel} on Day {curr_time}:")
+    print(f"    Feed ratio: {np.round(result['FeedRatio_mL_mL'],4)}")
+    print(f"    Feed flowrate: {np.round(result['FeedRate_mL_min'],4)} mL/min")
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED
