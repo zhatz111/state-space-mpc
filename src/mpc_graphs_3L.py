@@ -20,11 +20,11 @@ MPC_GRP = "all"
 CONFIG = {
     "all": {
         "dest": "mpc-performance-figs-all",
-        "controller": "Linear MPC|Nonlinear MPC|No MPC",
+        "controller": "Linear MPC|Nonlinear MPC",
         "col": "Controller",
-        "col_order": ["Linear MPC", "Nonlinear MPC", "No MPC"],
+        "col_order": ["Linear MPC", "Nonlinear MPC"],
         "hue": "Bioreactor",
-        "hue_order": [801,802,803,804,805,806],
+        "hue_order": [805,806,807,808],
     },
     # "linear": {
     #     "dest": "mpc-performance-figs-linear",
@@ -66,7 +66,7 @@ PALETTE = sns.color_palette("rocket", 6)
 
 # Retrieve measurements
 top_dir = Path().absolute()
-data_path = Path(top_dir, "data/MR24-030 Experiment/MR24-030-MasterDataTable.xlsx")
+data_path = Path(top_dir, "data/mr24-038-experiment/MR24-038-MasterDataTable.xlsx")
 # data_path = Path(
 #     "~/GSK/Biopharm Model Predictive Control - General/data/MR24-030-MPC-3L/MR24-030-MasterDataTable.xlsx",
 # )
