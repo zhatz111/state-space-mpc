@@ -715,6 +715,7 @@ class Controller:
             ),
             self.bioreactor.data["Day"] < max(self.bioreactor.data["Day"]),
         )
+        is_after_ctrl_horizon = self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon)        
         is_in_pred_horizon = np.logical_and(
             self.bioreactor.data["Day"] >= self.curr_time,
             self.bioreactor.data["Day"] < (self.curr_time + self.pred_horizon + 1),
@@ -786,6 +787,9 @@ class Controller:
         self.bioreactor.data.loc[
             is_in_ctrl_horizon, self.mv_names
         ] = control_matrix_star
+        self.bioreactor.data.loc[
+            is_after_ctrl_horizon, self.mv_names
+        ] = control_matrix_star[-1,:]      
 
         # Update the dataset with new predictions
         self.bioreactor.data.loc[
@@ -846,6 +850,9 @@ class Controller:
             )
         )[0]
 
+        # Remaining duration
+        after_ctrl_horizon_where = np.where(self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon))[0]        
+
         # Fold mv_array to a 2D array
         control_matrix = mv_array.reshape([-1, len(self.mv_names)])
 
@@ -861,6 +868,7 @@ class Controller:
         u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where, :]
         u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = control_matrix
         u_matrix_daily[ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon
+        u_matrix_daily[after_ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon[-1,:]
         u_matrix_cumulative = u_matrix_daily
 
         # Convert daily feed to cumulative feed
