@@ -16,15 +16,28 @@ plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
 
 # Options
+PALETTE = sns.color_palette("colorblind", 10)
+DATA_FILE = "data/mr24-030-038-experiment/MR24-030-038-MasterDataTable.xlsx"
 MPC_GRP = "all"
 CONFIG = {
     "all": {
         "dest": "mpc-performance-figs-all",
-        "controller": "Linear MPC|Nonlinear MPC",
+        "controller": "Linear MPC|Nonlinear MPC|No MPC",
         "col": "Controller",
-        "col_order": ["Linear MPC", "Nonlinear MPC"],
+        "col_order": ["Linear MPC", "Nonlinear MPC", "No MPC"],
         "hue": "Bioreactor",
-        "hue_order": [805,806,807,808],
+        "hue_order": [
+            "MR24-030-802",
+            "MR24-030-803",
+            "MR24-038-805",
+            "MR24-038-807",
+            "MR24-038-808",
+            "MR24-030-805",
+            "MR24-030-806",
+            "MR24-038-806",
+            "MR24-030-801",
+            "MR24-030-804",
+            ],
     },
     # "linear": {
     #     "dest": "mpc-performance-figs-linear",
@@ -62,14 +75,11 @@ DISP_VARS = [
     "Lactate",
     "Glucose"
 ]  # ,"HPLC Titer","Lactate","Glucose","pCO2"]
-PALETTE = sns.color_palette("rocket", 6)
+
 
 # Retrieve measurements
 top_dir = Path().absolute()
-data_path = Path(top_dir, "data/mr24-038-experiment/MR24-038-MasterDataTable.xlsx")
-# data_path = Path(
-#     "~/GSK/Biopharm Model Predictive Control - General/data/MR24-030-MPC-3L/MR24-030-MasterDataTable.xlsx",
-# )
+data_path = Path(top_dir, DATA_FILE)
 fig_path = Path(data_path.parent, CONFIG[MPC_GRP]["dest"]).expanduser()
 fig_path.mkdir(parents=True, exist_ok=True)
 df_data = (
@@ -87,11 +97,8 @@ df_data = (
     .sort_values(by=["Batch", "Day"])
     .replace({"Controller": {"Python": "Linear MPC", "Julia": "Nonlinear MPC"}})
 )
-# df_data["Temp"] = df_data["Temp"].astype(int)
-df_data["Bioreactor"] = [int(x[-3:]) for x in df_data["Batch"].values]
-# df_data["Temp/pH"] = [
-#     f"{x[0]}, {int(x[1])}" for x in df_data.loc[:, ["pH", "Temp"]].values
-# ]
+
+df_data["Bioreactor"] = df_data["Batch"] # [int(x[-3:]) for x in df_data["Batch"].values]
 total_feed_diff = np.append(np.diff(df_data["Total Feed"]), 0)
 daily_feed = np.zeros((len(total_feed_diff),))
 daily_feed[total_feed_diff > 0] = total_feed_diff[total_feed_diff > 0]
