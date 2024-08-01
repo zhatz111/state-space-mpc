@@ -643,6 +643,7 @@ class Controller:
         ctrl_horizon = controller_config["Control Horizon"]
         est_horizon = controller_config["Estimation Horizon"]
         filter_wt_on_data = controller_config["Estimation Filter Weight on Data"]
+        persist_after_ctrl_horizon = controller_config["Persist After Control Horizon"]
 
         # The basics
         self.controller_model = controller_model
@@ -667,6 +668,7 @@ class Controller:
         self.pred_horizon = pred_horizon
         self.ctrl_horizon = ctrl_horizon
         self.mv_constr = mv_constr
+        self.persist_after_ctrl_horizon = persist_after_ctrl_horizon
 
         self.output_mods_est = np.zeros((1, len(est_wts)))
         self.est_curr_error = np.zeros((1, len(est_wts)))
@@ -715,7 +717,7 @@ class Controller:
             ),
             self.bioreactor.data["Day"] < max(self.bioreactor.data["Day"]),
         )
-        is_after_ctrl_horizon = self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon)        
+        # is_after_ctrl_horizon = self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon)        
         is_in_pred_horizon = np.logical_and(
             self.bioreactor.data["Day"] >= self.curr_time,
             self.bioreactor.data["Day"] < (self.curr_time + self.pred_horizon + 1),
@@ -743,7 +745,7 @@ class Controller:
         bounds = np.vstack((constr_low_array, constr_high_array)).transpose()
 
         # Simulate before optimization
-        _, y_out_before_optim = self.obj_func_wrapper(mv_array)
+        _, y_out_before_optim, _ = self.obj_func_wrapper(mv_array)
         data_before_optim = self.data_before_optim
         data_before_optim.loc[
             data_before_optim["Day"] >= self.curr_time,
@@ -771,8 +773,8 @@ class Controller:
             )
 
             # Fold mv to 2D
-            control_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
-            _, y_out_after_optim = self.obj_func_wrapper(mv_array_star.x)
+            # control_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
+            _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(mv_array_star.x)
 
         # Update post-optimization (or open loop) data record
         data_after_optim = self.data_after_optim
@@ -780,16 +782,20 @@ class Controller:
             data_after_optim["Day"] >= self.curr_time,
             self.controller_model.state_pred_labels,
         ] = y_out_after_optim
-        data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = control_matrix_star
+        # data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = control_matrix_star
+        data_after_optim.loc[:, self.mv_names] = mv_after_optim
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset with new inputs
+        # self.bioreactor.data.loc[
+        #     is_in_ctrl_horizon, self.mv_names
+        # ] = control_matrix_star
         self.bioreactor.data.loc[
-            is_in_ctrl_horizon, self.mv_names
-        ] = control_matrix_star
-        self.bioreactor.data.loc[
-            is_after_ctrl_horizon, self.mv_names
-        ] = control_matrix_star[-1,:]      
+            :, self.mv_names
+        ] = mv_after_optim        
+        # self.bioreactor.data.loc[
+        #     is_after_ctrl_horizon, self.mv_names
+        # ] = control_matrix_star[-1,:]      
 
         # Update the dataset with new predictions
         self.bioreactor.data.loc[
@@ -868,7 +874,8 @@ class Controller:
         u_matrix_daily_ctrl_horizon = u_matrix_daily[ctrl_horizon_where, :]
         u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = control_matrix
         u_matrix_daily[ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon
-        u_matrix_daily[after_ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon[-1,:]
+        if self.persist_after_ctrl_horizon:
+            u_matrix_daily[after_ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon[-1,:]
         u_matrix_cumulative = u_matrix_daily
 
         # Convert daily feed to cumulative feed
@@ -923,6 +930,7 @@ class Controller:
                 e,
             ),
             y_out,
+            u_matrix_daily[:, mv_loc],
         )
 
     def ctrl_obj_func(
@@ -962,10 +970,14 @@ class Controller:
         # Calculate the cost
         u_diff = np.diff(u, axis=0, prepend=0)
         u2_diff = u_diff[self.ts >= self.curr_time, :]
+        u2 = u[self.ts >= self.curr_time, :]
         u3_diff = u2_diff[0 : self.ctrl_horizon, :]
-        u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff), axis=0), self.mv_wts))
+        u3 = u2[0 : self.ctrl_horizon, :]
+        u3_diff_norm = np.divide(u3_diff,u3)
+        u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts))
         y3_diff = y3 - pv_sps3
-        y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff), axis=0), self.pv_wts))
+        y3_diff_norm = np.divide(y3_diff,pv_sps3)
+        y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts))
         return u3_cost + y3_cost + np.sum(e**2)
 
     def estimate(self):
