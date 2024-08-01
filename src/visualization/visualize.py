@@ -213,6 +213,14 @@ class MPCVisualizer:
             for count, inputs in enumerate(
                 self.bioreactor.process_model.inputs, start=last_ax_used + 1
             ):
+                
+                # Determine if the input is an MV and has constraint
+                if inputs + MV_SUFFIX in self.controller.mv_names:
+                    mv_where = np.where(np.isin(self.controller.mv_names,inputs + MV_SUFFIX))[0]
+                    mv_constr = self.controller.mv_constr[:,mv_where]
+                else:
+                    mv_constr = []
+
                 if count != len(sub_ax):
                     try:
                         sub_ax[count].step(
@@ -293,6 +301,8 @@ class MPCVisualizer:
                                 fontweight="bold"
                             )
                     sub_ax[count].legend(prop={"size": 9})
+                    if len(mv_constr) > 0:
+                        sub_ax[count].set_ylim(mv_constr)
 
                 sub_ax[count].set_xlim([0,np.max(plot_data["Day"])])
 
