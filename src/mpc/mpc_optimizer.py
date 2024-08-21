@@ -968,7 +968,7 @@ class Controller:
         pv_sps3 = pv_sps2[0 : self.pred_horizon, :]
 
         # Calculate the cost
-        u_diff = np.diff(u, axis=0, prepend=0)
+        u_diff = np.diff(u, axis=0, prepend=u[0][0])  # self.mv_constr[0][0]
         u2_diff = u_diff[self.ts >= self.curr_time, :]
         u2 = u[self.ts >= self.curr_time, :]
         u3_diff = u2_diff[0 : self.ctrl_horizon, :]

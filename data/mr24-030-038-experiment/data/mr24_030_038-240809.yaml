@@ -462,7 +462,7 @@ MainController: {
       0.5,
     ],
   },
-  "Prediction Horizon": 3,
+  "Prediction Horizon": 5,
   "Control Horizon": 3,
   "Estimation Horizon": 2,
   "Estimation Filter Weight on Data": 0.5,

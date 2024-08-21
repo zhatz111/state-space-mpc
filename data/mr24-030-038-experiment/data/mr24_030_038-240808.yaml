@@ -468,7 +468,7 @@ MainController: {
   "Estimation Filter Weight on Data": 0.5,
   "Offset Proportional Gain": 0.0, # Override individual gains if >= 0
   "Offset Integral Gain": 1.0, # Override individual gains if >= 0
-  "Persist After Control Horizon": False,
+  "Persist After Control Horizon": true,
 }
 
 
