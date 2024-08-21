@@ -14,10 +14,11 @@ matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 plt.rcParams["axes.edgecolor"] = "black"
 plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
+sns.set_context("paper",font_scale=1.5)
 
 # Options
-PALETTE = sns.color_palette("colorblind", 10)
-DATA_FILE = "data/mr24-030-038-experiment/MR24-030-038-MasterDataTable.xlsx"
+PALETTE = sns.color_palette("rocket", 3)
+DATA_FILE = "data/ar24-005-experiment/AR24-005_MasterDataTable_2-240821.xlsx"
 MPC_GRP = "all"
 CONFIG = {
     "all": {
@@ -25,19 +26,8 @@ CONFIG = {
         "controller": "Linear MPC|Nonlinear MPC|No MPC",
         "col": "Controller",
         "col_order": ["Linear MPC", "Nonlinear MPC", "No MPC"],
-        "hue": "Bioreactor",
-        "hue_order": [
-            "MR24-030-802",
-            "MR24-030-803",
-            "MR24-038-805",
-            "MR24-038-807",
-            "MR24-038-808",
-            "MR24-030-805",
-            "MR24-030-806",
-            "MR24-038-806",
-            "MR24-030-801",
-            "MR24-030-804",
-            ],
+        "hue": "iVCC",
+        "hue_order": [12, 15, 18],
     },
     # "linear": {
     #     "dest": "mpc-performance-figs-linear",
@@ -86,11 +76,11 @@ df_data = (
     pd.read_excel(data_path, skiprows=[0])
     .rename(
         columns={
-            "Cumulative Feed Amount (mL)": "Total Feed",
-            "Cumulative Glucose Amount (mL)": "Total Glucose",
-            "pCO2 at Temp": "pCO2",
+            "Cumulative_Feed": "Total Feed",
+            "Cumulative_Glucose": "Total Glucose",
+            "pCO2_at_temp": "pCO2",
             "IGG": "Cedex Titer",
-            "Vessel Temp (*C)":"Temp",
+            # "Vessel Temp (*C)":"Temp",
             "Reference Titer":"Setpoint",
         }
     )
