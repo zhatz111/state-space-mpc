@@ -275,8 +275,8 @@ Column Mapping: {
     "IGG": "IGG--STATE_DATA",
     "Titre": "IGG--STATE_DATA",
     "Osmolality": "OSMO--STATE_DATA",
-    "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
-    "pHatTemperature": "PH_AT_TEMP--STATE_DATA",
+    "pH_sp": "PH_AT_TEMP--INPUT_DATA", # "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    # "pHatTemperature": "PH_AT_TEMP--STATE_DATA",
     "Glucose": "GLUCOSE--INPUT_DATA",
     "GlucoseConcentration": "GLUCOSE--INPUT_DATA",
     "Lactate": "LACTATE--STATE_DATA",
@@ -284,12 +284,12 @@ Column Mapping: {
     "pCO2atTemperature": "PCO2--INPUT_DATA",
     "Ammonium": "AMMONIUM--STATE_DATA",
     "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
-    "DO": "DO--INPUT_DATA",
-    "dissolved_oxygen": "DO--INPUT_DATA",
+    # "DO": "DO--INPUT_DATA",
+    "DO_sp": "DO--INPUT_DATA", # "dissolved_oxygen": "DO--INPUT_DATA",
     # "Online pH": "PH--INPUT_DATA",
     # "pH": "PH--INPUT_DATA",
-    "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
-    "temperature": "TEMPERATURE--INPUT_DATA",
+    # "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
+    "Temp_sp": "TEMPERATURE--INPUT_DATA", # "temperature": "TEMPERATURE--INPUT_DATA",
     "Cumulative_Normalized_Feed_Current WV": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
     "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
     "Feed Flow Rate (mL/min)": "FEED_RATE--INPUT_DATA",
@@ -332,39 +332,39 @@ MainController: {
         5791.69,
         6118.18
       ],
-      "Weight": 0.0005
+      "Weight": 10.0
     },
   },
   "State Variables":{
     "IGG": {
       "Initial": 160.05,
       "Weight": 0.0001,
-      "Offset Proportional Gain": 1.0,
+      "Offset Proportional Gain": 0.0,
       "Offset Integral Gain": 1.0,
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
-      "Offset Proportional Gain": 1.0,
-      "Offset Integral Gain": 1.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.25
       },
     "VIABILITY": {
       "Initial": 98.19,
       "Weight": 10.0,
-      "Offset Proportional Gain": 1.0,
-      "Offset Integral Gain": 1.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.25,
       },
     "LACTATE": {
       "Initial": 1.05,
       "Weight": 50.0,
-      "Offset Proportional Gain": 1.0,
-      "Offset Integral Gain": 1.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.25,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
-      "Offset Proportional Gain": 1.0,
-      "Offset Integral Gain": 1.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.25,
       }
   },
   "End of Run Variables":{
@@ -393,10 +393,10 @@ MainController: {
         0.097,
         0.1045
         ],
-      "Weight": 2000.0,
+      "Weight": 1.0,
       "Constraint": [
         0.0045,
-        0.05
+        0.02
         ]
     }
   },
@@ -462,13 +462,13 @@ MainController: {
       0.5,
     ],
   },
-  "Prediction Horizon": 3,
-  "Control Horizon": 3,
+  "Prediction Horizon": 5,
+  "Control Horizon": 5,
   "Estimation Horizon": 2,
   "Estimation Filter Weight on Data": 0.5,
   "Offset Proportional Gain": 0.0, # Override individual gains if >= 0
-  "Offset Integral Gain": 1.0, # Override individual gains if >= 0
-  "Persist After Control Horizon": False,
+  "Offset Integral Gain": -0.5, # Override individual gains if >= 0
+  "Persist After Control Horizon": True,
 }
 
 

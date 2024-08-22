@@ -218,6 +218,7 @@ class MPCVisualizer:
                 if inputs + MV_SUFFIX in self.controller.mv_names:
                     mv_where = np.where(np.isin(self.controller.mv_names,inputs + MV_SUFFIX))[0]
                     mv_constr = self.controller.mv_constr[:,mv_where]
+                    mv_constr[0] = 0
                 else:
                     mv_constr = []
 

@@ -968,16 +968,16 @@ class Controller:
         pv_sps3 = pv_sps2[0 : self.pred_horizon, :]
 
         # Calculate the cost
-        u_diff = np.diff(u, axis=0, prepend=u[0][0])  # self.mv_constr[0][0]
+        u_diff = np.diff(np.vstack((u[0,],u)), axis=0)  # self.mv_constr[0][0]
         u2_diff = u_diff[self.ts >= self.curr_time, :]
         u2 = u[self.ts >= self.curr_time, :]
         u3_diff = u2_diff[0 : self.ctrl_horizon, :]
         u3 = u2[0 : self.ctrl_horizon, :]
         u3_diff_norm = np.divide(u3_diff,u3)
-        u3_cost = np.sum(np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts))
+        u3_cost = np.mean(np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts))
         y3_diff = y3 - pv_sps3
         y3_diff_norm = np.divide(y3_diff,pv_sps3)
-        y3_cost = np.sum(np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts))
+        y3_cost = np.mean(np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts))
         return u3_cost + y3_cost + np.sum(e**2)
 
     def estimate(self):
