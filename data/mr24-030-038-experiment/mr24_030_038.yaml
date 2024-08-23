@@ -17,7 +17,8 @@ Arange Bioreactors: False
 Bioreactors:
   # - MR24-030-802
   # - MR24-030-803
-  - MR24-038-805
+  # - MR24-038-805
+  - MR24-030-805
 
 Data Folder: mr24-030-038-experiment
 Figures Folder: figures
@@ -31,6 +32,7 @@ Controller Dictionary:
   MainController:
   - MR24-030-802
   - MR24-030-803
+  - MR24-030-805 # but actually NMPC
   - MR24-038-805
 
 Units Dictionary:
@@ -275,7 +277,8 @@ Column Mapping: {
     "IGG": "IGG--STATE_DATA",
     "Titre": "IGG--STATE_DATA",
     "Osmolality": "OSMO--STATE_DATA",
-    "pH_sp": "PH_AT_TEMP--INPUT_DATA", # "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    # "pH_sp": "PH_AT_TEMP--INPUT_DATA", # "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
     # "pHatTemperature": "PH_AT_TEMP--STATE_DATA",
     "Glucose": "GLUCOSE--INPUT_DATA",
     "GlucoseConcentration": "GLUCOSE--INPUT_DATA",
@@ -462,12 +465,12 @@ MainController: {
       0.5,
     ],
   },
-  "Prediction Horizon": 5,
-  "Control Horizon": 5,
+  "Prediction Horizon": 3,
+  "Control Horizon": 3,
   "Estimation Horizon": 2,
   "Estimation Filter Weight on Data": 0.5,
   "Offset Proportional Gain": 0.0, # Override individual gains if >= 0
-  "Offset Integral Gain": -0.5, # Override individual gains if >= 0
+  "Offset Integral Gain": -1.0, # Override individual gains if >= 0
   "Persist After Control Horizon": True,
 }
 

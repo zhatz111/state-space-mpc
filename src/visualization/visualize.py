@@ -120,7 +120,7 @@ class MPCVisualizer:
                 # Calculate est. error
                 y_data = plot_data[state + PV_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
                 y_est = plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
-                y_data_est_have_values = ~np.logical_and(np.isnan(y_data),np.isnan(y_est))
+                y_data_est_have_values = ~np.logical_or(np.isnan(y_data),np.isnan(y_est))
                 rmse_est = np.sqrt(mean_squared_error(y_data[y_data_est_have_values],y_est[y_data_est_have_values]))
 
                 if state in y_var:
@@ -156,7 +156,7 @@ class MPCVisualizer:
                     try:
 
                         y_sp = plot_data[state + PV_SP_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
-                        y_data_sp_have_values = ~np.logical_and(np.isnan(y_data),np.isnan(y_est))
+                        y_data_sp_have_values = ~np.logical_or(np.isnan(y_data),np.isnan(y_est))
                         rmse_ctrl = np.sqrt(mean_squared_error(y_data[y_data_sp_have_values],y_sp[y_data_sp_have_values]))
 
                         sub_ax[count].plot(

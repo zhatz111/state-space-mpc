@@ -409,9 +409,21 @@ class Bioreactor:
         else:
             curr_time = self.curr_time
 
-        return self.data.loc[
+        # Measurements from the data sheet
+        measurements = self.data.loc[
             self.data["Day"] == curr_time, self.process_model.state_data_labels
         ].values[0]
+
+        # Current model predictions 
+        preds = self.data.loc[
+            self.data["Day"] == curr_time, self.process_model.state_pred_labels
+        ].values[0]  
+
+        # Replace missing data with predictions
+        if np.any(np.isnan(measurements)):
+            measurements[np.isnan(measurements)] = preds[np.isnan(measurements)]      
+
+        return measurements
 
     def sim_from_day(
         self, day=-1, initial_state=np.array([]), output_mods=np.array([])
