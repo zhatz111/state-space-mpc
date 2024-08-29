@@ -105,7 +105,7 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 1
+CURR_TIME_USER = -1
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
     date_delta = (
         datetime.today().date()
