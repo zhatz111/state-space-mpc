@@ -16,7 +16,7 @@ plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
 
 # Options
-PALETTE = sns.color_palette("colorblind", 5)
+PALETTE = sns.color_palette("colorblind", 6)
 DATA_FILE = "data/mr24-045-experiment/MR24-045-MasterDataTable.xlsx"
 MPC_GRP = "all"
 CONFIG = {
@@ -31,7 +31,7 @@ CONFIG = {
             "MR24-045-802",
             "MR24-045-803",
             "MR24-045-804",
-            # "MR24-045-805",
+            "MR24-045-805",
             "MR24-045-806",
             ],
     },
@@ -69,7 +69,8 @@ DISP_VARS = [
     "Viability",
     "VCC",
     "Lactate",
-    "Glucose"
+    "Glucose",
+    "pO2"
 ]  # ,"HPLC Titer","Lactate","Glucose","pCO2"]
 
 
@@ -121,7 +122,7 @@ df_data_selected = df_data.loc[
         "Lactate",
         "Glucose",
         "pCO2",
-        # "Temp/pH",
+        "pO2",
         "Total Feed",
         "Total Glucose",
         "Daily Feed",
