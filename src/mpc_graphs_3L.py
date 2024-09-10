@@ -16,27 +16,23 @@ plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
 
 # Options
-PALETTE = sns.color_palette("colorblind", 10)
-DATA_FILE = "data/mr24-030-038-experiment/MR24-030-038-MasterDataTable.xlsx"
+PALETTE = sns.color_palette("colorblind", 5)
+DATA_FILE = "data/mr24-045-experiment/MR24-045-MasterDataTable.xlsx"
 MPC_GRP = "all"
 CONFIG = {
     "all": {
         "dest": "mpc-performance-figs-all",
-        "controller": "Linear MPC|Nonlinear MPC|No MPC",
+        "controller": "Linear MPC|Nonlinear MPC",
         "col": "Controller",
-        "col_order": ["Linear MPC", "Nonlinear MPC", "No MPC"],
+        "col_order": ["Linear MPC", "Nonlinear MPC"],
         "hue": "Bioreactor",
         "hue_order": [
-            "MR24-030-802",
-            "MR24-030-803",
-            "MR24-038-805",
-            "MR24-038-807",
-            "MR24-038-808",
-            "MR24-030-805",
-            "MR24-030-806",
-            "MR24-038-806",
-            "MR24-030-801",
-            "MR24-030-804",
+            "MR24-045-801",
+            "MR24-045-802",
+            "MR24-045-803",
+            "MR24-045-804",
+            # "MR24-045-805",
+            "MR24-045-806",
             ],
     },
     # "linear": {
