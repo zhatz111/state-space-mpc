@@ -17,11 +17,11 @@ sns.set_style("ticks")
 
 # Options
 PALETTE = sns.color_palette("colorblind", 6)
-DATA_FILE = "data/mr24-045-experiment/MR24-045-MasterDataTable.xlsx"
+DATA_FILE = "data/mr24-045-experiment/MR24-045-MasterDataTable-with_original_sp.xlsx"
 MPC_GRP = "all"
 CONFIG = {
     "all": {
-        "dest": "mpc-performance-figs-all",
+        "dest": "mpc-performance-figs-all-with-original-sp",
         "controller": "Linear MPC|Nonlinear MPC",
         "col": "Controller",
         "col_order": ["Linear MPC", "Nonlinear MPC"],
