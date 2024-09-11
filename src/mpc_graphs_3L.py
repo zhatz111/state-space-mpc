@@ -14,6 +14,7 @@ matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 plt.rcParams["axes.edgecolor"] = "black"
 plt.rcParams["axes.linewidth"] = 1.5
 sns.set_style("ticks")
+sns.set_context("paper",font_scale=1.5)
 
 # Options
 PALETTE = sns.color_palette("colorblind", 6)
