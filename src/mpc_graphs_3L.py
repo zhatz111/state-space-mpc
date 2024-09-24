@@ -17,49 +17,30 @@ sns.set_style("ticks")
 sns.set_context("paper",font_scale=1.5)
 
 # Options
-PALETTE = sns.color_palette("colorblind", 6)
-DATA_FILE = "data/mr24-045-experiment/MR24-045-MasterDataTable-with_original_sp.xlsx"
-MPC_GRP = "all"
+MPC_GRP = "all-3L"
 CONFIG = {
-    "all": {
-        "dest": "mpc-performance-figs-all-with-original-sp",
-        "controller": "Linear MPC|Nonlinear MPC",
+    "all-3L": {
+        "data_file": "data/mr24-0XX-experiment/MR24-030-038-045-MasterDataTable.xlsx",
+        "dest": "mpc-performance-figs-all",
+        "controller": "Linear MPC|Nonlinear MPC|No MPC",
         "col": "Controller",
-        "col_order": ["Linear MPC", "Nonlinear MPC"],
+        "col_order": ["Linear MPC", "Nonlinear MPC","No MPC"],
         "hue": "Bioreactor",
         "hue_order": [
-            "MR24-045-801",
-            "MR24-045-802",
-            "MR24-045-803",
+            "MR24-030-801",
+            "MR24-030-802",
+            "MR24-030-803",
+            # "MR24-030-804",
+            "MR24-030-805",
+            "MR24-030-806",
+            "MR24-045-801",            
+            "MR24-045-802",            
+            "MR24-045-803",            
             "MR24-045-804",
-            "MR24-045-805",
+            # "MR24-045-805",
             "MR24-045-806",
             ],
     },
-    # "linear": {
-    #     "dest": "mpc-performance-figs-linear",
-    #     "controller": "Linear MPC",
-    #     "col": "iVCC",
-    #     "col_order": [12, 15, 18],
-    #     "hue": "Temp/pH",
-    #     "hue_order": ["7.1, 32", "7.2, 34", "7.3, 35"],
-    # },
-    # "nonlinear": {
-    #     "dest": "mpc-performance-figs-nonlinear",
-    #     "controller": "Nonlinear MPC",
-    #     "col": "iVCC",
-    #     "col_order": [12, 15, 18],
-    #     "hue": "Temp/pH",
-    #     "hue_order": ["7.1, 32", "7.2, 34", "7.3, 35"],
-    # },
-    # "no": {
-    #     "dest": "mpc-performance-figs-no",
-    #     "controller": "No MPC",
-    #     "col": "iVCC",
-    #     "col_order": [12, 15, 18],
-    #     "hue": "Temp/pH",
-    #     "hue_order": ["7.1, 32", "7.2, 34", "7.3, 35"],
-    # },
 }
 DISP_VARS = [
     "Cedex Titer",
@@ -77,7 +58,7 @@ DISP_VARS = [
 
 # Retrieve measurements
 top_dir = Path().absolute()
-data_path = Path(top_dir, DATA_FILE)
+data_path = Path(top_dir, CONFIG[MPC_GRP]["data_file"])
 fig_path = Path(data_path.parent, CONFIG[MPC_GRP]["dest"]).expanduser()
 fig_path.mkdir(parents=True, exist_ok=True)
 df_data = (
@@ -164,6 +145,8 @@ df_joined["HPLC Titer Absolute Tracking Error (%)"] = (
     * 100
 )
 
+# Plot
+palette = sns.color_palette("colorblind", len(CONFIG[MPC_GRP]["hue_order"]))
 i = 1
 for disp_var in DISP_VARS:
     print(f"Generating figures for {disp_var}")
@@ -187,7 +170,7 @@ for disp_var in DISP_VARS:
             hue=CONFIG[MPC_GRP]["hue"],
             marker="o",
             hue_order=CONFIG[MPC_GRP]["hue_order"],
-            palette=PALETTE,
+            palette=palette,
             markersize=8,
             err_style="bars",
             err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -264,7 +247,7 @@ for disp_var in DISP_VARS:
                 hue=CONFIG[MPC_GRP]["hue"],
                 marker="o",
                 hue_order=CONFIG[MPC_GRP]["hue_order"],
-                palette=PALETTE,
+                palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
@@ -368,7 +351,7 @@ for disp_var in DISP_VARS:
                 hue=CONFIG[MPC_GRP]["hue"],
                 marker="o",
                 hue_order=CONFIG[MPC_GRP]["hue_order"],
-                palette=PALETTE,
+                palette=palette,
                 markersize=10,
                 err_style="bars",
                 err_kws={"capsize": 2, "elinewidth": 2, "capthick": 2},
