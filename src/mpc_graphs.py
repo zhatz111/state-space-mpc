@@ -17,9 +17,9 @@ sns.set_style("ticks")
 sns.set_context("paper",font_scale=1.5)
 
 # Options
-MPC_GRP = "all-3L"
+MPC_GRP = "AR"
 CONFIG = {
-    "all-3L": {
+    "MR": {
         "data_file": "data/mr24-0XX-experiment/MR24-030-038-045-MasterDataTable.xlsx",
         "dest": "mpc-performance-figs-all",
         "controller": "Linear MPC|Nonlinear MPC|No MPC",
@@ -41,6 +41,24 @@ CONFIG = {
             "MR24-045-806",
             ],
     },
+    "AR": {
+        "data_file": "data/ar24-005-experiment/AR24-005_MasterDataTable_2-240924.xlsx",
+        "dest": "mpc-performance-figs-all",
+        "controller": "Linear MPC|Nonlinear MPC|No MPC",
+        "col": "Controller",
+        "col_order": ["Linear MPC", "Nonlinear MPC","No MPC"],
+        "hue": "Bioreactor",
+        "hue_order": [
+            "AR24-005-002",
+            "AR24-005-003",
+            "AR24-005-006",
+            "AR24-005-016",
+            "AR24-005-017",
+            "AR24-005-019",
+            "AR24-005-020",
+            "AR24-005-021",
+        ],
+    },    
 }
 DISP_VARS = [
     "Cedex Titer",
@@ -53,7 +71,7 @@ DISP_VARS = [
     "Lactate",
     "Glucose",
     "pO2"
-]  # ,"HPLC Titer","Lactate","Glucose","pCO2"]
+] 
 
 
 # Retrieve measurements
@@ -65,6 +83,9 @@ df_data = (
     pd.read_excel(data_path, skiprows=[0])
     .rename(
         columns={
+            "Cumulative_Feed": "Total Feed",
+            "Cumulative_Glucose": "Total Glucose",
+            "pCO2_at_temp": "pCO2",       
             "Cumulative Feed Amount (mL)": "Total Feed",
             "Cumulative Glucose Amount (mL)": "Total Glucose",
             "pCO2 at Temp": "pCO2",
