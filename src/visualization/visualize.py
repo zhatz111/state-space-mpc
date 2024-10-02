@@ -101,7 +101,7 @@ class MPCVisualizer:
             # Create a mask for NaN Values
             last_ax_used = 0
             sub_ax = ax.flatten()
-            mape_est_ctrl_array = np.full((2,len(self.bioreactor.process_model.states)),np.nan)
+            mape_est_ctrl_array = np.full((3,len(self.bioreactor.process_model.states)),np.nan)
             for count, state in enumerate(self.bioreactor.process_model.states):
 
                 # Retrieve the latest modifier
@@ -125,7 +125,8 @@ class MPCVisualizer:
                 y_data_est_have_values = ~np.logical_or(np.isnan(y_data),np.isnan(y_est))
                 rmse_est = np.sqrt(mean_squared_error(y_data[y_data_est_have_values],y_est[y_data_est_have_values]))
                 mape_est = 100*mean_absolute_percentage_error(y_data[y_data_est_have_values],y_est[y_data_est_have_values])
-                mape_est_ctrl_array[0,count] = mape_est
+                mape_est_ctrl_array[0,count] = self.controller.offset_ki[count]
+                mape_est_ctrl_array[1,count] = mape_est
 
                 if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
@@ -163,7 +164,7 @@ class MPCVisualizer:
                         y_data_sp_have_values = ~np.logical_or(np.isnan(y_data),np.isnan(y_est))
                         rmse_ctrl = np.sqrt(mean_squared_error(y_data[y_data_sp_have_values],y_sp[y_data_sp_have_values]))
                         mape_ctrl = 100*mean_absolute_percentage_error(y_sp[y_data_sp_have_values],y_data[y_data_sp_have_values])
-                        mape_est_ctrl_array[1,count] = mape_ctrl
+                        mape_est_ctrl_array[2,count] = mape_ctrl
 
                         sub_ax[count].plot(
                             plot_data["Day"],
@@ -215,7 +216,7 @@ class MPCVisualizer:
 
                 sub_ax[count].set_xlim([0,np.max(plot_data["Day"])])
 
-            mape_df = pd.DataFrame(np.round(mape_est_ctrl_array,2),columns=self.bioreactor.process_model.states,index=['Est.%','Ctrl.%'])
+            mape_df = pd.DataFrame(np.round(mape_est_ctrl_array,2),columns=self.bioreactor.process_model.states,index=['Est. gain','Est.%','Ctrl.%'])
             print(mape_df)
             print("-" * len(max(mape_df.to_string().split('\n'),key=len)))
 
