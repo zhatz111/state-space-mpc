@@ -560,13 +560,13 @@ MainController: {
       "Initial": 160.05,
       "Weight": 0.0001,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.7
+      "Offset Integral Gain": 1.0
       },
     "VCC": {
       "Initial": 13.83,
       "Weight": 2.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.25
+      "Offset Integral Gain": 1.0
       },
     "VIABILITY": {
       "Initial": 98.19,
