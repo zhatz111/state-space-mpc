@@ -21,7 +21,7 @@ from src.mpc.mpc_optimizer import Bioreactor, Controller
 
 # RMSE
 from sklearn.metrics import mean_squared_error
-from sklearn.metrics import mean_absolute_percentage_error 
+from sklearn.metrics import mean_absolute_percentage_error
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -101,11 +101,12 @@ class MPCVisualizer:
             # Create a mask for NaN Values
             last_ax_used = 0
             sub_ax = ax.flatten()
-            mape_est_ctrl_array = np.full((3,len(self.bioreactor.process_model.states)),np.nan)
+            mape_est_ctrl_array = np.full(
+                (3, len(self.bioreactor.process_model.states)), np.nan
+            )
             for count, state in enumerate(self.bioreactor.process_model.states):
-
                 # Retrieve the latest modifier
-                modifiers_data = plot_data[state + '--STATE_MOD'].values
+                modifiers_data = plot_data[state + "--STATE_MOD"].values
                 latest_modifier = modifiers_data[~pd.isnull(modifiers_data)][-1]
 
                 # # Use the correct modifiers for days outside the est horizon (2024-02-26)
@@ -117,16 +118,32 @@ class MPCVisualizer:
 
                 # Additive modifier (2024-06-20)
                 modifiers = modifiers_data.copy()
-                modifiers[np.where(np.isnan(modifiers))] = latest_modifier   
+                modifiers[np.where(np.isnan(modifiers))] = latest_modifier
 
                 # Calculate est. error
-                y_data = plot_data[state + PV_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
-                y_est = plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
-                y_data_est_have_values = ~np.logical_or(np.isnan(y_data),np.isnan(y_est))
-                rmse_est = np.sqrt(mean_squared_error(y_data[y_data_est_have_values],y_est[y_data_est_have_values]))
-                mape_est = 100*mean_absolute_percentage_error(y_data[y_data_est_have_values],y_est[y_data_est_have_values])
-                mape_est_ctrl_array[0,count] = self.controller.offset_ki[count]
-                mape_est_ctrl_array[1,count] = mape_est
+                y_data = (
+                    plot_data[state + PV_SUFFIX]
+                    .loc[plot_data["Day"] <= self.bioreactor.curr_time]
+                    .values
+                )
+                y_est = (
+                    plot_data[state + EST_SUFFIX]
+                    .loc[plot_data["Day"] <= self.bioreactor.curr_time]
+                    .values
+                )
+                y_data_est_have_values = ~np.logical_or(
+                    np.isnan(y_data), np.isnan(y_est)
+                )
+                rmse_est = np.sqrt(
+                    mean_squared_error(
+                        y_data[y_data_est_have_values], y_est[y_data_est_have_values]
+                    )
+                )
+                mape_est = 100 * mean_absolute_percentage_error(
+                    y_data[y_data_est_have_values], y_est[y_data_est_have_values]
+                )
+                mape_est_ctrl_array[0, count] = self.controller.offset_ki[count]
+                mape_est_ctrl_array[1, count] = mape_est
 
                 if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
@@ -139,18 +156,22 @@ class MPCVisualizer:
                     )
                     sub_ax[count].plot(
                         plot_data["Day"].loc[
-                                plot_data["Day"] >= self.bioreactor.curr_time
-                            ],
+                            plot_data["Day"] >= self.bioreactor.curr_time
+                        ],
                         plot_data[state + PRED_SUFFIX].loc[
-                                plot_data["Day"] >= self.bioreactor.curr_time
-                            ],
+                            plot_data["Day"] >= self.bioreactor.curr_time
+                        ],
                         "r-o",
                         label="Predicted Output",
                     )
 
                     sub_ax[count].plot(
-                        plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                        plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                        plot_data["Day"].loc[
+                            plot_data["Day"] <= self.bioreactor.curr_time
+                        ],
+                        plot_data[state + EST_SUFFIX].loc[
+                            plot_data["Day"] <= self.bioreactor.curr_time
+                        ],
                         # np.add(
                         #     plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
                         #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
@@ -159,12 +180,24 @@ class MPCVisualizer:
                         label=f"Estimated Output ({np.round(mape_est,2)}%)",
                     )
                     try:
-
-                        y_sp = plot_data[state + PV_SP_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time].values
-                        y_data_sp_have_values = ~np.logical_or(np.isnan(y_data),np.isnan(y_est))
-                        rmse_ctrl = np.sqrt(mean_squared_error(y_data[y_data_sp_have_values],y_sp[y_data_sp_have_values]))
-                        mape_ctrl = 100*mean_absolute_percentage_error(y_sp[y_data_sp_have_values],y_data[y_data_sp_have_values])
-                        mape_est_ctrl_array[2,count] = mape_ctrl
+                        y_sp = (
+                            plot_data[state + PV_SP_SUFFIX]
+                            .loc[plot_data["Day"] <= self.bioreactor.curr_time]
+                            .values
+                        )
+                        y_data_sp_have_values = ~np.logical_or(
+                            np.isnan(y_data), np.isnan(y_est)
+                        )
+                        rmse_ctrl = np.sqrt(
+                            mean_squared_error(
+                                y_data[y_data_sp_have_values],
+                                y_sp[y_data_sp_have_values],
+                            )
+                        )
+                        mape_ctrl = 100 * mean_absolute_percentage_error(
+                            y_sp[y_data_sp_have_values], y_data[y_data_sp_have_values]
+                        )
+                        mape_est_ctrl_array[2, count] = mape_ctrl
 
                         sub_ax[count].plot(
                             plot_data["Day"],
@@ -175,7 +208,9 @@ class MPCVisualizer:
                     except KeyError:
                         pass
                     if isinstance(unit_dict, dict):
-                        sub_ax[count].set_title(f"{state} (PV) {unit_dict[state]}", fontweight="bold")
+                        sub_ax[count].set_title(
+                            f"{state} (PV) {unit_dict[state]}", fontweight="bold"
+                        )
                     else:
                         sub_ax[count].set_title(f"{state} (PV)", fontweight="bold")
                     sub_ax[count].legend(prop={"size": 9})
@@ -189,17 +224,21 @@ class MPCVisualizer:
                     )
                     sub_ax[count].plot(
                         plot_data["Day"].loc[
-                                plot_data["Day"] >= self.bioreactor.curr_time
-                            ],
+                            plot_data["Day"] >= self.bioreactor.curr_time
+                        ],
                         plot_data[state + PRED_SUFFIX].loc[
-                                plot_data["Day"] >= self.bioreactor.curr_time
-                            ],
+                            plot_data["Day"] >= self.bioreactor.curr_time
+                        ],
                         "r-o",
                         label="Predicted Output",
                     )
                     sub_ax[count].plot(
-                        plot_data["Day"].loc[plot_data["Day"] <= self.bioreactor.curr_time],
-                        plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
+                        plot_data["Day"].loc[
+                            plot_data["Day"] <= self.bioreactor.curr_time
+                        ],
+                        plot_data[state + EST_SUFFIX].loc[
+                            plot_data["Day"] <= self.bioreactor.curr_time
+                        ],
                         # np.add(
                         #     plot_data[state + EST_SUFFIX].loc[plot_data["Day"] <= self.bioreactor.curr_time],
                         #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
@@ -208,27 +247,34 @@ class MPCVisualizer:
                         label=f"Estimated Output ({np.round(mape_est,2)}%)",
                     )
                     if isinstance(unit_dict, dict):
-                        sub_ax[count].set_title(f"{state} {unit_dict[state]}", fontweight="bold")
+                        sub_ax[count].set_title(
+                            f"{state} {unit_dict[state]}", fontweight="bold"
+                        )
                     else:
                         sub_ax[count].set_title(f"{state}", fontweight="bold")
                     sub_ax[count].legend(prop={"size": 9})
                 last_ax_used = count
 
-                sub_ax[count].set_xlim([0,np.max(plot_data["Day"])])
+                sub_ax[count].set_xlim([0, np.max(plot_data["Day"])])
 
-            mape_df = pd.DataFrame(np.round(mape_est_ctrl_array,2),columns=self.bioreactor.process_model.states,index=['Est. gain','Est.%','Ctrl.%'])
+            mape_df = pd.DataFrame(
+                np.round(mape_est_ctrl_array, 2),
+                columns=self.bioreactor.process_model.states,
+                index=["Est. gain", "Est.%", "Ctrl.%"],
+            )
             print(mape_df)
-            print("-" * len(max(mape_df.to_string().split('\n'),key=len)))
+            print("-" * len(max(mape_df.to_string().split("\n"), key=len)))
 
             # Plot the Controller Actions
             for count, inputs in enumerate(
                 self.bioreactor.process_model.inputs, start=last_ax_used + 1
             ):
-                
                 # Determine if the input is an MV and has constraint
                 if inputs + MV_SUFFIX in self.controller.mv_names:
-                    mv_where = np.where(np.isin(self.controller.mv_names,inputs + MV_SUFFIX))[0]
-                    mv_constr = self.controller.mv_constr[:,mv_where]
+                    mv_where = np.where(
+                        np.isin(self.controller.mv_names, inputs + MV_SUFFIX)
+                    )[0]
+                    mv_constr = self.controller.mv_constr[:, mv_where]
                     mv_constr[0] = 0
                 else:
                     mv_constr = []
@@ -244,7 +290,7 @@ class MPCVisualizer:
                             ],
                             "r-",
                             label="Predicted Control Input",
-                            where="post"
+                            where="post",
                         )
                         sub_ax[count].step(
                             plot_data["Day"].loc[
@@ -255,7 +301,7 @@ class MPCVisualizer:
                             ],
                             "k-",
                             label="Past Control Input",
-                            where="post"
+                            where="post",
                         )
                         try:
                             sub_ax[count].step(
@@ -263,12 +309,14 @@ class MPCVisualizer:
                                 plot_data[inputs + MV_REF_SUFFIX],
                                 "g--",
                                 label="Historical Input Reference",
-                                where="post"
+                                where="post",
                             )
                         except KeyError:
                             pass
                         if isinstance(unit_dict, dict):
-                            sub_ax[count].set_title(f"{inputs} {unit_dict[inputs]}", fontweight="bold")
+                            sub_ax[count].set_title(
+                                f"{inputs} {unit_dict[inputs]}", fontweight="bold"
+                            )
                         else:
                             sub_ax[count].set_title(f"{inputs}", fontweight="bold")
                     except KeyError:
@@ -281,7 +329,7 @@ class MPCVisualizer:
                             ],
                             "r-",
                             label="Predicted Control Input",
-                            where="post"
+                            where="post",
                         )
                         sub_ax[count].step(
                             plot_data["Day"].loc[
@@ -292,31 +340,30 @@ class MPCVisualizer:
                             ],
                             "k-",
                             label="Past Control Input",
-                            where="post"
+                            where="post",
                         )
                         sub_ax[count].step(
                             plot_data["Day"],
                             plot_data[self.bioreactor.daily_feed_name_ref],
                             "g--",
                             label="Historical Input Reference",
-                            where="post"
+                            where="post",
                         )
                         if isinstance(unit_dict, dict):
-                            label = self.bioreactor.daily_feed_name_ref.split('--')[0]
+                            label = self.bioreactor.daily_feed_name_ref.split("--")[0]
                             sub_ax[count].set_title(
-                                f"{label} (MV) {unit_dict[label]}",
-                                fontweight="bold"
+                                f"{label} (MV) {unit_dict[label]}", fontweight="bold"
                             )
                         else:
                             sub_ax[count].set_title(
                                 f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)",
-                                fontweight="bold"
+                                fontweight="bold",
                             )
                     sub_ax[count].legend(prop={"size": 9})
                     if len(mv_constr) > 0:
                         sub_ax[count].set_ylim(mv_constr)
 
-                sub_ax[count].set_xlim([0,np.max(plot_data["Day"])])
+                sub_ax[count].set_xlim([0, np.max(plot_data["Day"])])
 
             font = {
                 "family": "sans-serif",
@@ -344,7 +391,6 @@ class MPCVisualizer:
                     fig.savefig(fname=save_path, metadata=metadata)
                 elif isinstance(save_path, (str, Path)):
                     fig.savefig(fname=save_path)
-
 
         else:
             raise ValueError(
@@ -424,7 +470,7 @@ class MPCVisualizer:
                         ],
                         "k--",
                         label="Target Trajectory",
-                        where="post"
+                        where="post",
                     )
                     ax.step(
                         self.controller[count].data_before_optim_dict[key]["Day"],
@@ -433,7 +479,7 @@ class MPCVisualizer:
                         ],
                         "b-",
                         label="Un-optimized",
-                        where="post"
+                        where="post",
                     )
                     ax.step(
                         self.controller[count].data_after_optim_dict[key]["Day"],
@@ -442,7 +488,7 @@ class MPCVisualizer:
                         ],
                         "r-",
                         label="Optimized",
-                        where="post"
+                        where="post",
                     )
                     ax.title.set_text(f"Day: {key}")
                 tup[0].supxlabel("Day", size="x-large", weight="bold")
@@ -529,7 +575,7 @@ class MPCVisualizer:
                         ],
                         "k--",
                         label="Target Trajectory",
-                        where="post"
+                        where="post",
                     )
 
                     # Line for Open Loop MPC
@@ -542,7 +588,7 @@ class MPCVisualizer:
                         ],
                         "b-",
                         label="Open Loop MPC",
-                        where="post"
+                        where="post",
                     )
 
                     # Line for Closed Loop MPC
@@ -555,7 +601,7 @@ class MPCVisualizer:
                         ],
                         "r-",
                         label="Closed Loop MPC",
-                        where="post"
+                        where="post",
                     )
 
                     ax.title.set_text(self.bioreactor[count].vessel)

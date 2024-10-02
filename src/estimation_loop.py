@@ -14,6 +14,7 @@ from datetime import datetime
 # 3rd Party Library Imports
 import numpy as np
 import pandas as pd
+from termcolor import colored
 from InquirerPy.resolver import prompt
 
 # State-Space-Model Package Imports
@@ -218,9 +219,10 @@ for count_vessel, curr_vessel in enumerate(vessels):
     br_heading = f"{curr_vessel} on Day {curr_time}:"
     # print("." * len(br_heading))
     print("")
-    print(br_heading)
-    print(f"    Feed ratio: {np.round(result['FeedRatio_mL_mL'],4)}")
-    print(f"    Feed flowrate: {np.round(result['FeedRate_mL_min'],4)} mL/min")
+    print("-"*44)
+    print(colored(br_heading, "green"))
+    print("    Feed ratio: ", colored(f"{np.round(result['FeedRatio_mL_mL'],4)}", "blue", attrs=["bold"]))
+    print("    Feed flowrate: ", colored(f"{np.round(result['FeedRate_mL_min'],4)}", "blue", attrs=["bold"])," mL/min")
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED
