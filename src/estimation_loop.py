@@ -106,6 +106,7 @@ controller_model = StateSpaceModel(
 
 # User specified current culture day: determined automatically if -1
 CURR_TIME_USER = -1
+SHOW_PLOT = False
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
     date_delta = (
         datetime.today().date()
@@ -207,13 +208,17 @@ for count_vessel, curr_vessel in enumerate(vessels):
         else:
             END_OF_RUN = False
 
-        controller.optimize(
-            open_loop=False, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
-        )
+        if curr_time < experiment_config["Last Day"]:
+            controller.optimize(
+                open_loop=False, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
+            )
 
     # Retrieve and print current feed rate (mL/min) for the feed pump
     result = bioreactor.get_result()
-    print(f"{curr_vessel} on Day {curr_time}:")
+    br_heading = f"{curr_vessel} on Day {curr_time}:"
+    # print("." * len(br_heading))
+    print("")
+    print(br_heading)
     print(f"    Feed ratio: {np.round(result['FeedRatio_mL_mL'],4)}")
     print(f"    Feed flowrate: {np.round(result['FeedRate_mL_min'],4)} mL/min")
 
@@ -246,7 +251,7 @@ for count_vessel, curr_vessel in enumerate(vessels):
             "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
             "Software": f"Python v{sys.version}",
         },
-        display=True,
+        display=SHOW_PLOT,
     )
 
     # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
