@@ -578,13 +578,13 @@ MainController: {
       "Initial": 1.05,
       "Weight": 50.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.25,
+      "Offset Integral Gain": 0.5,
       },
     "OSMO": {
       "Initial": 315,
       "Weight": 0.007,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.25,
+      "Offset Integral Gain": 0.7,
       }
   },
   "End of Run Variables":{

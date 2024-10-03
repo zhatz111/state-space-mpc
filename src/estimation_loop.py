@@ -107,7 +107,7 @@ controller_model = StateSpaceModel(
 
 # User specified current culture day: determined automatically if -1
 CURR_TIME_USER = -1
-SHOW_PLOT = False
+SHOW_PLOT = True
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
     date_delta = (
         datetime.today().date()
@@ -219,7 +219,7 @@ for count_vessel, curr_vessel in enumerate(vessels):
     br_heading = f"{curr_vessel} on Day {curr_time}:"
     # print("." * len(br_heading))
     print("")
-    print("-"*44)
+    print("-"*60)
     print(colored(br_heading, "green"))
     print("    Feed ratio: ", colored(f"{np.round(result['FeedRatio_mL_mL'],4)}", "blue", attrs=["bold"]))
     print("    Feed flowrate: ", colored(f"{np.round(result['FeedRate_mL_min'],4)}", "blue", attrs=["bold"])," mL/min")
