@@ -179,6 +179,9 @@ for count_vessel, curr_vessel in enumerate(vessels):
     bioreactor = bioreactors[count_vessel]
     controller = controllers[count_vessel]
 
+    print("")
+    print("-"*80)
+
     # Iterate from Day 0 to the current day
     for curr_time in range(0, CURR_TIME_END + 1):
         # Parse the states from the reference data csv file
@@ -216,13 +219,15 @@ for count_vessel, curr_vessel in enumerate(vessels):
 
     # Retrieve and print current feed rate (mL/min) for the feed pump
     result = bioreactor.get_result()
+    print("")
     br_heading = f"{curr_vessel} on Day {curr_time}:"
     # print("." * len(br_heading))
-    print("")
-    print("-"*60)
     print(colored(br_heading, "green"))
     print("    Feed ratio: ", colored(f"{np.round(result['FeedRatio_mL_mL'],4)}", "blue", attrs=["bold"]))
-    print("    Feed flowrate: ", colored(f"{np.round(result['FeedRate_mL_min'],4)}", "blue", attrs=["bold"])," mL/min")
+    if experiment_config["Scale"] == "ambr250":
+        print("    Feed flowrate: ", f"{np.round(result['FeedRate_mL_min'],4)}"," mL/min, ", colored(f"{np.round(result['FeedRate_mL_min'] * 60,4)}", "blue", attrs=["bold"]), " mL/h")
+    else:
+        print("    Feed flowrate: ", colored(f"{np.round(result['FeedRate_mL_min'],4)}", "blue", attrs=["bold"])," mL/min, ", f"{np.round(result['FeedRate_mL_min'] * 60,4)}", " mL/h")
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED

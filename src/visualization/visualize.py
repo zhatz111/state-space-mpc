@@ -262,8 +262,10 @@ class MPCVisualizer:
                 columns=self.bioreactor.process_model.states,
                 index=["Est. gain", "Est.%", "Ctrl.%"],
             )
+
+            print("")
             print(mape_df)
-            print("-" * 60) # len(max(mape_df.to_string().split("\n"), key=len)))
+            print("-" * 80) # len(max(mape_df.to_string().split("\n"), key=len)))
 
             # Plot the Controller Actions
             for count, inputs in enumerate(
