@@ -17,7 +17,7 @@ sns.set_style("ticks")
 sns.set_context("paper",font_scale=1.5)
 
 # Options
-MPC_GRP = "AR"
+MPC_GRP = "AR24-072-014"
 CONFIG = {
     "MR": {
         "data_file": "data/mr24-0XX-experiment/MR24-030-038-045-MasterDataTable.xlsx",
@@ -41,7 +41,7 @@ CONFIG = {
             "MR24-045-806",
             ],
     },
-    "AR": {
+    "AR24-005": {
         "data_file": "data/ar24-005-experiment/AR24-005_MasterDataTable_2-240924.xlsx",
         "dest": "mpc-performance-figs-all",
         "controller": "Linear MPC|Nonlinear MPC|No MPC",
@@ -58,7 +58,58 @@ CONFIG = {
             "AR24-005-020",
             "AR24-005-021",
         ],
+    },   
+    "SAM+AR": {
+        "data_file": "data/ar24-072-experiment/AR24-072-SAM-MasterDataTable.xlsx",
+        "dest": "mpc-performance-figs-all",
+        "controller": "Linear MPC|Nonlinear MPC|No MPC",
+        "col": "Controller",
+        "col_order": ["Linear MPC", "Nonlinear MPC","No MPC"],
+        "hue": "Bioreactor",
+        "hue_order": [
+            "FER640",
+            "AR24-072-011",
+            "AR24-072-012",
+            "AR24-072-013",            
+            "AR24-072-014",
+            "AR24-072-015",
+            "AR24-072-016"
+        ],   
+    },  
+    "AR24-072": {
+        "data_file": "data/ar24-072-experiment/AR24-072-SAM-MasterDataTable.xlsx",
+        "dest": "mpc-performance-figs-excl-640-013",
+        "controller": "Linear MPC|Nonlinear MPC|No MPC",
+        "col": "Controller",
+        "col_order": ["Linear MPC", "Nonlinear MPC","No MPC"],
+        "hue": "Bioreactor",
+        "hue_order": [
+            # "FER640",
+            "AR24-072-011",
+            "AR24-072-012",
+            # "AR24-072-013",            
+            "AR24-072-014",
+            "AR24-072-015",
+            "AR24-072-016"
+        ],
     },    
+    "AR24-072-014": {
+        "data_file": "data/ar24-072-experiment/AR24-072-SAM-MasterDataTable.xlsx",
+        "dest": "mpc-performance-figs-ar24-072-014",
+        "controller": "Linear MPC|Nonlinear MPC|No MPC",
+        "col": "Controller",
+        "col_order": ["Linear MPC","No MPC"],#, "Nonlinear MPC","No MPC"],
+        "hue": "Bioreactor",
+        "hue_order": [
+            # "FER640",
+            "AR24-072-011",
+            "AR24-072-012",
+            # "AR24-072-013",            
+            "AR24-072-014",
+            # "AR24-072-015",
+            # "AR24-072-016"
+        ],
+    },          
 }
 DISP_VARS = [
     "Cedex Titer",
@@ -108,7 +159,9 @@ daily_glc = np.zeros((len(total_glc_diff),))
 daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
 df_data["Daily Glucose"] = daily_glc
 df_data_selected = df_data.loc[
-    df_data["Controller"].str.contains(CONFIG[MPC_GRP]["controller"]),
+    np.logical_and(
+        df_data["Controller"].str.contains(CONFIG[MPC_GRP]["controller"]),
+        df_data["Bioreactor"].isin(CONFIG[MPC_GRP]["hue_order"])),
     [
         "Bioreactor",
         "Day",
