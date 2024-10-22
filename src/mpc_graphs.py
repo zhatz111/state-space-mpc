@@ -17,7 +17,7 @@ sns.set_style("ticks")
 sns.set_context("paper",font_scale=1.5)
 
 # Options
-MPC_GRP = "AR24-072-014"
+MPC_GRP = "SAM+AR"
 CONFIG = {
     "MR": {
         "data_file": "data/mr24-0XX-experiment/MR24-030-038-045-MasterDataTable.xlsx",
@@ -61,7 +61,7 @@ CONFIG = {
     },   
     "SAM+AR": {
         "data_file": "data/ar24-072-experiment/AR24-072-SAM-MasterDataTable.xlsx",
-        "dest": "mpc-performance-figs-all",
+        "dest": "mpc-performance-figs-plus-ratio",
         "controller": "Linear MPC|Nonlinear MPC|No MPC",
         "col": "Controller",
         "col_order": ["Linear MPC", "Nonlinear MPC","No MPC"],
@@ -78,7 +78,7 @@ CONFIG = {
     },  
     "AR24-072": {
         "data_file": "data/ar24-072-experiment/AR24-072-SAM-MasterDataTable.xlsx",
-        "dest": "mpc-performance-figs-excl-640-013",
+        "dest": "mpc-performance-figs-excl-640-013-add-feed-ratios",
         "controller": "Linear MPC|Nonlinear MPC|No MPC",
         "col": "Controller",
         "col_order": ["Linear MPC", "Nonlinear MPC","No MPC"],
@@ -113,10 +113,14 @@ CONFIG = {
 }
 DISP_VARS = [
     "Cedex Titer",
-    "Total Feed",
-    "Daily Feed",
-    "Total Glucose",
-    "Daily Glucose",
+    # "Total Feed",
+    "Total Feed (Ratio)",
+    # "Daily Feed",
+    "Daily Feed (Ratio)",
+    # "Total Glucose",
+    "Total Glucose (Ratio)",    
+    # "Daily Glucose",
+    "Daily Glucose (Ratio)",    
     "Viability",
     "VCC",
     "Lactate",
@@ -154,10 +158,14 @@ total_feed_diff = np.append(np.diff(df_data["Total Feed"]), 0)
 daily_feed = np.zeros((len(total_feed_diff),))
 daily_feed[total_feed_diff > 0] = total_feed_diff[total_feed_diff > 0]
 df_data["Daily Feed"] = daily_feed
+df_data["Daily Feed (Ratio)"] = df_data["Daily Feed"] / df_data["Volume (mL)"]
+df_data["Total Feed (Ratio)"] = df_data["Total Feed"] / df_data["Volume (mL)"]
 total_glc_diff = np.append(np.diff(df_data["Total Glucose"]), 0)
 daily_glc = np.zeros((len(total_glc_diff),))
 daily_glc[total_glc_diff > 0] = total_glc_diff[total_glc_diff > 0]
 df_data["Daily Glucose"] = daily_glc
+df_data["Daily Glucose (Ratio)"] = df_data["Daily Glucose"] / df_data["Volume (mL)"]
+df_data["Total Glucose (Ratio)"] = df_data["Total Glucose"] / df_data["Volume (mL)"]
 df_data_selected = df_data.loc[
     np.logical_and(
         df_data["Controller"].str.contains(CONFIG[MPC_GRP]["controller"]),
@@ -180,9 +188,13 @@ df_data_selected = df_data.loc[
         "pCO2",
         "pO2",
         "Total Feed",
+        "Total Feed (Ratio)",        
         "Total Glucose",
+        "Total Glucose (Ratio)",          
         "Daily Feed",
+        "Daily Feed (Ratio)",
         "Daily Glucose",
+        "Daily Glucose (Ratio)",        
     ],
 ]
 
