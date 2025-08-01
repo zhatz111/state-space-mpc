@@ -1,0 +1,451 @@
+# Experiment Config File
+
+# Batch metadata (Example: aIL33-LA)
+Campaign_ID: GSK3862995B
+Lot_ID: 3862995B0DA0C00
+Batch_ID: 3862995B101003F
+Duration: 15
+
+# Mapping for kafka column names to model column names
+Column Mapping: {
+    "Sample Time": "Date",
+    "time": "Date",
+    "Batch": "Bioreactor",
+    "batchid": "Bioreactor",
+    "SampleAmount": "Sample Volume",
+    "Viability": "VIABILITY--STATE_DATA",
+    "CellCultureViability": "VIABILITY--STATE_DATA",
+    "VCC": "VCC--STATE_DATA",
+    "TotalViableCellConcentration": "VCC--STATE_DATA",
+    "IGG": "IGG--STATE_DATA",
+    "Titre": "IGG--STATE_DATA",
+    "Osmolality": "OSMO--STATE_DATA",
+    "pH_setpoint": "PH_SETPOINT--INPUT_DATA", # "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    # "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+    # "pHatTemperature": "PH_AT_TEMP--STATE_DATA",
+    "Glucose": "GLUCOSE--INPUT_DATA",
+    "GlucoseConcentration": "GLUCOSE--INPUT_DATA",
+    "Lactate": "LACTATE--STATE_DATA",
+    "LactateConcentration": "LACTATE--STATE_DATA",
+    "pCO2atTemperature": "PCO2--INPUT_DATA",
+    "Ammonium": "AMMONIUM--STATE_DATA",
+    "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
+    "DO": "DO--INPUT_DATA",
+    # "dissolved_oxygen": "DO--INPUT_DATA",
+    # "Online pH": "PH--INPUT_DATA",
+    # "pH": "PH--INPUT_DATA",
+    "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
+    # "temperature": "TEMPERATURE--INPUT_DATA",
+    "Cumulative_Normalized_Feed_Current WV": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
+    "nutrient_total": "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA",
+    "Feed Flow Rate (mL/min)": "FEED_RATE--INPUT_DATA",
+    "nutrient_rate": "FEED_RATE--INPUT_DATA",
+    "batchAge": "Day",
+    "Volume": "VOLUME_ML",
+    "Volume (mL)": "VOLUME_ML",
+}
+
+# Units mapping for future plotting purposes
+Units Dictionary:
+  IGG: mg/L
+  VCC: MM cells/mL
+  VIABILITY: "%"
+  LACTATE: g/L
+  OSMO: mOsm/kg
+  PCO2: mmHg
+  CUMULATIVE_NORMALIZED_FEED: mL/mL
+  DAILY_NORMALIZED_FEED: mL/mL
+  DO: "%"
+  PH_AT_TEMP: ""
+  PH_SETPOINT: ""
+  TEMPERATURE: °C
+
+# State Space Model Parameters
+Model Parameters: {
+    "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - General\\data\\2024-04-16 aCD96 Robustness Model",
+    "Asset": "aCD96",
+    "Training Data Study": "AR21-042, AR23-019, AR23-067",
+    "Operator": "Zach Hatzenbeller",
+    "Github Link": "https://github.com/gsk-tech/state-space-model",
+    "IDBS Number": "EXXXXX",
+    "Modeling Data File Name": "AR21-042_AR23-019_067-Model-Data",
+    "Modeling Data Folder Name": "2024-04-16 aCD96 Robustness Model",
+    "A & B Matrices Folder Name": "Matrices",
+    "Testing Data Size": 0.2,
+    "Number Cross Val Splits": 2,
+    "Random Seed": 1,
+    "Window Length": 2,
+    "Target Plotting Label": "IGG",
+    "Training Iterations": 10,
+    "Process Time": 13,
+    "First Training": false,
+    "Include Data Columns": [
+        "Batch",
+        "Condition",
+        "Day"
+    ],
+    "Model States": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Lactate",
+        "Osmo"
+    ],
+    "Process Variable Weights": [
+        3.0,
+        1.5,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "Model Inputs": [
+        "Cumulative_Normalized_Feed",
+        "Temperature",
+        "pH_setpoint",
+        "DO"
+    ],
+    "Data Smoothing List": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Lactate",
+        "Osmo",
+        "pH_setpoint"
+    ],
+    "Batches to Discard": [
+        "AR23-067-005P",
+        "AR23-067-011P",
+        "AR23-019-001P",
+        "AR23-019-004P",
+        "AR23-019-007P",
+        "AR23-019-014P"
+    ],
+    "a_matrix": [
+        [
+            -0.04439091651672835,
+            0.07633345430217593,
+            -0.004149175767066178,
+            0.03190651953371998,
+            0.05947252501536542
+        ],
+        [
+            -0.097518283808744,
+            -0.6912001798515818,
+            0.3268504065255786,
+            0.8645624269086336,
+            -0.9999999999999999
+        ],
+        [
+            -0.0032187413194289453,
+            -0.018597138952623365,
+            -0.03805805188121514,
+            0.06812433104876021,
+            0.029668758310144656
+        ],
+        [
+            -0.6086916197637277,
+            -0.3388639738828394,
+            0.32538790751376356,
+            -0.35334917476729666,
+            0.030049409472388242
+        ],
+        [
+            0.029622793655218686,
+            -0.006000821050235075,
+            0.1682182510385266,
+            -0.15677932204470627,
+            -0.8484551409279963
+        ]
+    ],
+    "b_matrix": [
+        [
+            0.06406751396430647,
+            0.006330590638063373,
+            -0.028281936296297182,
+            -0.003189276215308259
+        ],
+        [
+            0.8394720907395843,
+            0.05635987397529738,
+            0.03111996989786285,
+            -0.014626447134002548
+        ],
+        [
+            -0.07563464416130972,
+            0.003696582652138182,
+            -0.02191187963501644,
+            0.000805240662020554
+        ],
+        [
+            0.4078219607124441,
+            0.040498104952597654,
+            0.18893853171169947,
+            0.016001076635377108
+        ],
+        [
+            0.46315116739223533,
+            -0.01076699621446033,
+            0.25768453729535623,
+            0.010502032992349312
+        ]
+    ],
+    "scaler": {
+        "feature_range": [
+            0,
+            1
+        ],
+        "copy": true,
+        "clip": false,
+        "feature_names_in_": [
+            "IGG",
+            "VCC",
+            "Viability",
+            "Lactate",
+            "Osmo",
+            "Cumulative_Normalized_Feed",
+            "Temperature",
+            "pH_setpoint",
+            "DO"
+        ],
+        "n_features_in_": 9,
+        "n_samples_seen_": 514,
+        "scale_": [
+            0.00010822639663459198,
+            0.04604051565377533,
+            0.024618414574101424,
+            0.21390374331550802,
+            0.006514657980456026,
+            4.11522633744856,
+            0.5,
+            3.3333333333333353,
+            2.5
+        ],
+        "min_": [
+            -0.010822639663459198,
+            -0.39295580110497247,
+            -1.435253569670113,
+            0.0,
+            -1.6710097719869708,
+            0.0,
+            -16.5,
+            -23.500000000000014,
+            -0.75
+        ],
+        "data_min_": [
+            100.0,
+            8.535,
+            58.3,
+            0.0,
+            256.5,
+            0.0,
+            33.0,
+            7.05,
+            0.3
+        ],
+        "data_max_": [
+            9339.89,
+            30.254999999999995,
+            98.92,
+            4.675,
+            410.0,
+            0.243,
+            35.0,
+            7.35,
+            0.7
+        ],
+        "data_range_": [
+            9239.89,
+            21.719999999999995,
+            40.620000000000005,
+            4.675,
+            153.5,
+            0.243,
+            2.0,
+            0.2999999999999998,
+            0.39999999999999997
+        ]
+    },
+    "Iterations": 27973,
+    "Model RMSE": 14.948398838316201,
+    "States RMSE": {
+        "IGG": 281.6516114113981,
+        "VCC": 1.8355626054634737,
+        "Viability": 2.125270855427469,
+        "Lactate": 0.41029768562882424,
+        "Osmo": 11.007148454678216
+    },
+    "Last Model Training": "2024/08/23 15:06:59"
+}
+
+# Controller 2: actual controller configuration
+MainController: {
+  "Time": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12
+  ],
+  "Process Variables": {
+    "IGG": {
+      "Data": [
+        146.510,
+        509.830,
+        997.910,
+        1505.08,
+        2119.61,
+        2716.05,
+        3307.90,
+        3888.32,
+        4309.70,
+        4805.73,
+        5497.99, #5302.42,
+        6057.48, #5791.69,
+        6478.05, #6118.18
+      ],
+      "Weight": 100.0
+    },
+  },
+  "State Variables":{
+    "IGG": {
+      "Initial": 160.05,
+      "Weight": 0.0001,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 1.0
+      },
+    "VCC": {
+      "Initial": 13.83,
+      "Weight": 2.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 1.0
+      },
+    "VIABILITY": {
+      "Initial": 98.19,
+      "Weight": 10.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.25,
+      },
+    "LACTATE": {
+      "Initial": 1.05,
+      "Weight": 50.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.5,
+      },
+    "OSMO": {
+      "Initial": 315,
+      "Weight": 0.007,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.7,
+      }
+  },
+  "End of Run Variables":{
+    "Viability": {
+      "Weight": 0.0,
+      "Constraint": [
+        80,
+        100
+        ]
+      },
+  },
+  "Manipulated Variables": {
+    "CUMULATIVE_NORMALIZED_FEED": {
+      "Data": [
+        0,
+        0.0045,
+        0.011,
+        0.019,
+        0.0295,
+        0.0375,
+        0.051,
+        0.061,
+        0.0705,
+        0.0795,
+        0.0885,
+        0.097,
+        0.1045
+        ],
+      "Weight": 1.0,
+      "Constraint": [
+        0.0045,
+        0.02
+        ]
+    }
+  },
+  "Input Variables": {
+    "CUMULATIVE_NORMALIZED_FEED": [
+      0,
+      0.0045,
+      0.011,
+      0.019,
+      0.0295,
+      0.0375,
+      0.051,
+      0.061,
+      0.0705,
+      0.0795,
+      0.0885,
+      0.097,
+      0.1045
+    ],
+    "TEMPERATURE": [
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+      34,
+    ],
+    "PH_SETPOINT": [
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+      7.2,
+    ],
+    "DO": [
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+    ],
+  },
+  "Prediction Horizon": 3,
+  "Control Horizon": 3,
+  "Estimation Horizon": 2,
+  "Estimation Filter Weight on Data": 0.5,
+  "Offset Proportional Gain": 0.0, # Override individual gains if >= 0
+  "Offset Integral Gain": -1.0, # Override individual gains if >= 0
+  "Persist After Control Horizon": True,
+}

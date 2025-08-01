@@ -17,9 +17,9 @@ from InquirerPy.resolver import prompt
 from sklearn.preprocessing import MinMaxScaler
 
 # Imports from within repository
-from src.data.make_dataset import ModelData
-from src.models.train_model import ModelTraining
-from src.data.functions import (
+from data.make_dataset import ModelData
+from models.train_model import ModelTraining
+from data.functions import (
     json_to_dict,
     dict_to_json,
     dict_toscaler,
@@ -110,19 +110,31 @@ def main():
         num_days=model_config["Process Time"],
         scaler=scaler_train,
         algorithm="basin",
+        hidden_state=True,
+        rho=model_config["rho"],
+        bf=np.array(model_config["bf"])
     )
     time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
+    new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
+    new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
+
     model_train_obj.train_test_model(
-        save_path=Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}"),
+        save_path=new_directory,
         test_label=model_config["Target Plotting Label"],
         iterations=model_config["Training Iterations"],
         first_train=False,
     )
 
+    model_train_obj.plot_train_data(
+        test_label=model_config["Target Plotting Label"]
+    )
+
     # Update the model config file
     model_config["a_matrix"] = model_train_obj.a_matrix.tolist()
     model_config["b_matrix"] = model_train_obj.b_matrix.tolist()
+    model_config["bf"] = model_train_obj.bf.tolist()
+    model_config["rho"] = model_train_obj.rho
     model_config["Iterations"] += model_train_obj.iters
     model_config["Model RMSE"] = model_train_obj.model_error
     model_config["States RMSE"] = model_train_obj.true_model_error_dict

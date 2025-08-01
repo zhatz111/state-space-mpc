@@ -16,10 +16,10 @@ from InquirerPy.resolver import prompt
 from sklearn.preprocessing import MinMaxScaler
 
 # Imports from within repository
-from src.data.make_dataset import ModelData
-from src.models.train_model import ModelTraining
-from src.visualization.pdf_report import generate_report
-from src.data.functions import json_toscaler, json_to_dict
+from data.make_dataset import ModelData
+from models.train_model import ModelTraining
+from visualization.pdf_report import generate_report
+from data.functions import json_toscaler, json_to_dict
 
 # suppress warnings
 warnings.filterwarnings("ignore")
@@ -111,6 +111,9 @@ def main():
         pv_wghts=model_config["Process Variable Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
+        hidden_state=True,
+        rho=model_config["rho"],
+        bf=np.array(model_config["bf"])
     )
 
     report_metadata = json_to_dict(Path(PATH_DIRECTORY, f"{model_config['Asset']}_model_parameters.json"))

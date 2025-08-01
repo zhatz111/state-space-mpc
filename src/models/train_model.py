@@ -40,6 +40,9 @@ class ModelTraining:
         num_days: int,
         scaler: Union[MinMaxScaler, StandardScaler],
         algorithm: str = "minimize",
+        hidden_state: bool = False,
+        rho: float = 1.0,
+        bf: np.ndarray = np.array([])
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -72,8 +75,6 @@ class ModelTraining:
         """
         self.train_data = train_data
         self.test_data = test_data
-        self.a_matrix = a_matrix
-        self.b_matrix = b_matrix
         self.states = states
         self.inputs = inputs
         self.num_days = num_days
@@ -83,14 +84,56 @@ class ModelTraining:
         self.input_len = len(inputs)
         self.total = self.state_len + self.input_len
         self.algorithm = algorithm
+        self.hidden_state = hidden_state
 
         self.iters = 0
         self.model_error = 0
+        self.lowest_model_error = np.inf
         self.model_error_dict = {}
         self.true_model_error_dict = {}
+        self.best_result = np.array([])
 
+        # normal matrices for training and testing
+        self.a_matrix = a_matrix
+        self.b_matrix = b_matrix
         self.c_matrix = np.identity(self.state_len)
         self.d_matrix = np.zeros([self.state_len, self.input_len])
+
+        # Check to make sure matrices are correct dimensions, if not create a random matrix of values
+        if (self.a_matrix.shape[0] != self.state_len) or (
+            self.a_matrix.shape[1] != self.state_len
+        ):
+            warnings.warn(
+                f"Wrong size A-Matrix ({self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}) should be, {self.state_len}x{self.state_len}"
+            )
+            self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.state_len))
+
+        if (self.b_matrix.shape[0] != self.state_len) or (
+            self.b_matrix.shape[1] != self.input_len
+        ):
+            warnings.warn(
+                f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}"
+            )
+            self.b_matrix = np.resize(self.b_matrix, (self.state_len, self.input_len))
+
+        # augmented matrices if using feed hidden state
+        if self.hidden_state:
+            self.rho = rho                                      # feed effect decay rate
+            if bf.shape[0] == self.state_len:
+                self.bf = bf
+            else:
+                self.bf = np.ones([self.state_len, 1])          # learnable hidden state
+
+            self.augmented_a_matrix = np.zeros([self.state_len+1, self.state_len+1])
+            self.augmented_a_matrix[:self.state_len, :self.state_len] = self.a_matrix
+            self.augmented_a_matrix[:self.state_len, self.state_len] = self.bf.flatten()
+            self.augmented_a_matrix[self.state_len, self.state_len] = self.rho
+
+            self.augmented_b_matrix = np.zeros([self.state_len+1, self.input_len])
+            self.augmented_b_matrix[:self.state_len, :] = self.b_matrix
+            self.augmented_b_matrix[self.state_len, 0] = 1.0     # only feed (input index 0) affects feed-effect state (hidden state)
+
+            self.c_matrix = np.hstack([np.identity(self.state_len), np.zeros([self.state_len, 1])])
 
     def first_pass_training(self):
         """
@@ -140,26 +183,14 @@ class ModelTraining:
             self.c_matrix = np.identity(self.state_len)
             self.d_matrix = np.zeros([self.state_len, self.input_len])
 
-        # Check to make sure matrices are correct dimensions, if not create a random matrix of values
-        if (self.a_matrix.shape[0] != self.state_len) or (
-            self.a_matrix.shape[1] != self.state_len
-        ):
-            warnings.warn(
-                f"Wrong size A-Matrix ({self.a_matrix.shape[0]}x{self.a_matrix.shape[1]}) should be, {self.state_len}x{self.state_len}"
-            )
-            self.a_matrix = np.resize(self.a_matrix, (self.state_len, self.state_len))
-
-        if (self.b_matrix.shape[0] != self.state_len) or (
-            self.b_matrix.shape[1] != self.input_len
-        ):
-            warnings.warn(
-                f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}"
-            )
-            self.b_matrix = np.resize(self.b_matrix, (self.state_len, self.input_len))
-
-        a_sim = self.a_matrix.reshape(-1, 1)
-        b_sim = self.b_matrix.reshape(-1, 1)
-        combined_mat = np.vstack([a_sim, b_sim]).flatten()
+        if self.hidden_state:
+            a_sim = self.augmented_a_matrix.reshape(-1, 1)
+            b_sim = self.augmented_b_matrix.reshape(-1, 1)
+            combined_mat = np.vstack([a_sim, b_sim]).flatten()
+        else:
+            a_sim = self.a_matrix.reshape(-1, 1)
+            b_sim = self.b_matrix.reshape(-1, 1)
+            combined_mat = np.vstack([a_sim, b_sim]).flatten()
 
         if self.algorithm == "minimize":
             res = optimize.minimize(
@@ -188,7 +219,7 @@ class ModelTraining:
                     minimizer_kwargs=minimizer_kwargs,
                     niter=iterations,
                     disp=True,
-                    T=2000,
+                    T=1000,
                 )
         else:
             raise KeyError("Must use either Minimize or Basin Hopping algorithms")
@@ -199,15 +230,29 @@ class ModelTraining:
         print("--------------------")
         print(f"Iterations: {self.iters}, Model Error: {self.model_error:.5f}")
 
-        opt_matrix = res.x
+        # opt_matrix = res.x
+        opt_matrix = self.best_result
 
-        # This returns the matrix in the correct shape for use later on in the class
-        self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(
-            self.state_len, self.state_len
-        )
-        self.b_matrix = opt_matrix[(self.state_len**2) :].reshape(
-            self.state_len, self.input_len
-        )
+        if self.hidden_state:
+            # This returns the matrix in the correct shape for use later on in the class
+            self.augmented_a_matrix = opt_matrix[: ((self.state_len+1)**2)].reshape(
+                self.state_len+1, self.state_len+1
+            )
+            self.augmented_b_matrix = opt_matrix[((self.state_len+1)**2) :].reshape(
+                self.state_len+1, self.input_len
+            )
+            self.a_matrix = self.augmented_a_matrix[:self.state_len, :self.state_len]
+            self.b_matrix = self.augmented_b_matrix[:self.state_len, :]
+            self.rho = self.augmented_a_matrix[self.state_len, self.state_len]
+            self.bf = self.augmented_a_matrix[:self.state_len, self.state_len]
+        else:
+            # This returns the matrix in the correct shape for use later on in the class
+            self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(
+                self.state_len, self.state_len
+            )
+            self.b_matrix = opt_matrix[(self.state_len**2) :].reshape(
+                self.state_len, self.input_len
+            )
 
         save_time = datetime.now().strftime("%Y-%m-%d %H%M%S")
 
@@ -219,13 +264,21 @@ class ModelTraining:
         # pd.DataFrame(self.b_matrix).to_csv(
         #     rf"{save_path}\B_Matrix.csv", index=False, header=False
         # )
-
-        pd.DataFrame(self.a_matrix).to_csv(
-            rf"{save_path}\{save_time} A_Matrix.csv", index=False, header=False
-        )
-        pd.DataFrame(self.b_matrix).to_csv(
-            rf"{save_path}\{save_time} B_Matrix.csv", index=False, header=False
-        )
+        
+        if self.hidden_state:
+            pd.DataFrame(self.augmented_a_matrix).to_csv(
+                rf"{save_path}\{save_time} Augmented_A_Matrix.csv", index=False, header=False
+            )
+            pd.DataFrame(self.augmented_b_matrix).to_csv(
+                rf"{save_path}\{save_time} Augmented_B_Matrix.csv", index=False, header=False
+            )
+        else:
+            pd.DataFrame(self.a_matrix).to_csv(
+                rf"{save_path}\{save_time} A_Matrix.csv", index=False, header=False
+            )
+            pd.DataFrame(self.b_matrix).to_csv(
+                rf"{save_path}\{save_time} B_Matrix.csv", index=False, header=False
+            )
 
     def objective_func(self, x0):
         """
@@ -251,12 +304,23 @@ class ModelTraining:
         y_actual_all = np.zeros([self.num_days, self.state_len])
 
         for _, group in train_grouped:
-            objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
+
+            if self.hidden_state:
+                objfunc_x0 = np.append(np.array(group.filter(self.states).iloc[0, :]), 0)
+            else:
+                objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
+
             objfunc_u = np.array(group.filter(self.inputs))
             objfunc_y = np.array(group.filter(self.states))
             time = np.arange(0, len(objfunc_u), 1)
-            a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
-            b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
+
+            if self.hidden_state:
+                a_matrix = x0[: ((self.state_len+1)**2)].reshape(self.state_len+1, self.state_len+1)
+                b_matrix = x0[((self.state_len+1)**2) :].reshape(self.state_len+1, self.input_len)
+            else:
+                a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
+                b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
+
             state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
             _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0, interp=False)
 
@@ -310,6 +374,10 @@ class ModelTraining:
                 )
                 self.true_model_error_dict[state] = rmse
             self.model_error = wghtd_cost
+        
+        if self.model_error < self.lowest_model_error:
+            self.lowest_model_error = self.model_error
+            self.best_result = x0
 
         return wghtd_cost
 
@@ -336,20 +404,30 @@ class ModelTraining:
         else:
             data = pd.concat([self.train_data, self.test_data], ignore_index=True)
 
-        c_matrix = np.identity(self.state_len)
-        d_matrix = np.zeros([self.state_len, self.input_len])
         columns = self.states + self.inputs
         batch_grouped = data.groupby("Batch")
 
         simulation_data_dict = {}
         train_test_data_dict = {}
         for name, group in batch_grouped:
-            x0_matrix = np.array(group.filter(self.states).iloc[0])
+
+            if self.hidden_state:
+                x0_matrix = np.append(np.array(group.filter(self.states).iloc[0, :]), 0)
+            else:
+                x0_matrix = np.array(group.filter(self.states).iloc[0, :])
+
             u_matrix = np.array(group.filter(self.inputs))
             time = np.arange(0, len(u_matrix), 1)
-            bioreactor = signal.StateSpace(
-                self.a_matrix, self.b_matrix, c_matrix, d_matrix
-            )
+
+            if self.hidden_state:
+                bioreactor = signal.StateSpace(
+                    self.augmented_a_matrix, self.augmented_b_matrix, self.c_matrix, self.d_matrix
+                )
+            else:
+                bioreactor = signal.StateSpace(
+                    self.a_matrix, self.b_matrix, self.c_matrix, self.d_matrix
+                )
+
             _, y_out, _ = signal.lsim(
                 system=bioreactor, U=u_matrix, T=time, X0=x0_matrix, interp=False
             )
@@ -563,7 +641,7 @@ class ModelTraining:
                 state_r2.append(r2)
             r2_dict[batch] = state_r2
 
-        columns = ["Batch"] + self.states
+        columns = self.states
         df_r2 = pd.DataFrame.from_dict(
             r2_dict, columns=columns, orient="index"
         ).reset_index()
@@ -590,7 +668,7 @@ class ModelTraining:
                 state_corr.append(corr[0, 1])
             corr_dict[batch] = state_corr
 
-        columns = ["Batch"] + self.states
+        columns = self.states
         df_corr = pd.DataFrame.from_dict(
             corr_dict, columns=columns, orient="index"
         ).reset_index()

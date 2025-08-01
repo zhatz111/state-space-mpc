@@ -17,7 +17,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Imports from Classes in Repository
-from src.mpc.mpc_optimizer import Bioreactor, Controller
+from mpc.mpc_optimizer import Bioreactor, Controller
 
 # RMSE
 from sklearn.metrics import mean_squared_error

@@ -18,10 +18,10 @@ from termcolor import colored
 from InquirerPy.resolver import prompt
 
 # State-Space-Model Package Imports
-from src.mpc.mpc_optimizer import Bioreactor, Controller
-from src.visualization.visualize import MPCVisualizer
-from src.models.ssm import StateSpaceModel
-from src.data.functions import dict_toscaler, read_config
+from mpc.mpc_optimizer import Bioreactor, Controller
+from visualization.visualize import MPCVisualizer
+from models.ssm import StateSpaceModel
+from data.functions import dict_toscaler, read_config
 
 warnings.filterwarnings("ignore")
 

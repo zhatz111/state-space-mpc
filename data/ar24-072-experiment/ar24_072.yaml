@@ -15,7 +15,7 @@ Initial Volumes: # Initial volumes in mL
 # in between these for syntax simplicity, otherwise list out all reactors
 Arange Bioreactors: False
 Bioreactors:
-  # - AR24-072-013
+  - AR24-072-013
   - AR24-072-014
 
 Data Folder: ar24-072-experiment
