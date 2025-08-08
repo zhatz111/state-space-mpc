@@ -2,7 +2,7 @@
 Code for generating a cleaned and smoothed data set
 Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
 Created: 2022-11-04
-Modified: 2024-04-19
+Modified: 2025-08-08
 """
 
 # Standard library imports
@@ -15,7 +15,7 @@ from typing import Union
 # The code is importing various libraries that are used in the code:
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 from sklearn.model_selection import GroupShuffleSplit
 
 # The `ModelData` class provides methods for data cleaning, preprocessing, and visualization for a
@@ -28,10 +28,10 @@ class ModelData:
         self,
         raw_data: pd.DataFrame,
         group: str,
-        scaler: MinMaxScaler,
-        discard: list,
+        scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
         states: list,
         inputs: list,
+        discard: list = [],
     ) -> None:
         """
         The function initializes an object with various attributes including raw data, a group

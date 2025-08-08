@@ -2,7 +2,7 @@
 Code for useful functions needed in other scripts
 Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
 Created: 2024-04-19
-Modified: 2024-04-23
+Modified: 2025-08-08
 """
 # Standard library imports
 import glob
@@ -15,7 +15,7 @@ from datetime import datetime
 import json
 import yaml
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 # Create type hint for the scaler object being passed to SSM class
 ScalerType = Union[MinMaxScaler, StandardScaler]
@@ -146,7 +146,7 @@ def json_toscaler(json_file: Union[str, Path], minmaxscaler=True):
     return reconstructed_scaler
 
 
-def dict_toscaler(dict_file: dict, minmaxscaler=True):
+def dict_toscaler(dict_file: dict, scaler_class="MinMaxScaler"):
     """
     The function `json_toscaler` takes a JSON file containing attributes of a
     scaler and reconstructs the scaler object using the loaded attributes.
@@ -163,10 +163,12 @@ def dict_toscaler(dict_file: dict, minmaxscaler=True):
       a reconstructed scaler object.
     """
     # Initialize a new MinMaxScaler instance
-    if minmaxscaler:
+    if scaler_class=="MinMaxScaler":
         reconstructed_scaler = MinMaxScaler()
+    elif scaler_class=="StandardScaler":
+        reconstructed_scaler = StandardScaler()
     else:
-        raise ValueError("This method currently only works for the MinMaxScaler")
+        raise ValueError("This method currently only works for the MinMaxScaler and StandardScaler")
 
     # Set the loaded attributes back to the scaler
     for attr_name, attr_value in dict_file.items():
@@ -179,7 +181,7 @@ def dict_toscaler(dict_file: dict, minmaxscaler=True):
     return reconstructed_scaler
 
 
-def scaler_todict(scaler: MinMaxScaler):
+def scaler_todict(scaler: Union[MinMaxScaler, StandardScaler, RobustScaler]):
     """
     The function `scaler_tojson` takes a scaler object and saves its attributes
     to a JSON file.

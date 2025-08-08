@@ -1,7 +1,7 @@
 """Main code for training an model for MPC
     Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2024-04-23
+    Modified: 2025-08-08
 """
 
 # Imports from Standard Library
@@ -14,7 +14,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from InquirerPy.resolver import prompt
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 # Imports from within repository
 from data.make_dataset import ModelData
@@ -55,21 +55,31 @@ MODELING_DATA_FOLDER_NAME = str(answer["folder"])
 
 PATH_DIRECTORY = Path(PARENT_FILE_PATH, MODELING_DATA_FOLDER_NAME)
 json_files = glob.glob(str(Path(PATH_DIRECTORY, "*.json")))
-model_config = json_to_dict(json_files[0])
+for file in json_files:
+    file_ = Path(file)
 
+    if "model" in file_.name:
+        model_config = json_to_dict(file_)
 
 def main():
     """
     The main function reads data, preprocesses it, trains a model, and saves
     the model scaler and matrices.
     """
-    if model_config["First Training"]:
+    if model_config["Scaler"] == "StandardScaler":
+        scaler_train = StandardScaler()
+    elif model_config["Scaler"] == "MinMaxScaler":
         scaler_train = MinMaxScaler()
+    elif model_config["Scaler"] == "RobustScaler":
+        scaler_train = RobustScaler()
     else:
         scaler_train = dict_toscaler(model_config["scaler"])
 
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
+    af_col_matrix = np.array(model_config["af_col"])
+    af_row_matrix = np.array(model_config["af_row"])
+    bf_row_matrix = np.array(model_config["bf_row"])
 
     data = pd.read_csv(
         Path(PATH_DIRECTORY, f"{model_config['Modeling Data File Name']}.csv")
@@ -97,6 +107,8 @@ def main():
         win_len=model_config["Window Length"],
     )
 
+    # dataframe.graph_smoothed_unsmoothed_data(model_config["Data Smoothing List"], test_label="IGG")
+
     model_config["scaler"] = scaler_todict(scaler=scaler_train)
 
     model_train_obj = ModelTraining(
@@ -109,36 +121,46 @@ def main():
         pv_wghts=model_config["Process Variable Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
-        algorithm="basin",
+        algorithm="basinhopping",
         hidden_state=True,
         rho=model_config["rho"],
-        bf=np.array(model_config["bf"])
+        af_col=af_col_matrix,
+        af_row=af_row_matrix,
+        bf_row=bf_row_matrix,
     )
     time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
     new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
     new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
 
-    model_train_obj.train_test_model(
-        save_path=new_directory,
-        test_label=model_config["Target Plotting Label"],
-        iterations=model_config["Training Iterations"],
-        first_train=False,
-    )
+    # model_train_obj.train_test_model(
+    #     save_path=new_directory,
+    #     test_label=model_config["Target Plotting Label"],
+    #     iterations=model_config["Training Iterations"],
+    #     first_train=False,
+    # )
 
-    model_train_obj.plot_train_data(
-        test_label=model_config["Target Plotting Label"]
-    )
+    # model_train_obj.plot_train_data(
+    #     test_label=model_config["Target Plotting Label"]
+    # )
+
+    # model_train_obj.plot_test_data(
+    #     test_label=model_config["Target Plotting Label"]
+    # )
 
     # Update the model config file
     model_config["a_matrix"] = model_train_obj.a_matrix.tolist()
     model_config["b_matrix"] = model_train_obj.b_matrix.tolist()
-    model_config["bf"] = model_train_obj.bf.tolist()
+    model_config["af_col"] = model_train_obj.af_col.tolist()
+    model_config["af_row"] = model_train_obj.af_row.tolist()
+    model_config["bf_row"] = model_train_obj.bf_row.tolist()
     model_config["rho"] = model_train_obj.rho
     model_config["Iterations"] += model_train_obj.iters
-    model_config["Model RMSE"] = model_train_obj.model_error
-    model_config["States RMSE"] = model_train_obj.true_model_error_dict
-    model_config["Last Model Training"] = time
+
+    if model_train_obj.model_error != 0:
+        model_config["Model RMSE"] = model_train_obj.lowest_model_error
+        model_config["States RMSE"] = model_train_obj.lowest_model_error_dict
+        model_config["Last Model Training"] = time
 
     # Export updated data back to JSON file
     dict_to_json(json_files[0], model_config)

@@ -1,4 +1,8 @@
-"""summary
+"""
+Code for training and testing state-space models
+Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+Created: 2022-11-04
+Modified: 2025-08-08
 """
 
 # Standard library imports
@@ -15,9 +19,9 @@ import pandas as pd
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
-from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from sklearn.metrics import r2_score, root_mean_squared_error
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 warnings.filterwarnings("ignore")
 
@@ -38,11 +42,13 @@ class ModelTraining:
         inputs: list[str],
         pv_wghts: list,
         num_days: int,
-        scaler: Union[MinMaxScaler, StandardScaler],
-        algorithm: str = "minimize",
+        scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
+        algorithm: str = "basinhopping",
         hidden_state: bool = False,
-        rho: float = 1.0,
-        bf: np.ndarray = np.array([])
+        rho: float = 0.5,
+        af_col: np.ndarray = np.array([]),
+        af_row: np.ndarray = np.array([]),
+        bf_row: np.ndarray = np.array([])
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -86,10 +92,12 @@ class ModelTraining:
         self.algorithm = algorithm
         self.hidden_state = hidden_state
 
+        # store training error data
         self.iters = 0
         self.model_error = 0
         self.lowest_model_error = np.inf
         self.model_error_dict = {}
+        self.lowest_model_error_dict = {}
         self.true_model_error_dict = {}
         self.best_result = np.array([])
 
@@ -119,19 +127,31 @@ class ModelTraining:
         # augmented matrices if using feed hidden state
         if self.hidden_state:
             self.rho = rho                                      # feed effect decay rate
-            if bf.shape[0] == self.state_len:
-                self.bf = bf
+            if af_col.shape[0] == self.state_len:
+                self.af_col = np.array(af_col)
             else:
-                self.bf = np.ones([self.state_len, 1])          # learnable hidden state
+                self.af_col = np.ones([self.state_len, 1])          # learnable hidden state
+
+            if af_row.shape[0] == self.state_len:
+                self.af_row = np.array(af_row)
+            else:
+                self.af_row = np.ones([self.state_len, 1])          # learnable hidden state
+            
+            if bf_row.shape[0] == self.input_len:
+                self.bf_row = bf_row
+            else:
+                self.bf_row = np.zeros([1, self.input_len])
+                self.bf_row[:, 1] = 1.0
 
             self.augmented_a_matrix = np.zeros([self.state_len+1, self.state_len+1])
             self.augmented_a_matrix[:self.state_len, :self.state_len] = self.a_matrix
-            self.augmented_a_matrix[:self.state_len, self.state_len] = self.bf.flatten()
+            self.augmented_a_matrix[:self.state_len, self.state_len] = self.af_col.flatten()
+            self.augmented_a_matrix[self.state_len, :self.state_len] = self.af_row.flatten()
             self.augmented_a_matrix[self.state_len, self.state_len] = self.rho
 
             self.augmented_b_matrix = np.zeros([self.state_len+1, self.input_len])
             self.augmented_b_matrix[:self.state_len, :] = self.b_matrix
-            self.augmented_b_matrix[self.state_len, 0] = 1.0     # only feed (input index 0) affects feed-effect state (hidden state)
+            self.augmented_b_matrix[self.state_len, :] = self.bf_row     # only feed (input index 0) affects feed-effect state (hidden state)
 
             self.c_matrix = np.hstack([np.identity(self.state_len), np.zeros([self.state_len, 1])])
 
@@ -191,44 +211,51 @@ class ModelTraining:
             a_sim = self.a_matrix.reshape(-1, 1)
             b_sim = self.b_matrix.reshape(-1, 1)
             combined_mat = np.vstack([a_sim, b_sim]).flatten()
+        
+        if self.hidden_state:
+            bounds_ = [(-2, 2)] * len(combined_mat)
+            bounds_[len(a_sim)-1] = (0,1)
+        else:
+            bounds_ = [(-2, 2)] * len(combined_mat)
 
         if self.algorithm == "minimize":
-            res = optimize.minimize(
+            optimize.minimize(
                 fun=self.objective_func,
                 x0=combined_mat,
-                bounds=[(-1, 1)] * len(combined_mat),
+                bounds=bounds_,
                 method="SLSQP",
                 options={"maxiter": iterations, "disp": False, "ftol": 1e-07},
             )
         elif self.algorithm == "evolution":
-            res = optimize.differential_evolution(
+            optimize.differential_evolution(
                 func=self.objective_func,
-                bounds=[(-1, 1)] * len(combined_mat),
+                bounds=bounds_,
                 maxiter=iterations,
                 disp=False
             )
-        elif self.algorithm == "basin":
+        elif self.algorithm == "basinhopping":
             minimizer_kwargs = {
                 "method": "SLSQP",
-                "bounds": [(-1, 1)] * len(combined_mat),
+                "bounds": bounds_,
                 "options": {"maxiter": iterations*10, "disp": False, "ftol": 1e-07}
             }
-            res = optimize.basinhopping(
+            optimize.basinhopping(
                     func=self.objective_func,
                     x0=combined_mat,
                     minimizer_kwargs=minimizer_kwargs,
                     niter=iterations,
                     disp=True,
-                    T=1000,
+                    T=2000,
                 )
         else:
             raise KeyError("Must use either Minimize or Basin Hopping algorithms")
 
         print("")
-        for key, value in self.model_error_dict.items():
+        print("--------------------Final Results--------------------")
+        for key, value in self.lowest_model_error_dict.items():
             print(f"{key} Error: {value:.5f}")
         print("--------------------")
-        print(f"Iterations: {self.iters}, Model Error: {self.model_error:.5f}")
+        print(f"Iterations: {self.iters}, Model Error: {self.lowest_model_error:.5f}")
 
         # opt_matrix = res.x
         opt_matrix = self.best_result
@@ -244,7 +271,9 @@ class ModelTraining:
             self.a_matrix = self.augmented_a_matrix[:self.state_len, :self.state_len]
             self.b_matrix = self.augmented_b_matrix[:self.state_len, :]
             self.rho = self.augmented_a_matrix[self.state_len, self.state_len]
-            self.bf = self.augmented_a_matrix[:self.state_len, self.state_len]
+            self.af_col = self.augmented_a_matrix[:self.state_len, self.state_len]
+            self.af_row = self.augmented_a_matrix[self.state_len, :self.state_len]
+            self.bf_row = self.augmented_b_matrix[self.state_len, :]
         else:
             # This returns the matrix in the correct shape for use later on in the class
             self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(
@@ -336,7 +365,8 @@ class ModelTraining:
         for count, state in enumerate(self.states):
             y_diff = y_actual_all[:, count] - y_sim_all[:, count]
             feature_cost = np.square(y_diff).sum()
-            cost_list.append(feature_cost)
+            negative_cost = sum(y_sim_all[:, count] < 0)*0
+            cost_list.append(feature_cost + feature_cost*negative_cost)
 
         wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts))
 
@@ -377,7 +407,8 @@ class ModelTraining:
         
         if self.model_error < self.lowest_model_error:
             self.lowest_model_error = self.model_error
-            self.best_result = x0
+            self.lowest_model_error_dict = self.model_error_dict.copy()
+            self.best_result = x0.copy()
 
         return wghtd_cost
 
@@ -593,7 +624,7 @@ class ModelTraining:
         fig2.tight_layout()
         plt.show()
 
-    def get_rmse_table(self):
+    def get_rmse_table(self) -> pd.DataFrame:
         """
         The function `get_rmse_table` calculates the root mean square error (RMSE) for each state in
         each batch of data and returns a DataFrame with the results.
@@ -610,9 +641,10 @@ class ModelTraining:
             for state in self.states:
                 y_true = np.array(train_test_dict[batch][state], dtype=np.float64)
                 y_pred = np.array(simulation_dict[batch][state], dtype=np.float64)
-                rmse = np.sqrt((y_true - y_pred) ** 2).sum() / len(
-                    train_test_dict[batch][state]
-                )
+                rmse = root_mean_squared_error(y_true, y_pred)
+                # rmse = np.sqrt((y_true - y_pred) ** 2).sum() / len(
+                #     y_true
+                # )
                 state_rmse.append(rmse)
             rmse_dict[batch] = state_rmse
 
@@ -622,7 +654,7 @@ class ModelTraining:
         ).reset_index()
         return df_rmse
 
-    def get_r2_table(self):
+    def get_r2_table(self) -> pd.DataFrame:
         """
         The function `get_r2_table` calculates the R-squared values for a given set of true and
         predicted values and returns them in a pandas DataFrame.
@@ -647,7 +679,7 @@ class ModelTraining:
         ).reset_index()
         return df_r2
 
-    def get_corrcoef_table(self):
+    def get_corrcoef_table(self) -> pd.DataFrame:
         """
         The function `get_corrcoef_table` calculates the correlation coefficient between predicted and
         true values for each state in each batch of data and returns the results in a pandas DataFrame.
@@ -699,6 +731,10 @@ class ModelTraining:
         )
 
         self.plot_test_data(
+            test_label=test_label,
+        )
+
+        self.plot_train_data(
             test_label=test_label,
         )
 

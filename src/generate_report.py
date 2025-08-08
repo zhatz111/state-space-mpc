@@ -1,7 +1,7 @@
 """Main code for training an model for MPC
     Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2024-04-24
-    Modified: 2024-04-24
+    Modified: 2025-08-08
 """
 
 # Imports from Standard Library
@@ -100,8 +100,11 @@ def main():
 
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
+    af_col_matrix = np.array(model_config["af_col"])
+    af_row_matrix = np.array(model_config["af_row"])
+    bf_row_matrix = np.array(model_config["bf_row"])
 
-    model_train_obj = ModelTraining(
+    model_report_obj = ModelTraining(
         train_data,
         test_data,
         a_matrix=a_matrix,
@@ -113,12 +116,14 @@ def main():
         scaler=scaler_train,
         hidden_state=True,
         rho=model_config["rho"],
-        bf=np.array(model_config["bf"])
+        af_col=af_col_matrix,
+        af_row=af_row_matrix,
+        bf_row=bf_row_matrix,
     )
 
     report_metadata = json_to_dict(Path(PATH_DIRECTORY, f"{model_config['Asset']}_model_parameters.json"))
     generate_report(
-        model_train_obj=model_train_obj,
+        model_report_obj=model_report_obj,
         output_folder=Path(PATH_DIRECTORY, f"{model_config['Asset']} Report"),
         metadata = report_metadata
     )

@@ -1,7 +1,7 @@
 """Main code for simulating closed-loop MPC
     Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2024-04-24
-    Modified: 2024-04-24
+    Modified: 2025-08-08
 """
 
 # Standard Library Imports
@@ -21,7 +21,7 @@ from models.train_model import ModelTraining
 print(Path().absolute())
 
 def generate_report(
-    model_train_obj: ModelTraining,
+    model_report_obj: ModelTraining,
     output_folder: Union[Path, str],
     metadata: dict,
     xlim=None,
@@ -39,13 +39,13 @@ def generate_report(
     figures_filepath.mkdir(parents=True, exist_ok=True)
     logo_filepath = str(Path(Path().absolute(), "reports", "report_info", "GSK_logo_2022.png"))
 
-    simulation_train_dict, train_dict = model_train_obj.get_model_data_dict(data_agg="train")
-    simulation_test_dict, test_dict = model_train_obj.get_model_data_dict(data_agg="test")
+    simulation_train_dict, train_dict = model_report_obj.get_model_data_dict(data_agg="train")
+    simulation_test_dict, test_dict = model_report_obj.get_model_data_dict(data_agg="test")
 
     # tables to plot in report
-    df_rmse = model_train_obj.get_rmse_table().round(2)
-    df_r2 = model_train_obj.get_r2_table().round(2)
-    df_corrcoef = model_train_obj.get_corrcoef_table().round(2)
+    df_rmse = model_report_obj.get_rmse_table().round(2)
+    df_r2 = model_report_obj.get_r2_table().round(2)
+    df_corrcoef = model_report_obj.get_corrcoef_table().round(2)
 
     dict_keys_train = list(simulation_train_dict.keys())
     dict_keys_test = list(simulation_test_dict.keys())
@@ -54,29 +54,74 @@ def generate_report(
     ppg = rows * cols # subplot dimensions
     now = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
+
+    df_a_matrix = pd.DataFrame(
+        data=model_report_obj.a_matrix, index=model_report_obj.states, columns=model_report_obj.states
+    ).round(5).reset_index()
+
+    # Plotting the table and removing all axes
+    fig_table_a, ax_a = plt.subplots(
+        figsize=(12,6)
+    )  # set the size that you'd like (width, height)
+    ax_a.axis("off")
+
+    tbl_a = ax_a.table(
+        cellText=df_a_matrix.values,
+        colLabels=list(df_a_matrix.columns),
+        cellLoc="center",
+        loc="center",
+    )
+
+    # Create the table and scale it to fit the fig
+    for (i, j), cell in tbl_a.get_celld().items():
+        if i == 0:  # header cells
+            cell.set_fontsize(16)
+            cell.set_text_props(weight="bold", color="white")
+            cell.set_facecolor("#F25D18")
+    
+    tbl_a.auto_set_font_size(False)
+    tbl_a.set_fontsize(16)
+    tbl_a.scale(2,4)  # may need to adjust this for your data
+    plt.savefig(rf"{str(figures_filepath)}\a_matrix_table.png", dpi=300, bbox_inches="tight")
+    plt.close(fig_table_a)
+
+
+    df_b_matrix = pd.DataFrame(
+        data=model_report_obj.b_matrix, index=model_report_obj.states, columns=model_report_obj.inputs
+    ).round(5).reset_index()
+
+    # Plotting the table and removing all axes
+    fig_table_b, ax_b = plt.subplots(
+        figsize=(12,6)
+    )  # set the size that you'd like (width, height)
+    ax_b.axis("off")
+
+    tbl_b = ax_b.table(
+        cellText=df_b_matrix.values,
+        colLabels=list(df_b_matrix.columns),
+        cellLoc="center",
+        loc="center",
+    )
+
+    # Create the table and scale it to fit the fig
+    for (i, j), cell in tbl_b.get_celld().items():
+        if i == 0:  # header cells
+            cell.set_fontsize(16)
+            cell.set_text_props(weight="bold", color="white")
+            cell.set_facecolor("#F25D18")
+    
+    tbl_b.auto_set_font_size(False)
+    tbl_b.set_fontsize(16)
+    tbl_b.scale(2,4)  # may need to adjust this for your data
+    plt.savefig(rf"{str(figures_filepath)}\b_matrix_table.png", dpi=300, bbox_inches="tight")
+    plt.close(fig_table_b)
+
+
     # Plotting the table and removing all axes
     fig_table, ax = plt.subplots(
         figsize=(12,6)
     )  # set the size that you'd like (width, height)
     ax.axis("off")
-
-    # Plotting the table and removing all axes
-    fig_table_rmse, ax_rmse = plt.subplots(
-        figsize=(12,6)
-    )  # set the size that you'd like (width, height)
-    ax_rmse.axis("off")
-
-    # Plotting the table and removing all axes
-    fig_table_r2, ax_r2 = plt.subplots(
-        figsize=(12,6)
-    )  # set the size that you'd like (width, height)
-    ax_r2.axis("off")
-
-    # Plotting the table and removing all axes
-    fig_table_corrcoef, ax_corrcoef = plt.subplots(
-        figsize=(12,6)
-    )  # set the size that you'd like (width, height)
-    ax_corrcoef.axis("off")
 
     scaler_dict = {}
     for key, value in metadata["scaler"].items():
@@ -87,27 +132,6 @@ def generate_report(
     tbl = ax.table(
         cellText=scaler_df.values,
         colLabels=list(scaler_df.columns),
-        cellLoc="center",
-        loc="center",
-    )
-
-    tbl_rmse = ax_rmse.table(
-        cellText=df_rmse.values,
-        colLabels=list(df_rmse.columns),
-        cellLoc="center",
-        loc="center",
-    )
-
-    tbl_r2 = ax_r2.table(
-        cellText=df_r2.values,
-        colLabels=list(df_r2.columns),
-        cellLoc="center",
-        loc="center",
-    )
-
-    tbl_corrcoef = ax_corrcoef.table(
-        cellText=df_corrcoef.values,
-        colLabels=list(df_corrcoef.columns),
         cellLoc="center",
         loc="center",
     )
@@ -124,7 +148,21 @@ def generate_report(
     tbl.scale(2,4)  # may need to adjust this for your data
     plt.savefig(rf"{str(figures_filepath)}\scaler_table.png", dpi=300, bbox_inches="tight")
     plt.close(fig_table)
-    
+
+
+    # Plotting the table and removing all axes
+    fig_table_rmse, ax_rmse = plt.subplots(
+        figsize=(12,6)
+    )  # set the size that you'd like (width, height)
+    ax_rmse.axis("off")
+
+    tbl_rmse = ax_rmse.table(
+        cellText=df_rmse.values,
+        colLabels=list(df_rmse.columns),
+        cellLoc="center",
+        loc="center",
+    )
+
     # Create the table and scale it to fit the fig
     for (i, j), cell_rmse in tbl_rmse.get_celld().items():
         if i == 0:  # header cells
@@ -137,7 +175,21 @@ def generate_report(
     tbl_rmse.scale(2,4)  # may need to adjust this for your data
     plt.savefig(rf"{str(figures_filepath)}\rmse_table.png", dpi=300, bbox_inches="tight")
     plt.close(fig_table_rmse)
-    
+
+
+    # Plotting the table and removing all axes
+    fig_table_r2, ax_r2 = plt.subplots(
+        figsize=(12,6)
+    )  # set the size that you'd like (width, height)
+    ax_r2.axis("off")
+
+    tbl_r2 = ax_r2.table(
+        cellText=df_r2.values,
+        colLabels=list(df_r2.columns),
+        cellLoc="center",
+        loc="center",
+    )
+
     # Create the table and scale it to fit the fig
     for (i, j), cell_r2 in tbl_r2.get_celld().items():
         if i == 0:  # header cells
@@ -150,7 +202,21 @@ def generate_report(
     tbl_r2.scale(2,4)  # may need to adjust this for your data
     plt.savefig(rf"{str(figures_filepath)}\r2_table.png", dpi=300, bbox_inches="tight")
     plt.close(fig_table_r2)
-    
+
+
+    # Plotting the table and removing all axes
+    fig_table_corrcoef, ax_corrcoef = plt.subplots(
+        figsize=(12,6)
+    )  # set the size that you'd like (width, height)
+    ax_corrcoef.axis("off")
+
+    tbl_corrcoef = ax_corrcoef.table(
+        cellText=df_corrcoef.values,
+        colLabels=list(df_corrcoef.columns),
+        cellLoc="center",
+        loc="center",
+    )
+
     # Create the table and scale it to fit the fig
     for (i, j), cell_corrcoef in tbl_corrcoef.get_celld().items():
         if i == 0:  # header cells
@@ -163,6 +229,7 @@ def generate_report(
     tbl_corrcoef.scale(2,4)  # may need to adjust this for your data
     plt.savefig(rf"{str(figures_filepath)}\corrcoef_table.png", dpi=300, bbox_inches="tight")
     plt.close(fig_table_corrcoef)
+
 
     pdf = FPDF(format="A4")  # A4 (210 by 297 mm)
     pdf.add_page()
@@ -203,14 +270,14 @@ def generate_report(
     pdf.set_font("helvetica", "B", 16)
     pdf.write(7, "States in Model: ")
     pdf.set_font("helvetica", "", 16)
-    pdf.write(7, f"{(', ').join(model_train_obj.states)}")
+    pdf.write(7, f"{(', ').join(model_report_obj.states)}")
 
     pdf.ln(8)
 
     pdf.set_font("helvetica", "B", 16)
     pdf.write(7, "Inputs in Model: ")
     pdf.set_font("helvetica", "", 16)
-    pdf.write(7, f"{(', ').join(model_train_obj.inputs)}")
+    pdf.write(7, f"{(', ').join(model_report_obj.inputs)}")
 
     pdf.set_text_color(r=0, g=0, b=0)
     # pdf.ln(135)
@@ -232,7 +299,7 @@ def generate_report(
     pdf.ln(15)
     pdf.write(7, "Scaling Parameters")
 
-    pdf.image(rf"{str(figures_filepath)}\scaler_table.png", w=160, h=160, x=25, y=120)
+    pdf.image(rf"{str(figures_filepath)}\scaler_table.png", w=160, h=100, x=25, y=120)
 
     pdf.add_page()
     pdf.set_font("helvetica", "B", 8)
@@ -246,7 +313,7 @@ def generate_report(
     pdf.write(5, "Model Training Dataset")
     df_sim_concat = pd.concat(simulation_train_dict.values(), ignore_index=True)
     df_train_concat = pd.concat(train_dict.values(), ignore_index=True)
-    for test_label in model_train_obj.states:
+    for test_label in model_report_obj.states:
         pdf.add_page()
         pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
         pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
@@ -336,7 +403,7 @@ def generate_report(
     pdf.write(5, "Model Testing Dataset")
     df_sim_concat = pd.concat(simulation_test_dict.values(), ignore_index=True)
     df_test_concat = pd.concat(test_dict.values(), ignore_index=True)
-    for test_label in model_train_obj.states:
+    for test_label in model_report_obj.states:
         pdf.add_page()
         pdf.image(logo_filepath, w=30, h=10, x=170, y=10)
         pdf.image(logo_filepath, w=30, h=10, x=10, y=277)
@@ -395,7 +462,7 @@ def generate_report(
                         ax_test.set_xlim(-1.5, xlim)
 
             # If on the last page and there are fewer than 12 plots, remove extra subplots
-            if len(simulation_train_dict.keys()) - i < ppg:
+            if len(simulation_test_dict.keys()) - i < ppg:
                 for j in range(len(simulation_test_dict.keys()) - i, len(axs.flatten())):
                     axs.ravel()[j].remove()
 
@@ -418,8 +485,21 @@ def generate_report(
     pdf.set_font("helvetica", "B", 18)
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(7)
-    pdf.write(7, "Model RMSE Table")
+    pdf.write(7, "A Matrix")
+    pdf.image(rf"{str(figures_filepath)}\a_matrix_table.png", w=180, h=100, x=25, y=40)
 
+    pdf.add_page()
+    pdf.set_font("helvetica", "B", 18)
+    pdf.set_text_color(r=242, g=93, b=24)
+    pdf.ln(7)
+    pdf.write(7, "B Matrix")
+    pdf.image(rf"{str(figures_filepath)}\b_matrix_table.png", w=180, h=100, x=25, y=40)
+    
+    pdf.add_page()
+    pdf.set_font("helvetica", "B", 18)
+    pdf.set_text_color(r=242, g=93, b=24)
+    pdf.ln(7)
+    pdf.write(7, "Model RMSE Table")
     pdf.image(rf"{str(figures_filepath)}\rmse_table.png", w=160, h=160, x=25, y=40)
 
     pdf.add_page()
@@ -427,7 +507,6 @@ def generate_report(
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(7)
     pdf.write(7, "Model R2 Table")
-
     pdf.image(rf"{str(figures_filepath)}\r2_table.png", w=160, h=160, x=25, y=40)
 
     pdf.add_page()
@@ -435,7 +514,6 @@ def generate_report(
     pdf.set_text_color(r=242, g=93, b=24)
     pdf.ln(7)
     pdf.write(7, "Model Correlation Coefficient Table")
-
     pdf.image(rf"{str(figures_filepath)}\corrcoef_table.png", w=160, h=160, x=25, y=40)
 
 
