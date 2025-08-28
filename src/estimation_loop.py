@@ -2,7 +2,7 @@
 Main code for simulating closed-loop MPC
     Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2024-05-13
+    Modified: 2025-08-27
 """
 
 # Standard Library Imports
@@ -86,20 +86,15 @@ else:
 # -------------------------------------------------------------------------------------
 # LOAD MODEL DATA
 
-# Import the A and B matrices and the scaler
-sim_a_matrix = np.array(experiment_config["Model Parameters"]["a_matrix"])
-sim_b_matrix = np.array(experiment_config["Model Parameters"]["b_matrix"])
+# Import the scaler
 sim_model_scaler = dict_toscaler(
     dict_file=experiment_config["Model Parameters"]["scaler"]
 )
 
 # Create a state space model for control
 controller_model = StateSpaceModel(
-    states=list(map(str.upper, experiment_config["Model Parameters"]["Model States"])),
-    inputs=list(map(str.upper, experiment_config["Model Parameters"]["Model Inputs"])),
+    model_parameters=experiment_config["Model Parameters"],
     scaler=sim_model_scaler,
-    a_matrix=sim_a_matrix,
-    b_matrix=sim_b_matrix,
 )
 
 # -------------------------------------------------------------------------------------
@@ -180,22 +175,25 @@ for count_vessel, curr_vessel in enumerate(vessels):
     controller = controllers[count_vessel]
 
     print("")
-    print("-"*80)
+    print("-" * 80)
 
+    # Parse the states from the reference data csv file
+    input_messages = master_sheet.loc[master_sheet["Bioreactor"] == curr_vessel, :]
+    input_message_dict = {}
     # Iterate from Day 0 to the current day
     for curr_time in range(0, CURR_TIME_END + 1):
-        # Parse the states from the reference data csv file
-        input_messages = master_sheet.loc[master_sheet["Bioreactor"] == curr_vessel, :]
-
         # -------------------------------------------------------------------------------------
         # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
 
         # Ingest data from Input topic
         bioreactor.curr_time = curr_time
-        input_message = input_messages.loc[
-            input_messages["Day"] == curr_time, :
-        ].squeeze()
-        bioreactor.ingest_vector(input_message)
+        input_message = (
+            input_messages.loc[input_messages["Day"] == curr_time, :]
+            .squeeze()
+            .to_dict()
+        )
+        input_message_dict[bioreactor.curr_time] = input_message
+        bioreactor.ingest_vectors(input_message_dict)
 
         # Estimate the current state
         controller.estimate()
@@ -223,17 +221,16 @@ for count_vessel, curr_vessel in enumerate(vessels):
     br_heading = f"{curr_vessel} on Day {curr_time}:"
     # print("." * len(br_heading))
     print(colored(br_heading, "green"))
-    print("    Feed ratio: ", colored(f"{np.round(result['FeedRatio_mL_mL'],4)}", "blue", attrs=["bold"]))
-    if experiment_config["Scale"] == "ambr250":
-        print("    Feed flowrate: ", f"{np.round(result['FeedRate_mL_min'],4)}"," mL/min, ", colored(f"{np.round(result['FeedRate_mL_min'] * 60,4)}", "blue", attrs=["bold"]), " mL/h")
-    else:
-        print("    Feed flowrate: ", colored(f"{np.round(result['FeedRate_mL_min'],4)}", "blue", attrs=["bold"])," mL/min, ", f"{np.round(result['FeedRate_mL_min'] * 60,4)}", " mL/h")
+    for key, value in result.items():
+        print(key, end=None)
+        print(colored(np.round(value, 4), "blue", attrs=["bold"]))
 
     # -------------------------------------------------------------------------------------
     # GENERATED PLOTS SAVED
 
     # Plot the MPC Controller for each Bioreactor
     # Use the last controller from the list which is the controller from the current day
+
     br_plots = MPCVisualizer(bioreactor, controller)
 
     if isinstance(curr_vessel, str):
@@ -269,7 +266,7 @@ for count_vessel, curr_vessel in enumerate(vessels):
     ]
 
     # If no file exist currently
-    bioreactor.return_data(show_daily_feed=True, exec_date=True).to_csv(
+    bioreactor.return_data(show_daily_inputs=True, exec_date=True).to_csv(
         csv_path_lv2_BR / filenames[0], index=False
     )
 

@@ -1,9 +1,10 @@
 """
 Code for useful functions needed in other scripts
-Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
-Created: 2024-04-19
-Modified: 2025-08-08
+  Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+  Created: 2024-04-19
+  Modified: 2025-08-27
 """
+
 # Standard library imports
 import glob
 import shutil
@@ -17,20 +18,25 @@ import yaml
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
+from models.ssm import StateSpaceModel
+
 # Create type hint for the scaler object being passed to SSM class
 ScalerType = Union[MinMaxScaler, StandardScaler]
 
 
-def daily_to_cumulative_feed(model, u_matrix_daily):
+def daily_to_cumulative(
+    model: StateSpaceModel, input_variables: list, u_matrix_daily: np.ndarray
+):
     """
-    The function `daily_to_cumulative_feed` converts a U matrix's daily feed
-    column to cumulative feed for lsim.
+    The function `daily_to_cumulative` converts a U matrix's daily variable
+    column to a cumulative variable for lsim.
 
     Args:
       model: The "model" parameter is a variable that represents a model object.
       It is not specified in
     the code snippet provided, so its exact definition and usage would depend on
     the context in which this function is being used.
+      input_variable: The variable target to convert from daily to cumulative
       u_matrix_daily: The u_matrix_daily parameter is a numpy array representing
       the U matrix with daily
     feed values.
@@ -40,12 +46,11 @@ def daily_to_cumulative_feed(model, u_matrix_daily):
       feed.
     """
     u_matrix_cumulative = np.copy(u_matrix_daily)
-    cumulative_feed_loc = np.where(np.isin(model.inputs, "CUMULATIVE_NORMALIZED_FEED"))[
-        0
-    ]
-    u_matrix_cumulative[:, cumulative_feed_loc] = np.append(
-        0, np.cumsum(u_matrix_cumulative[:-1, cumulative_feed_loc])
-    ).reshape([-1, 1])
+    for var in input_variables:
+      cumulative_loc = np.where(np.isin(model.inputs, var))[0]
+      u_matrix_cumulative[:, cumulative_loc] = np.append(
+          0, np.cumsum(u_matrix_cumulative[:-1, cumulative_loc])
+      ).reshape([-1, 1])
     return u_matrix_cumulative
 
 
@@ -163,12 +168,12 @@ def dict_toscaler(dict_file: dict, scaler_class="MinMaxScaler"):
       a reconstructed scaler object.
     """
     # Initialize a new MinMaxScaler instance
-    if scaler_class=="MinMaxScaler":
+    if scaler_class == "MinMaxScaler":
         reconstructed_scaler = MinMaxScaler()
-    elif scaler_class=="StandardScaler":
-        reconstructed_scaler = StandardScaler()
     else:
-        raise ValueError("This method currently only works for the MinMaxScaler and StandardScaler")
+        raise ValueError(
+            "This method currently only works for the MinMaxScaler and StandardScaler"
+        )
 
     # Set the loaded attributes back to the scaler
     for attr_name, attr_value in dict_file.items():

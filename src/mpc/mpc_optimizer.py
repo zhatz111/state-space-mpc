@@ -1,7 +1,8 @@
-"""MPC-related class definitions
+"""
+MPC-related class definitions for bioreactors and controllers
     Created by Yu Luo (yu.8.luo@gsk.com)
     Created: 2023-10-05
-    Modified: 2023-10-05
+    Modified: 2025-08-27
 """
 
 # pylint: disable=locally-disabled, multiple-statements, fixme, no-name-in-module
@@ -19,7 +20,7 @@ from scipy import optimize
 
 # State-Space-Model Package Imports
 from models.ssm import StateSpaceModel
-from data.functions import daily_to_cumulative_feed
+from data.functions import daily_to_cumulative
 
 
 class Bioreactor:
@@ -77,12 +78,20 @@ class Bioreactor:
                 """Config file must specify batch length, column mapping, PV
                 setpoints and MV reference."""
             )
+        else:
+            self.experiment_config = experiment_config
+
+        if not isinstance(controller_config, dict):
+            raise ValueError("Must pass a controller configuration to this class.")
+        else:
+            self.controller_config = controller_config
+
         # Initialize attributes
         self.curr_time = 0
         self.start_date = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-        self.duration = experiment_config["Last Day"] + 1
-        self.scale = experiment_config["Scale"]
-        self.init_vol = experiment_config["Initial Volumes"][self.scale]
+        self.duration = self.experiment_config["Last Day"] + 1
+        self.scale = self.experiment_config["Scale"]
+        self.init_vol = self.experiment_config["Initial Volumes"][self.scale]
         self.vol = self.init_vol
 
         # Update attributes based on user input
@@ -90,28 +99,39 @@ class Bioreactor:
         self.process_model = (
             process_model  # Model (if provided) for simulating a process
         )
+
         # this parameter is necessary for tech automation
         # when the data vector is passed to this class the columns must be mapped
         # correctly to the dataframe initialized at instantiation
         if data is None:
-            self.column_map = experiment_config["Column Mapping"]
-            if controller_config is None:
-                raise ValueError("Must pass a controller configuration to this class.")
-            sp_cols = [f"{x}--STATE_SP" for x in controller_config["Process Variables"]]
-            mv_ref_cols = [
-                f"{x}--INPUT_REF" for x in controller_config["Manipulated Variables"]
+            self.column_map = self.experiment_config["Column Mapping"]
+            sp_cols = [
+                f"{x.upper()}{self.process_model.data_sp_suffix}"
+                for x in controller_config["Process Variables"]
             ]
-            u_cols = [f"{x}--INPUT_DATA" for x in controller_config["Input Variables"]]
-            x_cols = [f"{x}--STATE_DATA" for x in controller_config["State Variables"]]
+            mv_ref_cols = [
+                f"{x.upper()}{self.process_model.input_ref_suffix}"
+                for x in controller_config["Manipulated Variables"]
+            ]
+            u_cols = [
+                f"{x.upper()}{self.process_model.input_suffix}"
+                for x in controller_config["Input Variables"]
+            ]
+            x_cols = [
+                f"{x.upper()}{self.process_model.data_suffix}"
+                for x in controller_config["State Variables"]
+            ]
+
+            metadata_columns = [
+                "Code_Execution_Date",
+                "Bioreactor",
+                "Day",
+                "Date",
+                "VOLUME_L",
+            ]
+
             cols = (
-                [
-                    "Code_Run_Date",
-                    "Bioreactor",
-                    "Day",
-                    "Date",
-                    "FEED_RATE--INPUT_DATA",
-                    "VOLUME_ML",
-                ]
+                metadata_columns
                 + sp_cols
                 + mv_ref_cols
                 + self.process_model.state_data_labels
@@ -134,36 +154,36 @@ class Bioreactor:
 
             # Initialize reference and nominal data
             for key in controller_config["Process Variables"]:
-                data[f"{key}--STATE_SP"] = np.array(
+                data[f"{key.upper()}{self.process_model.data_sp_suffix}"] = np.array(
                     controller_config["Process Variables"][key]["Data"]
                 )
             for key in controller_config["Manipulated Variables"]:
-                data[f"{key}--INPUT_REF"] = np.array(
+                data[f"{key.upper()}{self.process_model.input_ref_suffix}"] = np.array(
                     controller_config["Manipulated Variables"][key]["Data"]
                 )
             for key in controller_config["Input Variables"]:
-                data[f"{key}--INPUT_DATA"] = np.array(
+                data[f"{key.upper()}{self.process_model.input_suffix}"] = np.array(
                     controller_config["Input Variables"][key]
                 )
             for key in controller_config["State Variables"]:
-                data[f"{key}--STATE_DATA"][0] = controller_config["State Variables"][
-                    key
-                ]["Initial"]
+                data[f"{key.upper()}{self.process_model.data_suffix}"][0] = (
+                    controller_config["State Variables"][key]["Initial"]
+                )
 
             # Other metadata
             data["Day"] = np.arange(0, self.duration)
             data["Bioreactor"] = str(self.vessel)
 
             # Initialize volume
-            data["VOLUME_ML"] = self.init_vol
+            data["VOLUME_L"] = self.init_vol
 
             self.data = data.copy(deep=True)
         else:
             self.data = data.copy(deep=True)
 
         # Feed names
-        self.total_feed_name = experiment_config["Total Feed Name"]
-        self.daily_feed_name = experiment_config["Daily Feed Name"]
+        # self.total_feed_name = self.experiment_config["Total Feed Name"]
+        # self.daily_feed_name = self.experiment_config["Daily Feed Name"]
 
         # Data frame for open_loop simulation results
         self.open_loop_df = pd.DataFrame()
@@ -180,32 +200,34 @@ class Bioreactor:
         if any(np.diff(self.data["Day"]) != 1):
             raise ValueError("Data set is not in 1-day increments!")
 
-        # Convert cumulative feed (data) to daily feed
-        if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
-            self.data[f"{self.total_feed_name}--INPUT_DATA"] = np.append(
-                np.diff(self.data.loc[:, f"{self.total_feed_name}--INPUT_DATA"]), 0
-            )
-            self.has_cumulative_feed_data = True
-            warnings.warn(
-                "Cumulative feed (data) was converted to daily feed (variable name is unchanged)!"
-            )
-        else:
-            self.has_cumulative_feed_data = False
-        self.daily_feed_name_data = f"{self.daily_feed_name}--INPUT_DATA"
-
-        # Convert cumulative feed (reference) to daily feed
-        if np.isin(f"{self.total_feed_name}--INPUT_REF", self.data.columns):
-            self.data[f"{self.total_feed_name}--INPUT_REF"] = np.append(
-                np.diff(self.data.loc[:, f"{self.total_feed_name}--INPUT_REF"]), 0
-            )
-            self.has_cumulative_feed_ref = True
-            warnings.warn(
-                """Cumulative feed (reference) was converted to daily feed
-                (variable name is unchanged)!"""
-            )
-        else:
-            self.has_cumulative_feed_ref = False
-        self.daily_feed_name_ref = f"{self.daily_feed_name}--INPUT_REF"
+        # convert monotonic cumulative manipulated variables to non-monotonic daily variables
+        self.monotonic_inputs = []
+        for key, value in controller_config["Manipulated Variables"].items():
+            if value["Monotonic"]:
+                self.data[f"{key.upper()}{self.process_model.input_suffix}"] = (
+                    np.append(
+                        np.diff(
+                            self.data.loc[
+                                :, f"{key.upper()}{self.process_model.input_suffix}"
+                            ]
+                        ),
+                        0,
+                    )
+                )
+                self.data[f"{key.upper()}{self.process_model.input_ref_suffix}"] = (
+                    np.append(
+                        np.diff(
+                            self.data.loc[
+                                :, f"{key.upper()}{self.process_model.input_ref_suffix}"
+                            ]
+                        ),
+                        0,
+                    )
+                )
+                self.monotonic_inputs.append(key.upper())
+                warnings.warn(
+                    f"{key.upper()} (data & reference) was converted to daily {key.upper()} (variable name is unchanged)!"
+                )
 
         # Retain the original dataset
         self.original_data = self.data.copy(deep=True)
@@ -217,25 +239,33 @@ class Bioreactor:
         Returns:
             _type_: _description_
         """
-        # Retrieve daily feeds and convert to feed rates (mL/min)
-        feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"].values
-        feed_daily_ml = feed_daily * self.vol
-        feed_rates_ml_min = feed_daily_ml / 24 / 60
-        self.data["FEED_RATE--INPUT_DATA"] = feed_rates_ml_min
-
         # Assemble result
         result = {
-            "CurrentTime_day": self.curr_time,
-            "FeedRatio_mL_mL": feed_daily[self.data["Day"] == self.curr_time][0],
-            "FeedRate_mL_min": feed_rates_ml_min[self.data["Day"] == self.curr_time][0],
-            "Times_day": self.data["Day"].values,
-            "FeedRates_mL_min": feed_rates_ml_min,
-            "TiterPred_mg_L": self.data["IGG--STATE_PRED"].values,
-            "ViabilityPred_%": self.data["VIABILITY--STATE_PRED"].values,
-            "VCCPred_MM_cells_mL": self.data["VCC--STATE_PRED"].values,
-            "LactatePred_g_L": self.data["LACTATE--STATE_PRED"].values,
-            "OSMOPred_mOsm_kg": self.data["OSMO--STATE_PRED"].values,
+            "Current_Day": self.curr_time,
+            "Process_Days": self.data["Day"].values,
         }
+
+        feed_variable = [
+            item
+            for item in self.controller_config["Manipulated Variables"].keys()
+            if "FEED" in item
+        ]
+        if self.experiment_config["Feed Type"] == "C":
+            for var in feed_variable:
+                # Retrieve daily feeds and convert to feed rates (mL/min)
+                feed_daily = self.data[f"{var}{self.process_model.input_suffix}"].values
+                feed_daily_ml = feed_daily * self.vol
+                feed_rates_ml_min = feed_daily_ml / 24 / 60
+                self.data[f"FEED_RATE_{var}{self.process_model.input_suffix}"] = (
+                    feed_rates_ml_min
+                )
+                result[f"Feed_Rate_{var}_mL_min"] = feed_rates_ml_min
+
+        for label in self.process_model.state_pred_labels:
+            result[label] = self.data[label].values
+
+        for label in self.process_model.input_data_labels:
+            result[label] = self.data[label].values
 
         return result
 
@@ -245,13 +275,14 @@ class Bioreactor:
         accurate column names.
         """
 
-        if self.has_cumulative_feed_data:
+        if self.monotonic_inputs:
             data = self.data.copy(deep=True)
-            data = data.rename(
-                columns={
-                    "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_feed_name_data
-                }
-            )
+            for name in self.monotonic_inputs:
+                data = data.rename(
+                    columns={
+                        f"{name.upper()}{self.process_model.input_suffix}": f"DAILY_{name.upper()}{self.process_model.input_suffix}"
+                    }
+                )
         else:
             data = self.data
 
@@ -259,7 +290,7 @@ class Bioreactor:
         print(data)
         print("")
 
-    def ingest_vector(self, vector: pd.Series):
+    def ingest_vectors(self, vector_dict: dict):
         """
         The function `ingest_vector` takes a Pandas Series vector, renames its
         columns based on a provided mapping, and inserts it into a DataFrame at
@@ -274,60 +305,70 @@ class Bioreactor:
         if self.column_map is None:
             raise ValueError(
                 """Need to instantiate column mapping to correctly ingest input
-                vector to dataframe."""
+                vectors to dataframe."""
             )
+        for key, data in vector_dict.items():
+            vector = pd.Series(data)
 
-        if "nutrient_total" in vector:
-            # Scale feed based on init_vol
-            vector["nutrient_total"] = vector["nutrient_total"] / self.init_vol
+            if "nutrient_total" in vector:
+                # Scale feed based on init_vol
+                vector["nutrient_total"] = vector["nutrient_total"] / self.vol
 
-        # Rename the input vector to standard column names
-        renamed_vector = vector.rename(self.column_map)
-        selected_col = (
-            self.process_model.state_data_labels
-            + self.process_model.input_data_labels
-            + ["VOLUME_ML"]
-        )
-        if renamed_vector is not None:
-            insert_index = self.data[self.data["Day"] == renamed_vector["Day"]].index[0]
-        else:
-            raise ValueError(
-                """Vector does not contain data, check that vector is not None or
-                column mapping is correct."""
+            # Rename the input vector to standard column names
+            renamed_vector = vector.rename(self.column_map)
+            selected_col = (
+                self.process_model.state_data_labels
+                + self.process_model.input_data_labels
+                + ["VOLUME_L"]
             )
-
-        # Convert bioreactor feed data from daily to total
-        if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
-            feed_daily = self.data[f"{self.total_feed_name}--INPUT_DATA"]
-            feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-
-            # Adjust future daily values based on the offset between predicted and measured
-            curr_feed_total = renamed_vector[f"{self.total_feed_name}--INPUT_DATA"]
-            if not np.isnan(curr_feed_total):
-                curr_time_feed_offset = curr_feed_total - feed_total[insert_index]
-                feed_total[insert_index:] = (
-                    feed_total[insert_index:] + curr_time_feed_offset
+            if renamed_vector is not None:
+                # might need to change this if the day is the key
+                insert_index = self.data[
+                    self.data["Day"] == renamed_vector["Day"]
+                ].index[0]
+            else:
+                raise ValueError(
+                    """Vector does not contain data, check that vector is not None or
+                    column mapping is correct."""
                 )
-                feed_daily = np.append(np.diff(feed_total), 0)
 
-            # Check for negative daily feeds
-            if np.any(feed_daily < 0):
-                raise ValueError("Negative daily feeds!")
+            # Replace current day's data with non-NaN values in input
+            self.data.loc[insert_index, renamed_vector[selected_col].dropna().index] = (
+                renamed_vector[selected_col].dropna()
+            )
 
-        # Replace current day's data with non-NaN values in input
-        self.data.loc[
-            insert_index, renamed_vector[selected_col].dropna().index
-        ] = renamed_vector[selected_col].dropna()
+            # Convert bioreactor data from daily to cumulative
+            for name in self.monotonic_inputs:
+                # Convert input data from daily to cumulative
+                daily_input_data = self.data[
+                    f"{name.upper()}{self.process_model.input_suffix}"
+                ]
+                total_input_data = np.append(0, np.cumsum(daily_input_data[0:-1]))
 
-        # Replace daily feed
-        if np.isin(f"{self.total_feed_name}--INPUT_DATA", self.data.columns):
-            self.data[f"{self.total_feed_name}--INPUT_DATA"] = feed_daily
+                # Adjust future daily values based on the offset between predicted and measured
+                curr_total = renamed_vector[
+                    f"{name.upper()}{self.process_model.input_suffix}"
+                ]
+                if not np.isnan(curr_total):
+                    curr_time_offset = curr_total - total_input_data[insert_index]
+                    total_input_data[insert_index:] = (
+                        total_input_data[insert_index:] + curr_time_offset
+                    )
+                    daily_input_data = np.append(np.diff(total_input_data), 0)
 
-        # Update volume
-        if ~np.isnan(renamed_vector["VOLUME_ML"]):
-            self.vol = renamed_vector["VOLUME_ML"]
+                    # Check for negative daily feeds
+                    if np.any(daily_input_data < 0):
+                        raise ValueError("Negative daily feeds!")
 
-    def return_data(self, show_daily_feed: bool, exec_date: bool = False):
+                self.data[f"{name.upper()}{self.process_model.input_suffix}"] = (
+                    daily_input_data
+                )
+
+            # Update volume
+            if not np.isnan(renamed_vector["VOLUME_L"]):
+                self.vol = renamed_vector["VOLUME_L"]
+
+    def return_data(self, show_daily_inputs: bool = True, exec_date: bool = False):
         """
         The function `return_data` returns the dataset for a bioreactor, with
         accurate column names.
@@ -335,36 +376,46 @@ class Bioreactor:
 
         data = self.data.copy(deep=True)
         if exec_date:
-            data["Code_Run_Date"] = datetime.today().strftime("%Y-%m-%d")
+            data["Code_Execution_Date"] = datetime.today().strftime("%Y-%m-%d")
             cols = np.array(data.columns.tolist())
             new_cols = cols[
                 np.concatenate(
                     (
-                        np.where(np.isin(cols, "Code_Run_Date"))[0],
-                        np.where(~np.isin(cols, "Code_Run_Date"))[0],
+                        np.where(np.isin(cols, "Code_Execution_Date"))[0],
+                        np.where(~np.isin(cols, "Code_Execution_Date"))[0],
                     )
                 )
             ]
             data = data[new_cols].copy(deep=True)
 
-        if self.has_cumulative_feed_data or self.has_cumulative_feed_ref:
-            if show_daily_feed:
-                data = data.rename(
-                    columns={
-                        "CUMULATIVE_NORMALIZED_FEED--INPUT_DATA": self.daily_feed_name_data,
-                        "CUMULATIVE_NORMALIZED_FEED--INPUT_REF": self.daily_feed_name_ref,
-                    }
-                )
+        if self.monotonic_inputs:
+            if show_daily_inputs:
+                for name in self.monotonic_inputs:
+                    data = data.rename(
+                        columns={
+                            f"{name.upper()}{self.process_model.input_suffix}": f"DAILY_{name.upper()}{self.process_model.input_suffix}",
+                            f"{name.upper()}{self.process_model.input_ref_suffix}": f"DAILY_{name.upper()}{self.process_model.input_ref_suffix}",
+                        }
+                    )
             else:
-                if self.has_cumulative_feed_data:
-                    feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"]
-                    feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-                    data["CUMULATIVE_NORMALIZED_FEED--INPUT_DATA"] = feed_total
+                for name in self.monotonic_inputs:
+                    # Convert input data back to cumulative
+                    daily_input_data = data[
+                        f"{name.upper()}{self.process_model.input_suffix}"
+                    ]
+                    total_input_data = np.append(0, np.cumsum(daily_input_data[0:-1]))
+                    data[f"{name.upper()}{self.process_model.input_suffix}"] = (
+                        total_input_data
+                    )
 
-                if self.has_cumulative_feed_ref:
-                    feed_daily = data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"]
-                    feed_total = np.append(0, np.cumsum(feed_daily[0:-1]))
-                    data["CUMULATIVE_NORMALIZED_FEED--INPUT_REF"] = feed_total
+                    # Convert reference data back to cumulative
+                    daily_input_ref = data[
+                        f"{name.upper()}{self.process_model.input_ref_suffix}"
+                    ]
+                    total_input_ref = np.append(0, np.cumsum(daily_input_ref[0:-1]))
+                    data[f"{name.upper()}{self.process_model.input_ref_suffix}"] = (
+                        total_input_ref
+                    )
 
         return data
 
@@ -414,14 +465,14 @@ class Bioreactor:
             self.data["Day"] == curr_time, self.process_model.state_data_labels
         ].values[0]
 
-        # Current model predictions 
+        # Current model predictions
         preds = self.data.loc[
             self.data["Day"] == curr_time, self.process_model.state_pred_labels
-        ].values[0]  
+        ].values[0]
 
         # Replace missing data with predictions
         if np.any(np.isnan(measurements)):
-            measurements[np.isnan(measurements)] = preds[np.isnan(measurements)]      
+            measurements[np.isnan(measurements)] = preds[np.isnan(measurements)]
 
         return measurements
 
@@ -456,9 +507,11 @@ class Bioreactor:
         # Get all inputs with daily feed
         u_matrix_daily = self.data.loc[:, self.process_model.input_data_labels].values
 
-        # Convert daily feed to cumulative feed
-        u_matrix_cumulative = daily_to_cumulative_feed(
-            self.process_model, u_matrix_daily
+        # Convert daily variable to cumulative variable
+        u_matrix_cumulative = daily_to_cumulative(
+            model=self.process_model,
+            input_variables=self.monotonic_inputs,
+            u_matrix_daily=u_matrix_daily,
         )
 
         # Filter future inputs
@@ -473,6 +526,7 @@ class Bioreactor:
             input_matrix=u_matrix_cumulative,
             time=ts,
             output_mods=output_mods,
+            hidden_state=self.process_model.hidden_state,
         )
 
         # Create a DF for the predicted states
@@ -484,7 +538,8 @@ class Bioreactor:
         y_out_df.insert(0, "Day", ts + curr_time)
 
         # Check if the simulation starts from the current state
-        if max(abs(x0 - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
+        # if max(abs(x0 - x_out[0])) > 1e-10:  # ~np.all(self.state == x_out[0]):
+        if not any(np.isclose(x0, x_out[0], rtol=1e-10)):
             raise ValueError("Simulation did not start from the current state!")
 
         return x_out, x_out_df, y_out, y_out_df
@@ -694,14 +749,14 @@ class Controller:
         self.data_before_optim = pd.DataFrame.copy(bioreactor.data)
         self.data_after_optim = pd.DataFrame.copy(bioreactor.data)
 
-        pv_suffix = "--STATE_DATA"
-        self.pv_names = [x + pv_suffix for x in pv_names]
+        pv_suffix = self.bioreactor.process_model.data_suffix
+        self.pv_names = [x.upper() + pv_suffix for x in pv_names]
 
-        mv_suffix = "--INPUT_DATA"
-        self.mv_names = [x + mv_suffix for x in mv_names]
+        mv_suffix = self.bioreactor.process_model.input_suffix
+        self.mv_names = [x.upper() + mv_suffix for x in mv_names]
 
-        mv_ref_suffix = "--INPUT_REF"
-        self.mv_ref_names = [x + mv_ref_suffix for x in mv_names]
+        mv_ref_suffix = self.bioreactor.process_model.input_ref_suffix
+        self.mv_ref_names = [x.upper() + mv_ref_suffix for x in mv_names]
 
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
@@ -729,15 +784,27 @@ class Controller:
             ),
             self.bioreactor.data["Day"] < max(self.bioreactor.data["Day"]),
         )
-        # is_after_ctrl_horizon = self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon)        
+        # is_after_ctrl_horizon = self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon)
         is_in_pred_horizon = np.logical_and(
             self.bioreactor.data["Day"] >= self.curr_time,
             self.bioreactor.data["Day"] < (self.curr_time + self.pred_horizon + 1),
         )
 
         # Do not run MPC on EoR
-        pred_names = [x.replace("--STATE_DATA", "--STATE_PRED") for x in self.pv_names]
-        sp_names = [x.replace("--STATE_DATA", "--STATE_SP") for x in self.pv_names]
+        pred_names = [
+            x.replace(
+                self.bioreactor.process_model.data_suffix,
+                self.bioreactor.process_model.yhat_suffix,
+            )
+            for x in self.pv_names
+        ]
+        sp_names = [
+            x.replace(
+                self.bioreactor.process_model.data_suffix,
+                self.bioreactor.process_model.data_sp_suffix,
+            )
+            for x in self.pv_names
+        ]
 
         control_matrix = self.bioreactor.data.loc[
             is_in_ctrl_horizon, self.mv_names
@@ -784,9 +851,9 @@ class Controller:
                 options={"disp": False, "maxiter": 100},
             )
 
-            # Fold mv to 2D
-            # control_matrix_star = mv_array_star.x.reshape([-1, len(self.mv_names)])
-            _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(mv_array_star.x)
+            _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(
+                mv_array_star.x
+            )
 
         # Update post-optimization (or open loop) data record
         data_after_optim = self.data_after_optim
@@ -794,20 +861,11 @@ class Controller:
             data_after_optim["Day"] >= self.curr_time,
             self.controller_model.state_pred_labels,
         ] = y_out_after_optim
-        # data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = control_matrix_star
         data_after_optim.loc[:, self.mv_names] = mv_after_optim
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset with new inputs
-        # self.bioreactor.data.loc[
-        #     is_in_ctrl_horizon, self.mv_names
-        # ] = control_matrix_star
-        self.bioreactor.data.loc[
-            :, self.mv_names
-        ] = mv_after_optim        
-        # self.bioreactor.data.loc[
-        #     is_after_ctrl_horizon, self.mv_names
-        # ] = control_matrix_star[-1,:]      
+        self.bioreactor.data.loc[:, self.mv_names] = mv_after_optim
 
         # Update the dataset with new predictions
         self.bioreactor.data.loc[
@@ -829,7 +887,10 @@ class Controller:
                     ["Day", "Bioreactor"]
                     + sp_names
                     + pred_names
-                    + [str.upper(x) + "--STATE_PRED" for x in self.eor_names],
+                    + [
+                        str.upper(x) + f"{self.controller_model.yhat_suffix}"
+                        for x in self.eor_names
+                    ],
                 ]
             )
 
@@ -869,7 +930,9 @@ class Controller:
         )[0]
 
         # Remaining duration
-        after_ctrl_horizon_where = np.where(self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon))[0]        
+        after_ctrl_horizon_where = np.where(
+            self.bioreactor.data["Day"] >= (self.curr_time + self.ctrl_horizon)
+        )[0]
 
         # Fold mv_array to a 2D array
         control_matrix = mv_array.reshape([-1, len(self.mv_names)])
@@ -887,14 +950,18 @@ class Controller:
         u_matrix_daily_ctrl_horizon[:, loc_mv_in_inputs] = control_matrix
         u_matrix_daily[ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon
         if self.persist_after_ctrl_horizon:
-            u_matrix_daily[after_ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon[-1,:]
+            u_matrix_daily[after_ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon[
+                -1, :
+            ]
         u_matrix_cumulative = u_matrix_daily
 
         # Convert daily feed to cumulative feed
-        if self.bioreactor.has_cumulative_feed_data:
-            u_matrix_cumulative = daily_to_cumulative_feed(
-                self.controller_model, u_matrix_daily
-            )
+        # if self.bioreactor.has_cumulative_feed_data:
+        u_matrix_cumulative = daily_to_cumulative(
+            model=self.controller_model,
+            input_variables=self.bioreactor.monotonic_inputs,
+            u_matrix_daily=u_matrix_daily,
+        )
 
         # Time array
         ts = np.arange(
@@ -909,6 +976,7 @@ class Controller:
             ],
             time=ts,
             output_mods=self.output_mods_est,
+            hidden_state=self.controller_model.hidden_state,
         )
 
         # Retrieve end of run predictions
@@ -980,16 +1048,20 @@ class Controller:
         pv_sps3 = pv_sps2[0 : self.pred_horizon, :]
 
         # Calculate the cost
-        u_diff = np.diff(np.vstack((u[0,],u)), axis=0)  # self.mv_constr[0][0]
+        u_diff = np.diff(np.vstack((u[0,], u)), axis=0)  # self.mv_constr[0][0]
         u2_diff = u_diff[self.ts >= self.curr_time, :]
         u2 = u[self.ts >= self.curr_time, :]
         u3_diff = u2_diff[0 : self.ctrl_horizon, :]
         u3 = u2[0 : self.ctrl_horizon, :]
-        u3_diff_norm = np.divide(u3_diff,u3)
-        u3_cost = np.mean(np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts))
+        u3_diff_norm = np.divide(u3_diff, u3)
+        u3_cost = np.mean(
+            np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts)
+        )
         y3_diff = y3 - pv_sps3
-        y3_diff_norm = np.divide(y3_diff,pv_sps3)
-        y3_cost = np.mean(np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts))
+        y3_diff_norm = np.divide(y3_diff, pv_sps3)
+        y3_cost = np.mean(
+            np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts)
+        )
         return u3_cost + y3_cost + np.sum(e**2)
 
     def estimate(self):

@@ -1,7 +1,8 @@
-"""Main code for training an model for MPC
+"""
+Main code for training an model for MPC
     Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2023-10-05
-    Modified: 2025-08-08
+    Modified: 2025-08-27
 """
 
 # Imports from Standard Library
@@ -14,7 +15,7 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from InquirerPy.resolver import prompt
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 
 # Imports from within repository
 from data.make_dataset import ModelData
@@ -66,14 +67,12 @@ def main():
     The main function reads data, preprocesses it, trains a model, and saves
     the model scaler and matrices.
     """
-    if model_config["Scaler"] == "StandardScaler":
-        scaler_train = StandardScaler()
-    elif model_config["Scaler"] == "MinMaxScaler":
+    HIDDEN_STATE = False
+
+    if model_config["Scaler"] == "MinMaxScaler":
         scaler_train = MinMaxScaler()
-    elif model_config["Scaler"] == "RobustScaler":
-        scaler_train = RobustScaler()
     else:
-        scaler_train = dict_toscaler(model_config["scaler"])
+        scaler_train = dict_toscaler(model_config["scaler"], scaler_class="MinMaxScaler")
 
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
@@ -122,7 +121,7 @@ def main():
         num_days=model_config["Process Time"],
         scaler=scaler_train,
         algorithm="basinhopping",
-        hidden_state=True,
+        hidden_state=HIDDEN_STATE,
         rho=model_config["rho"],
         af_col=af_col_matrix,
         af_row=af_row_matrix,
@@ -133,12 +132,12 @@ def main():
     new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
     new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
 
-    # model_train_obj.train_test_model(
-    #     save_path=new_directory,
-    #     test_label=model_config["Target Plotting Label"],
-    #     iterations=model_config["Training Iterations"],
-    #     first_train=False,
-    # )
+    model_train_obj.train_test_model(
+        save_path=new_directory,
+        test_label=model_config["Target Plotting Label"],
+        iterations=model_config["Training Iterations"],
+        first_train=False,
+    )
 
     # model_train_obj.plot_train_data(
     #     test_label=model_config["Target Plotting Label"]
@@ -149,6 +148,7 @@ def main():
     # )
 
     # Update the model config file
+    model_config["Hidden State"] = HIDDEN_STATE
     model_config["a_matrix"] = model_train_obj.a_matrix.tolist()
     model_config["b_matrix"] = model_train_obj.b_matrix.tolist()
     model_config["af_col"] = model_train_obj.af_col.tolist()

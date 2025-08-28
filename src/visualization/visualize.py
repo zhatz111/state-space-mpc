@@ -93,7 +93,7 @@ class MPCVisualizer:
             MV_SUFFIX = "--INPUT_DATA"
             MV_REF_SUFFIX = "--INPUT_REF"
 
-            plot_data = self.bioreactor.return_data(show_daily_feed=True)
+            plot_data = self.bioreactor.return_data(show_daily_inputs=True)
             fig, ax = plt.subplots(3, 3, figsize=(19.2, 10.8))
 
             # Plot the Bioreactor Data
@@ -277,7 +277,7 @@ class MPCVisualizer:
                         np.isin(self.controller.mv_names, inputs + MV_SUFFIX)
                     )[0]
                     mv_constr = self.controller.mv_constr[:, mv_where]
-                    mv_constr[0] = 0
+                    # mv_constr[0] = 0
                 else:
                     mv_constr = []
 
@@ -322,45 +322,46 @@ class MPCVisualizer:
                         else:
                             sub_ax[count].set_title(f"{inputs}", fontweight="bold")
                     except KeyError:
-                        sub_ax[count].step(
-                            plot_data["Day"].loc[
-                                plot_data["Day"] >= self.bioreactor.curr_time
-                            ],
-                            plot_data[self.bioreactor.daily_feed_name_data].loc[
-                                plot_data["Day"] >= self.bioreactor.curr_time
-                            ],
-                            "r-",
-                            label="Predicted Control Input",
-                            where="post",
-                        )
-                        sub_ax[count].step(
-                            plot_data["Day"].loc[
-                                plot_data["Day"] <= self.bioreactor.curr_time
-                            ],
-                            plot_data[self.bioreactor.daily_feed_name_data].loc[
-                                plot_data["Day"] <= self.bioreactor.curr_time
-                            ],
-                            "k-",
-                            label="Past Control Input",
-                            where="post",
-                        )
-                        sub_ax[count].step(
-                            plot_data["Day"],
-                            plot_data[self.bioreactor.daily_feed_name_ref],
-                            "g--",
-                            label="Historical Input Reference",
-                            where="post",
-                        )
-                        if isinstance(unit_dict, dict):
-                            label = self.bioreactor.daily_feed_name_ref.split("--")[0]
-                            sub_ax[count].set_title(
-                                f"{label} (MV) {unit_dict[label]}", fontweight="bold"
-                            )
-                        else:
-                            sub_ax[count].set_title(
-                                f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)",
-                                fontweight="bold",
-                            )
+                        # sub_ax[count].step(
+                        #     plot_data["Day"].loc[
+                        #         plot_data["Day"] >= self.bioreactor.curr_time
+                        #     ],
+                        #     plot_data[self.bioreactor.daily_feed_name_data].loc[
+                        #         plot_data["Day"] >= self.bioreactor.curr_time
+                        #     ],
+                        #     "r-",
+                        #     label="Predicted Control Input",
+                        #     where="post",
+                        # )
+                        # sub_ax[count].step(
+                        #     plot_data["Day"].loc[
+                        #         plot_data["Day"] <= self.bioreactor.curr_time
+                        #     ],
+                        #     plot_data[self.bioreactor.daily_feed_name_data].loc[
+                        #         plot_data["Day"] <= self.bioreactor.curr_time
+                        #     ],
+                        #     "k-",
+                        #     label="Past Control Input",
+                        #     where="post",
+                        # )
+                        # sub_ax[count].step(
+                        #     plot_data["Day"],
+                        #     plot_data[self.bioreactor.daily_feed_name_ref],
+                        #     "g--",
+                        #     label="Historical Input Reference",
+                        #     where="post",
+                        # )
+                        # if isinstance(unit_dict, dict):
+                        #     label = self.bioreactor.daily_feed_name_ref.split("--")[0]
+                        #     sub_ax[count].set_title(
+                        #         f"{label} (MV) {unit_dict[label]}", fontweight="bold"
+                        #     )
+                        # else:
+                        #     sub_ax[count].set_title(
+                        #         f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)",
+                        #         fontweight="bold",
+                        #     )
+                        pass
                     sub_ax[count].legend(prop={"size": 9})
                     if len(mv_constr) > 0:
                         sub_ax[count].set_ylim(mv_constr)

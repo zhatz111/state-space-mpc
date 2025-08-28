@@ -1,17 +1,23 @@
-"""_summary_
 """
+Class for state space process model and simulation function
+    Created by Yu Luo (yu.8.luo@gsk.com) and Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+    Created: 2023-10-05
+    Modified: 2025-08-27
+"""
+
 # Standard library imports
 from typing import Union
 
 # Third party library imports
 import numpy as np
-from numpy import (atleast_1d, squeeze, zeros, dot, transpose)
+from numpy import atleast_1d, squeeze, zeros, dot, transpose
 from scipy.signal import lsim, StateSpace, lti, dlti
 from scipy import linalg
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
 # Create type hint for the scaler object being passed to SSM class
 ScalerType = Union[MinMaxScaler, StandardScaler]
+
 
 def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
     """
@@ -20,8 +26,7 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
     if isinstance(system, lti):
         sys = system._as_ss()
     elif isinstance(system, dlti):
-        raise AttributeError('lsim can only be used with continuous-time '
-                            'systems.')
+        raise AttributeError("lsim can only be used with continuous-time systems.")
     else:
         sys = lti(*system)._as_ss()
     T = atleast_1d(T)
@@ -45,9 +50,7 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
     else:
         raise ValueError("Initial time must be nonnegative")
 
-    no_input = (U is None or
-                (isinstance(U, (int, float)) and U == 0.) or
-                not np.any(U))
+    no_input = U is None or (isinstance(U, (int, float)) and U == 0.0) or not np.any(U)
 
     if n_steps == 1:
         yout = squeeze(dot(xout, transpose(C)))
@@ -64,7 +67,7 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         # take transpose because state is a row vector
         expAT_dt = linalg.expm(transpose(A) * dt)
         for i in range(1, n_steps):
-            xout[i] = dot(xout[i-1], expAT_dt) + output_mods_scaled
+            xout[i] = dot(xout[i - 1], expAT_dt) + output_mods_scaled
         yout = squeeze(dot(xout, transpose(C)))
         return T, squeeze(yout), squeeze(xout)
 
@@ -74,8 +77,7 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         U = U[:, np.newaxis]
 
     if U.shape[0] != n_steps:
-        raise ValueError("U must have the same number of rows "
-                        "as elements in T.")
+        raise ValueError("U must have the same number of rows as elements in T.")
 
     if U.shape[1] != n_inputs:
         raise ValueError("System does not define that many inputs.")
@@ -89,14 +91,15 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         # Solution is
         #   [ x(dt) ]       [ A*dt   B*dt ] [ x0 ]
         #   [ u(dt) ] = exp [  0     0    ] [ u0 ]
-        M = np.vstack([np.hstack([A * dt, B * dt]),
-                    np.zeros((n_inputs, n_states + n_inputs))])
+        M = np.vstack(
+            [np.hstack([A * dt, B * dt]), np.zeros((n_inputs, n_states + n_inputs))]
+        )
         # transpose everything because the state and input are row vectors
         expMT = linalg.expm(transpose(M))
         Ad = expMT[:n_states, :n_states]
         Bd = expMT[n_states:, :n_states]
         for i in range(1, n_steps):
-            xout[i] = dot(xout[i-1], Ad) + dot(U[i-1], Bd) + output_mods_scaled
+            xout[i] = dot(xout[i - 1], Ad) + dot(U[i - 1], Bd) + output_mods_scaled
     else:
         # Linear interpolation between steps
         # Algorithm: to integrate from time 0 to time dt, with linear
@@ -108,20 +111,27 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         #   [ x(dt) ]       [ A*dt  B*dt  0 ] [  x0   ]
         #   [ u(dt) ] = exp [  0     0    I ] [  u0   ]
         #   [u1 - u0]       [  0     0    0 ] [u1 - u0]
-        M = np.vstack([np.hstack([A * dt, B * dt,
-                                np.zeros((n_states, n_inputs))]),
-                    np.hstack([np.zeros((n_inputs, n_states + n_inputs)),
-                                np.identity(n_inputs)]),
-                    np.zeros((n_inputs, n_states + 2 * n_inputs))])
+        M = np.vstack(
+            [
+                np.hstack([A * dt, B * dt, np.zeros((n_states, n_inputs))]),
+                np.hstack(
+                    [np.zeros((n_inputs, n_states + n_inputs)), np.identity(n_inputs)]
+                ),
+                np.zeros((n_inputs, n_states + 2 * n_inputs)),
+            ]
+        )
         expMT = linalg.expm(transpose(M))
         Ad = expMT[:n_states, :n_states]
-        Bd1 = expMT[n_states+n_inputs:, :n_states]
-        Bd0 = expMT[n_states:n_states + n_inputs, :n_states] - Bd1
+        Bd1 = expMT[n_states + n_inputs :, :n_states]
+        Bd0 = expMT[n_states : n_states + n_inputs, :n_states] - Bd1
         for i in range(1, n_steps):
-            xout[i] = (dot(xout[i-1], Ad) + dot(U[i-1], Bd0) + dot(U[i], Bd1)) + output_mods_scaled
+            xout[i] = (
+                dot(xout[i - 1], Ad) + dot(U[i - 1], Bd0) + dot(U[i], Bd1)
+            ) + output_mods_scaled
 
-    yout = (squeeze(dot(xout, transpose(C))) + squeeze(dot(U, transpose(D))))
+    yout = squeeze(dot(xout, transpose(C))) + squeeze(dot(U, transpose(D)))
     return T, squeeze(yout), squeeze(xout)
+
 
 class StateSpaceModel:
     """
@@ -133,12 +143,8 @@ class StateSpaceModel:
 
     def __init__(
         self,
-        states: list[str],
-        inputs: list[str],
-        scaler: ScalerType,
-        a_matrix: np.ndarray,
-        b_matrix: np.ndarray,
-        name="",
+        model_parameters: dict,
+        scaler: MinMaxScaler,
     ):
         """
         The function initializes an object with given states, inputs, scaler, a_matrix, and b_matrix
@@ -162,26 +168,77 @@ class StateSpaceModel:
         the matrix corresponds to a state of the system, and each column corresponds to an input.
             name (str): The `name` parameter is a str (no name by default) to identify the model
         """
-        self.states = states
-        self.inputs = inputs
+        # dictionary that contains all info regarding the model
+        self.model_parameters = model_parameters
         self.scaler = scaler
-        self.a_matrix = a_matrix
-        self.b_matrix = b_matrix
-        self.c_matrix = np.identity(len(states))
-        self.d_matrix = np.zeros([len(states), len(inputs)])
-        self.name = name
 
-        data_suffix = "--STATE_DATA"
-        xhat_suffix = "--STATE_EST"
-        yhat_suffix = "--STATE_PRED"
-        p_suffix = "--STATE_MOD"
-        input_suffix = "--INPUT_DATA"
+        self.states = [x.upper() for x in self.model_parameters["Model States"]]
+        self.inputs = [x.upper() for x in self.model_parameters["Model Inputs"]]
 
-        self.state_data_labels = [x + data_suffix for x in self.states]
-        self.state_est_labels = [x + xhat_suffix for x in self.states]
-        self.state_pred_labels = [x + yhat_suffix for x in self.states]
-        self.state_mod_labels = [x + p_suffix for x in self.states]
-        self.input_data_labels = [x + input_suffix for x in self.inputs]
+        self.a_matrix = np.array(self.model_parameters["a_matrix"])
+        self.b_matrix = np.array(self.model_parameters["b_matrix"])
+        self.af_col_matrix = np.array(self.model_parameters["af_col"])
+        self.af_row_matrix = np.array(self.model_parameters["af_row"])
+        self.bf_row_matrix = np.array(self.model_parameters["bf_row"])
+        self.rho = self.model_parameters["rho"]
+
+        self.c_matrix = np.identity(len(self.states))
+        self.d_matrix = np.zeros([len(self.states), len(self.inputs)])
+        self.name = self.model_parameters["Asset"]
+        self.hidden_state = self.model_parameters["Hidden State"]
+
+        self.data_suffix = "--STATE_DATA"
+        self.data_sp_suffix = "--STATE_SP"
+        self.xhat_suffix = "--STATE_EST"
+        self.yhat_suffix = "--STATE_PRED"
+        self.p_suffix = "--STATE_MOD"
+        self.input_suffix = "--INPUT_DATA"
+        self.input_ref_suffix = "--INPUT_REF"
+
+        self.state_data_labels = [x + self.data_suffix for x in self.states]
+        self.state_est_labels = [x + self.xhat_suffix for x in self.states]
+        self.state_pred_labels = [x + self.yhat_suffix for x in self.states]
+        self.state_mod_labels = [x + self.p_suffix for x in self.states]
+        self.input_data_labels = [x + self.input_suffix for x in self.inputs]
+
+        # augmented matrices if using feed hidden state
+        if self.hidden_state:
+            self.state_len = self.a_matrix.shape[0]
+            self.input_len = self.b_matrix.shape[1]
+
+            if self.rho is None:
+                raise ValueError("rho value is none in model parameters")
+
+            if self.af_col_matrix.shape[0] != self.state_len:
+                raise ValueError("af_col matrix does not match length of states")
+
+            if self.af_row_matrix.shape[0] != self.state_len:
+                raise ValueError("af_row matrix does not match length of states")
+
+            if self.bf_row_matrix.shape[0] != self.input_len:
+                raise ValueError("bf_row matrix does not match length of inputs")
+
+            self.augmented_a_matrix = np.zeros([self.state_len + 1, self.state_len + 1])
+            self.augmented_a_matrix[: self.state_len, : self.state_len] = self.a_matrix
+            self.augmented_a_matrix[: self.state_len, self.state_len] = (
+                self.af_col_matrix.flatten()
+            )
+            self.augmented_a_matrix[self.state_len, : self.state_len] = (
+                self.af_row_matrix.flatten()
+            )
+            self.augmented_a_matrix[self.state_len, self.state_len] = self.rho
+            self.a_matrix = self.augmented_a_matrix
+
+            self.augmented_b_matrix = np.zeros([self.state_len + 1, self.input_len])
+            self.augmented_b_matrix[: self.state_len, :] = self.b_matrix
+            self.augmented_b_matrix[self.state_len, :] = (
+                self.bf_row_matrix
+            )  # only feed (input index 0) affects feed-effect state (hidden state)
+            self.b_matrix = self.augmented_b_matrix
+
+            self.c_matrix = np.hstack(
+                [np.identity(self.state_len), np.zeros([self.state_len, 1])]
+            )
 
     def ssm_lsim(
         self,
@@ -189,6 +246,7 @@ class StateSpaceModel:
         input_matrix: np.ndarray,
         time: np.ndarray,
         output_mods=np.array([]),
+        hidden_state: bool = False
     ):
         """
         Created by ZH (zach.a.hatzenbeller@gsk.com)
@@ -251,23 +309,32 @@ class StateSpaceModel:
             ux_mask_scaled = np.array(self.scaler.transform(ux_mask))
             x_scaled = xu_mask_scaled[:, : x_row.shape[1]]
             u_scaled = ux_mask_scaled[:, x_row.shape[1] :]
-
+        
         # Scale offset
         if output_mods.size == 0:
-
             # Default no offset
-            output_mods_scaled = 0
+            output_mods_scaled = np.zeros((1, len(self.states)))
         else:
-            
             # Use only the scale and not the min/mean for offset
-            x_scales = self.scaler.scale_[:len(self.states)]
-            output_mods_scaled = np.multiply(output_mods,x_scales)
+            x_scales = self.scaler.scale_[: len(self.states)]
+            output_mods_scaled = np.multiply(output_mods, x_scales)
+        
+        if hidden_state:
+            x_scaled = np.append(x_scaled, 0)
+            output_mods_scaled = np.append(output_mods_scaled, 0)
 
         # Predict the next days states based on a continuous system using lsim
         bioreactor = StateSpace(
             self.a_matrix, self.b_matrix, self.c_matrix, self.d_matrix
         )
-        _, y_out, _ = lsim_mod(bioreactor, U=u_scaled, T=time, interp=False, X0=x_scaled, output_mods_scaled=output_mods_scaled)
+        _, y_out, _ = lsim_mod(
+            bioreactor,
+            U=u_scaled,
+            T=time,
+            interp=False,
+            X0=x_scaled,
+            output_mods_scaled=output_mods_scaled,
+        )
 
         # Reshape the output, if X and U were the same initial shape, to a row matrix
         if x_row.shape[0] == u_row.shape[0]:
@@ -284,4 +351,3 @@ class StateSpaceModel:
         y_hat = x_hat
 
         return x_hat, y_hat
-    

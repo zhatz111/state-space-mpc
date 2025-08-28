@@ -72,11 +72,9 @@ class ModelData:
         Returns:
           a pandas DataFrame called `df_interpolate`.
         """
-        # if (self.discard is not None):
-        #     self.df = self.df[
-        #         ~self.df[self.group].str.contains("|".join(self.discard), na=False)
-        #     ]
-        grouped = self.df.groupby(self.group, group_keys=False, as_index=False)
+        rows_to_drop_mask = self.df[self.group].isin(self.discard)
+        df_filtered = self.df[~rows_to_drop_mask]
+        grouped = df_filtered.groupby(self.group, group_keys=False, as_index=False)
         df_interpolate = grouped.apply(
             lambda group: group.interpolate(method="linear", limit_direction="forward")
         )

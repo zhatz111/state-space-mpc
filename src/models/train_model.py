@@ -213,10 +213,10 @@ class ModelTraining:
             combined_mat = np.vstack([a_sim, b_sim]).flatten()
         
         if self.hidden_state:
-            bounds_ = [(-2, 2)] * len(combined_mat)
+            bounds_ = [(-1,1)] * len(combined_mat)
             bounds_[len(a_sim)-1] = (0,1)
         else:
-            bounds_ = [(-2, 2)] * len(combined_mat)
+            bounds_ = [(-1,1)] * len(combined_mat)
 
         if self.algorithm == "minimize":
             optimize.minimize(
