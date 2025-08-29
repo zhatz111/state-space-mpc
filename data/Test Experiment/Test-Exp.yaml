@@ -16,11 +16,11 @@ Initial Volumes: # Initial volumes in L
 Arange Bioreactors: False
 Bioreactors:
   - AR25-050-004
-  - AR25-050-005
-  - AR25-050-006
-  - AR25-050-007
-  - AR25-050-008
-  - AR25-050-009
+  # - AR25-050-005
+  # - AR25-050-006
+  # - AR25-050-007
+  # - AR25-050-008
+  # - AR25-050-009
 
 Data Folder: Test Experiment
 Figures Folder: figures
@@ -397,13 +397,13 @@ Controller_1: {
       }
   },
   "End of Run Variables":{
-    "Viability": {
-      "Weight": 0.0,
-      "Constraint": [
-        80,
-        100
-        ]
-      },
+    # "Viability": {
+    #   "Weight": 0.0,
+    #   "Constraint": [
+    #     80,
+    #     100
+    #     ]
+    #   },
   },
   "Manipulated Variables": {
     "Normalized_Bolus_Feed": {

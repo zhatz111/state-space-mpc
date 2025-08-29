@@ -254,7 +254,7 @@ class Bioreactor:
             for var in feed_variable:
                 # Retrieve daily feeds and convert to feed rates (mL/min)
                 feed_daily = self.data[f"{var}{self.process_model.input_suffix}"].values
-                feed_daily_ml = feed_daily * self.vol
+                feed_daily_ml = feed_daily * self.vol * 1000
                 feed_rates_ml_min = feed_daily_ml / 24 / 60
                 self.data[f"FEED_RATE_{var}{self.process_model.input_suffix}"] = (
                     feed_rates_ml_min
@@ -310,12 +310,22 @@ class Bioreactor:
         for key, data in vector_dict.items():
             vector = pd.Series(data)
 
-            if "nutrient_total" in vector:
-                # Scale feed based on init_vol
-                vector["nutrient_total"] = vector["nutrient_total"] / self.vol
-
             # Rename the input vector to standard column names
             renamed_vector = vector.rename(self.column_map)
+
+            # specify volume units
+            for key, var in self.controller_config["Manipulated Variables"].items():
+                if var["Normalized"]:
+                    renamed_vector[
+                        f"{key.upper()}{self.process_model.input_suffix}"
+                    ] = (
+                        renamed_vector[
+                            f"{key.upper()}{self.process_model.input_suffix}"
+                        ]
+                        / renamed_vector["VOLUME_L"]
+                        / 1000
+                    )
+
             selected_col = (
                 self.process_model.state_data_labels
                 + self.process_model.input_data_labels
