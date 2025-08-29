@@ -1,7 +1,7 @@
 """Main code for visualizing daily MPC trends
     Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
     Created: 2022-11-04
-    Modified: 2024-04-29
+    Modified: 2025-08-28
 """
 
 # Imports from Standard Library
@@ -362,9 +362,12 @@ class MPCVisualizer:
                         #         fontweight="bold",
                         #     )
                         pass
-                    sub_ax[count].legend(prop={"size": 9})
                     if len(mv_constr) > 0:
-                        sub_ax[count].set_ylim(mv_constr)
+                        # sub_ax[count].set_ylim(mv_constr)
+                        sub_ax[count].axhline(mv_constr[0], color='r', linestyle='--', label='Constraint Low')
+                        sub_ax[count].axhline(mv_constr[1], color='r', linestyle='--', label='Constraint High')
+                    
+                    sub_ax[count].legend(prop={"size": 9})
 
                 sub_ax[count].set_xlim([0, np.max(plot_data["Day"])])
 

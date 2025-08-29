@@ -224,5 +224,6 @@
         "Glutamate": 0.6284838611250682,
         "Ammonium": 1.1538630480830798
     },
-    "Last Model Training": "2025/08/19 16:06:06"
+    "Last Model Training": "2025/08/19 16:06:06",
+    "Hidden State": true
 }
