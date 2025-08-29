@@ -723,11 +723,11 @@ class Controller:
         self.est_wts = est_wts
         self.filter_wt_on_data = filter_wt_on_data
         if offset_single_kp >= 0:
-            self.offset_kp = offset_single_kp
+            self.offset_kp = np.full_like(offset_individual_kps, offset_single_kp)
         else:
             self.offset_kp = offset_individual_kps
         if offset_single_ki >= 0:
-            self.offset_ki = offset_single_ki
+            self.offset_ki = np.full_like(offset_individual_kis, offset_single_ki)
         else:
             self.offset_ki = offset_individual_kis
 
