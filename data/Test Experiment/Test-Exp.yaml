@@ -55,11 +55,13 @@ Column Mapping: {
     "Batch": "Bioreactor",
     "batchid": "Bioreactor",
     "SampleAmount": "Sample Volume",
+
     # Vicell Mapping
     "TCC": "TCC--STATE_DATA",
     "VCC": "VCC--STATE_DATA",
     "Viability": "Viability--STATE_DATA",
     "Diameter": "DIAMETER--STATE_DATA",
+
     # Flex2 Mapping
     "Osmolality": "OSMOLALITY--STATE_DATA",
     "Ammonium": "AMMONIUM--STATE_DATA",
@@ -77,9 +79,11 @@ Column Mapping: {
     "pCO2 at Temp": "PCO2_AT_TEMP--STATE_DATA",
     "pO2 at Temp": "PO2_AT_TEMP--STATE_DATA",
     "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
+
     # Cedex Mapping
     "IGG": "IGG--STATE_DATA",
     "LDH": "LDH--STATE_DATA",
+
     # Online DCS Mapping
     "pH_setpoint": "PH_SETPOINT--INPUT_DATA",
     "Temp_setpoint": "TEMPERATURE_SETPOINT--INPUT_DATA",
