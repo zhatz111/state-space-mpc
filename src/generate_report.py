@@ -89,7 +89,7 @@ def main():
     # this includes interpolation to start, spline smoothing, splitting 
     # the data into training and testing sets
     # and finally feature scaling using the scaler of choice
-    train_data, test_data = dataframe.clean(
+    train_data, test_data, _, _ = dataframe.clean(
         metadata_columns=model_config["Include Data Columns"],
         smoothing_list=model_config["Data Smoothing List"],
         test_size=model_config["Testing Data Size"],

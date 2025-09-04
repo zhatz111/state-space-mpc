@@ -132,21 +132,21 @@ def main():
     new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
     new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
 
-    # model_train_obj.train_test_model(
-    #     save_path=new_directory,
-    #     test_label=model_config["Target Plotting Label"],
-    #     iterations=model_config["Training Iterations"],
-    #     basin_temp=model_config["BasinHopping Temperature"],
-    #     first_train=False,
+    model_train_obj.train_test_model(
+        save_path=new_directory,
+        test_label=model_config["Target Plotting Label"],
+        iterations=model_config["Training Iterations"],
+        basin_temp=model_config["BasinHopping Temperature"],
+        first_train=False,
+    )
+
+    # model_train_obj.plot_train_data(
+    #     test_label=model_config["Target Plotting Label"]
     # )
 
-    model_train_obj.plot_train_data(
-        test_label=model_config["Target Plotting Label"]
-    )
-
-    model_train_obj.plot_test_data(
-        test_label=model_config["Target Plotting Label"]
-    )
+    # model_train_obj.plot_test_data(
+    #     test_label=model_config["Target Plotting Label"]
+    # )
 
     # Update the model config file
     model_config["Hidden State"] = HIDDEN_STATE
