@@ -277,6 +277,8 @@ class ModelData:
         return (
             train[train.columns[train.columns.isin(columns)]],
             test[test.columns[test.columns.isin(columns)]],
+            list(train["Batch"].unique()),
+            list(test["Batch"].unique()),
         )
 
     def graph_train_data(self, smoothing_list, test_label, ylim=None):

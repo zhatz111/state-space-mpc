@@ -97,7 +97,7 @@ def main():
     # this includes interpolation to start, spline smoothing, splitting
     # the data into training and testing sets
     # and finally feature scaling using the scaler of choice
-    train_data, test_data = dataframe.clean(
+    train_data, test_data, train_list, test_list = dataframe.clean(
         metadata_columns=model_config["Include Data Columns"],
         smoothing_list=model_config["Data Smoothing List"],
         test_size=model_config["Testing Data Size"],
@@ -132,20 +132,21 @@ def main():
     new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
     new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
 
-    model_train_obj.train_test_model(
-        save_path=new_directory,
-        test_label=model_config["Target Plotting Label"],
-        iterations=model_config["Training Iterations"],
-        first_train=False,
+    # model_train_obj.train_test_model(
+    #     save_path=new_directory,
+    #     test_label=model_config["Target Plotting Label"],
+    #     iterations=model_config["Training Iterations"],
+    #     basin_temp=model_config["BasinHopping Temperature"],
+    #     first_train=False,
+    # )
+
+    model_train_obj.plot_train_data(
+        test_label=model_config["Target Plotting Label"]
     )
 
-    # model_train_obj.plot_train_data(
-    #     test_label=model_config["Target Plotting Label"]
-    # )
-
-    # model_train_obj.plot_test_data(
-    #     test_label=model_config["Target Plotting Label"]
-    # )
+    model_train_obj.plot_test_data(
+        test_label=model_config["Target Plotting Label"]
+    )
 
     # Update the model config file
     model_config["Hidden State"] = HIDDEN_STATE
@@ -156,6 +157,8 @@ def main():
     model_config["bf_row"] = model_train_obj.bf_row.tolist()
     model_config["rho"] = model_train_obj.rho
     model_config["Iterations"] += model_train_obj.iters
+    model_config["Training Batches"] = train_list
+    model_config["Testing Batches"] = test_list
 
     if model_train_obj.model_error != 0:
         model_config["Model RMSE"] = model_train_obj.lowest_model_error

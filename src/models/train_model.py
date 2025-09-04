@@ -12,6 +12,7 @@ import warnings
 from typing import Union
 from datetime import datetime
 from pathlib import Path
+from itertools import chain
 
 # Imports from 3rd party libraries
 import numpy as np
@@ -95,7 +96,9 @@ class ModelTraining:
         # store training error data
         self.iters = 0
         self.model_error = 0
+        self.weighted_model_error = 0
         self.lowest_model_error = np.inf
+        self.weighted_lowest_model_error = np.inf
         self.model_error_dict = {}
         self.lowest_model_error_dict = {}
         self.true_model_error_dict = {}
@@ -180,7 +183,7 @@ class ModelTraining:
             regression_matrix[j, :] = reg.coef_
         return regression_matrix
 
-    def train_model(self, save_path: Path, first_train: bool=True, iterations: int=10):
+    def train_model(self, save_path: Path, first_train: bool=True, iterations: int=10, basin_temp: int = 2000):
         """
         The `train_model` function trains a system model using the provided training data and saves the
         resulting A and B matrices to CSV files.
@@ -245,7 +248,7 @@ class ModelTraining:
                     minimizer_kwargs=minimizer_kwargs,
                     niter=iterations,
                     disp=True,
-                    T=2000,
+                    T=basin_temp,
                 )
         else:
             raise KeyError("Must use either Minimize or Basin Hopping algorithms")
@@ -255,7 +258,9 @@ class ModelTraining:
         for key, value in self.lowest_model_error_dict.items():
             print(f"{key} Error: {value:.5f}")
         print("--------------------")
-        print(f"Iterations: {self.iters}, Model Error: {self.lowest_model_error:.5f}")
+        print(f"Iterations: {self.iters}")
+        print(f"Weighted Model Error: {self.weighted_lowest_model_error:.5f}")
+        print(f"Standard Model Error: {self.lowest_model_error:.5f}")
 
         # opt_matrix = res.x
         opt_matrix = self.best_result
@@ -369,6 +374,7 @@ class ModelTraining:
             cost_list.append(feature_cost + feature_cost*negative_cost)
 
         wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts))
+        unwghtd_cost = sum(np.array(cost_list))
 
         rmse_sim_scaled = np.hstack(
             (np.array(y_sim_all), np.zeros((y_sim_all.shape[0], self.input_len)))
@@ -394,18 +400,21 @@ class ModelTraining:
                 self.model_error_dict[state] = rmse
                 print(f"{state} Error: {rmse:.5f}")
             print("--------------------")
-            print(f"Total Error: {wghtd_cost:.5f}")
+            print(f"Total Weighted Error: {wghtd_cost:.5f}")
+            print(f"Total Standard Error: {unwghtd_cost:.5f}")
         self.iters += 1
-        if (wghtd_cost < self.model_error) or self.iters == 1:
+        if (wghtd_cost < self.weighted_model_error) or self.iters == 1:
 
             for count, state in enumerate(self.states):
                 rmse = np.sqrt(
                     np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0]
                 )
                 self.true_model_error_dict[state] = rmse
-            self.model_error = wghtd_cost
+            self.model_error = unwghtd_cost
+            self.weighted_model_error = wghtd_cost
         
-        if self.model_error < self.lowest_model_error:
+        if self.weighted_model_error < self.weighted_lowest_model_error:
+            self.weighted_lowest_model_error = self.weighted_model_error
             self.lowest_model_error = self.model_error
             self.lowest_model_error_dict = self.model_error_dict.copy()
             self.best_result = x0.copy()
@@ -478,7 +487,7 @@ class ModelTraining:
 
         return simulation_data_dict, train_test_data_dict
 
-    def plot_test_data(self, test_label: str, ylim=None):
+    def plot_test_data(self, test_label: str, ylim=True):
         """
         The function `plot_test_data` plots simulated and experimental data for a given test label.
 
@@ -496,6 +505,12 @@ class ModelTraining:
         fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
         fig.subplots_adjust(top=0.8)
         dict_keys = list(simulation_dict.keys())
+        max_val_sim = max(chain.from_iterable(df[test_label] for df in simulation_dict.values()))
+        max_val_exp = max(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        min_val_sim = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        min_val_exp = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        max_value = max(max_val_sim, max_val_exp)
+        min_value = min(min_val_sim, min_val_exp)
         for count, ax_test in enumerate(axes.reshape(-1)):
             if len(dict_keys) == 1:
                 key = dict_keys[0]
@@ -517,8 +532,16 @@ class ModelTraining:
                 markersize=3.5,
             )
             ax_test.set_title(key, size="medium", weight="bold")
-            if ylim is not None:
-                ax_test.set_ylim(0, ylim)
+            if ylim:
+                if min_value > 200:
+                    ax_test.set_ylim(
+                        min_value - (min_value * 0.2),
+                        max_value + (max_value * 0.2),
+                    )
+                else:
+                    ax_test.set_ylim(0, max_value + (max_value * 0.2))
+            # if ylim is not None:
+            #     ax_test.set_ylim(0, ylim)
         fig.suptitle("Testing Data Set", size="x-large", weight="bold", y=0.98)
         fig.supxlabel("Day", size="x-large", weight="bold")
         fig.supylabel(f"{test_label}", size="x-large", weight="bold")
@@ -526,7 +549,7 @@ class ModelTraining:
         plt.legend(loc="best")
         plt.show()
 
-    def plot_train_data(self, test_label: str, ylim=None, random_plots=False):
+    def plot_train_data(self, test_label: str, ylim=True, random_plots=False):
         """
         The function `plot_train_data` plots simulated and experimental data, as well as a parity plot
         comparing the two.
@@ -541,6 +564,12 @@ class ModelTraining:
         """
         cols = 4
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="train")
+        max_val_sim = max(chain.from_iterable(df[test_label] for df in simulation_dict.values()))
+        max_val_exp = max(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        min_val_sim = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        min_val_exp = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        max_value = max(max_val_sim, max_val_exp)
+        min_value = min(min_val_sim, min_val_exp)
 
         if len(simulation_dict) > 15:
             rows = math.floor(15 / cols)
@@ -590,8 +619,16 @@ class ModelTraining:
             )
             ax_test.set_title(key, size="medium", weight="bold")
             ax_test.grid()
-            if ylim is not None:
-                ax_test.set_ylim(0, ylim)
+            if ylim:
+                if min_value > 200:
+                    ax_test.set_ylim(
+                        min_value - (min_value * 0.2),
+                        max_value + (max_value * 0.2),
+                    )
+                else:
+                    ax_test.set_ylim(0, max_value + (max_value * 0.2))
+            # if ylim is not None:
+            #     ax_test.set_ylim(0, ylim)
 
         axes[rows - 1][cols - 1].legend()
         fig.suptitle("Training Data Set", size="x-large", weight="bold", y=0.98)
@@ -613,9 +650,17 @@ class ModelTraining:
             )
             ax_test.set_title(key, size="medium", weight="bold")
             ax_test.axline((0, 0), slope=1, color="black")
-            if ylim is not None:
-                ax_test.set_ylim(0, ylim)
-                ax_test.set_xlim(0, ylim)
+            if ylim:
+                if min_value > 200:
+                    ax_test.set_ylim(
+                        min_value - (min_value * 0.2),
+                        max_value + (max_value * 0.2),
+                    )
+                else:
+                    ax_test.set_ylim(0, max_value + (max_value * 0.2))
+            # if ylim is not None:
+            #     ax_test.set_ylim(0, ylim)
+            #     ax_test.set_xlim(0, ylim)
 
         plt.legend()
         fig2.supxlabel("Measurement", size="x-large", weight="bold")
@@ -707,7 +752,7 @@ class ModelTraining:
         return df_corr
 
     def train_test_model(
-        self, save_path, test_label: str, first_train=True, iterations=10
+        self, save_path, test_label: str, first_train=True, iterations=10, basin_temp: int = 2000
     ):
         """
         The function trains a model, saves it to a specified path, and then plots test data using the
@@ -728,6 +773,7 @@ class ModelTraining:
             save_path=save_path,
             first_train=first_train,
             iterations=iterations,
+            basin_temp=basin_temp
         )
 
         self.plot_test_data(
