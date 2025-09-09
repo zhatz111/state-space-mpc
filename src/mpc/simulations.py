@@ -8,7 +8,7 @@
 import math
 import random
 import warnings
-from typing import Union
+from typing import Union, Tuple
 from datetime import datetime
 from pathlib import Path
 
@@ -33,7 +33,7 @@ class ModelSimulations:
 
     def __init__(
         self,
-        simulation_data: pd.DataFrame,
+        simulation_data: pd.DataFrame, 
         a_matrix: np.ndarray,
         b_matrix: np.ndarray,
         states: list[str],
@@ -44,7 +44,8 @@ class ModelSimulations:
         rho: float = 0.5,
         af_col: np.ndarray = np.array([]),
         af_row: np.ndarray = np.array([]),
-        bf_row: np.ndarray = np.array([])
+        bf_row: np.ndarray = np.array([]),
+        historic_data: pd.DataFrame | None = None,
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -76,6 +77,7 @@ class ModelSimulations:
         features.
         """
         self.simulation_data = simulation_data
+        self.historic_data = historic_data
         self.states = states
         self.inputs = inputs
         self.num_days = num_days
@@ -148,7 +150,7 @@ class ModelSimulations:
 
             self.c_matrix = np.hstack([np.identity(self.state_len), np.zeros([self.state_len, 1])])
     
-    def get_simulated_data(self, save_path: Path) -> dict:
+    def get_simulated_data(self, save_path: Path) -> Tuple[dict, pd.DataFrame]:
         """
         The `get_model_data_dict` function takes in a data aggregation parameter and returns two
         dictionaries containing simulation data and train/test data.
@@ -207,9 +209,10 @@ class ModelSimulations:
             )
         
         df_sim = pd.concat(simulation_data_dict).reset_index()
+        df_sim = df_sim.rename(columns={"level_0": "Batch", "level_1": "Day"})
         df_sim.to_csv(save_path)
 
-        return simulation_data_dict
+        return simulation_data_dict, df_sim
 
     def plot_simulation_data(self, simulation_dict: dict, target_label: str, ylim=None, random_plots=False):
         """
@@ -239,14 +242,6 @@ class ModelSimulations:
         )
         fig.subplots_adjust(top=0.8)
 
-        fig2, axes2 = plt.subplots(
-            rows,
-            cols,
-            figsize=(10, 8),
-            squeeze=False,  # sharex=True, sharey=True
-        )
-        fig2.subplots_adjust(top=0.8)
-
         dict_keys = list(simulation_dict.keys())
         random_nums = [
             random.randint(0, len(dict_keys)) for _, _ in enumerate(dict_keys)
@@ -257,6 +252,7 @@ class ModelSimulations:
                 key = dict_keys[random_nums[count]]
             else:
                 key = dict_keys[count]
+
             time = np.arange(0, len(simulation_dict[key][target_label]), 1)
             ax_test.plot(
                 time,
@@ -265,6 +261,14 @@ class ModelSimulations:
                 label="Simulated Data",
                 markersize=3.5,
             )
+            if self.historic_data is not None:
+                ax_test.plot(
+                    self.historic_data.loc[self.historic_data["Batch"]==key, "Day"],
+                    self.historic_data.loc[self.historic_data["Batch"]==key, target_label],
+                    "bo-",
+                    label="Experimental Data",
+                    markersize=3.5,
+                )
             ax_test.set_title(key, size="medium", weight="bold")
             ax_test.grid()
             if ylim is not None:
@@ -276,10 +280,11 @@ class ModelSimulations:
         fig.supylabel(f"{target_label}", size="x-large", weight="bold")
         fig.tight_layout()
         plt.show()
-    
+
+
     def simulate(self, file_save_path, target_label, ylim=None, random_plots=False):
 
-        simulation_dict = self.get_simulated_data(save_path=file_save_path)
+        simulation_dict, _ = self.get_simulated_data(save_path=file_save_path)
         self.plot_simulation_data(
             simulation_dict=simulation_dict,
             target_label=target_label,
