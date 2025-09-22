@@ -14,7 +14,7 @@
     "Window Length": 2,
     "Target Plotting Label": "IGG",
     "Training Iterations": 10,
-    "BasinHopping Temperature": 100,
+    "BasinHopping Temperature": 50,
     "Process Time": 15,
     "Scaler": "MinMaxScaler",
     "Training Batches": [
@@ -255,7 +255,7 @@
             0.5500000000000007
         ]
     },
-    "Iterations": 978306,
+    "Iterations": 978130,
     "Model RMSE": 10.137517735523605,
     "States RMSE": {
         "IGG": 188.03169919934984,
@@ -264,6 +264,6 @@
         "Glutamate": 0.5500531424210752,
         "Ammonium": 0.8484403467953803
     },
-    "Last Model Training": "2025/09/08 14:10:14",
+    "Last Model Training": "2025/09/16 15:05:27",
     "Hidden State": true
 }

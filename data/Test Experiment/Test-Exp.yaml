@@ -11,6 +11,11 @@ Initial Volumes: # Initial volumes in L
   1000L: 750.0
   2000L: 1750.0
 
+# map the correct probe being used in the experiment 
+Probe Mapping:
+  pH: PROBE-C
+  DO: PROBE-1
+
 # If bioreactor list is true, only specify the start and end reactors and a list is created
 # in between these for syntax simplicity, otherwise list out all reactors
 Arange Bioreactors: False

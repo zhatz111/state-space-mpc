@@ -14,7 +14,7 @@
     "Window Length": 2,
     "Target Plotting Label": "IGG",
     "Training Iterations": 10,
-    "BasinHopping Temperature": 100,
+    "BasinHopping Temperature": 50,
     "Process Time": 15,
     "Scaler": "MinMaxScaler",
     "Training Batches": [
