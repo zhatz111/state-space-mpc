@@ -379,7 +379,19 @@ class Bioreactor:
                 self.vol = renamed_vector["VOLUME_L"]
 
         # Apply exponential moving average filter to state data
-        self.data.loc[self.data["Day"] <= self.curr_time, self.process_model.state_data_labels] = self.data.loc[self.data["Day"] <= self.curr_time, self.process_model.state_data_labels].ewm(adjust=False,alpha=self.controller_config["Estimation Filter Weight on Data"],ignore_na=True).mean()
+        self.data.loc[
+            self.data["Day"] <= self.curr_time, self.process_model.state_data_labels
+        ] = (
+            self.data.loc[
+                self.data["Day"] <= self.curr_time, self.process_model.state_data_labels
+            ]
+            .ewm(
+                alpha=self.controller_config["Estimation Filter Weight on Data"],
+                adjust=False,
+                ignore_na=True,
+            )
+            .mean()
+        )
 
     def return_data(self, show_daily_inputs: bool = True, exec_date: bool = False):
         """

@@ -161,7 +161,8 @@ class MPCVisualizer:
                         plot_data[state + PRED_SUFFIX].loc[
                             plot_data["Day"] >= self.bioreactor.curr_time
                         ],
-                        "r-o",
+                        "-o",
+                        color="coral",
                         label="Predicted Output",
                     )
 
@@ -229,7 +230,8 @@ class MPCVisualizer:
                         plot_data[state + PRED_SUFFIX].loc[
                             plot_data["Day"] >= self.bioreactor.curr_time
                         ],
-                        "r-o",
+                        "-o",
+                        color="coral",
                         label="Predicted Output",
                     )
                     sub_ax[count].plot(
@@ -291,7 +293,8 @@ class MPCVisualizer:
                             plot_data[inputs + MV_SUFFIX].loc[
                                 plot_data["Day"] >= self.bioreactor.curr_time
                             ],
-                            "r-",
+                            "-",
+                            color="coral",
                             label="Predicted Control Input",
                             where="post",
                         )
@@ -453,7 +456,8 @@ class MPCVisualizer:
                         self.controller[count].data_after_optim_dict[key][
                             self.controller[0].pv_names
                         ],
-                        "r-",
+                        "-",
+                        color="coral",
                         label="MPC Optimized",
                     )
                     ax.title.set_text(f"Day: {key}")
@@ -496,7 +500,8 @@ class MPCVisualizer:
                         self.controller[count].data_after_optim_dict[key][
                             self.controller[count].mv_names
                         ],
-                        "r-",
+                        "-",
+                        color="coral",
                         label="Optimized",
                         where="post",
                     )
@@ -561,7 +566,8 @@ class MPCVisualizer:
                     ax.plot(
                         self.bioreactor[count].data["Day"],
                         self.bioreactor[count].data[self.controller[count].pv_names],
-                        "r-",
+                        "-",
+                        color="coral",
                         label="Closed Loop MPC",
                     )
                     ax.title.set_text(self.bioreactor[count].vessel)
@@ -609,7 +615,8 @@ class MPCVisualizer:
                         self.controller[count].data_after_optim_dict[before_keys[-1]][
                             self.controller[count].mv_names
                         ],
-                        "r-",
+                        "-",
+                        color="coral",
                         label="Closed Loop MPC",
                         where="post",
                     )

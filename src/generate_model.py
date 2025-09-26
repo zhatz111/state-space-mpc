@@ -67,7 +67,7 @@ def main():
     The main function reads data, preprocesses it, trains a model, and saves
     the model scaler and matrices.
     """
-    HIDDEN_STATE = True
+    HIDDEN_STATE = False
 
     if model_config["Scaler"] == "MinMaxScaler":
         scaler_train = MinMaxScaler()
@@ -152,10 +152,13 @@ def main():
     model_config["Hidden State"] = HIDDEN_STATE
     model_config["a_matrix"] = model_train_obj.a_matrix.tolist()
     model_config["b_matrix"] = model_train_obj.b_matrix.tolist()
-    model_config["af_col"] = model_train_obj.af_col.tolist()
-    model_config["af_row"] = model_train_obj.af_row.tolist()
-    model_config["bf_row"] = model_train_obj.bf_row.tolist()
-    model_config["rho"] = model_train_obj.rho
+
+    if HIDDEN_STATE:
+        model_config["af_col"] = model_train_obj.af_col.tolist()
+        model_config["af_row"] = model_train_obj.af_row.tolist()
+        model_config["bf_row"] = model_train_obj.bf_row.tolist()
+        model_config["rho"] = model_train_obj.rho
+
     model_config["Iterations"] += model_train_obj.iters
     model_config["Training Batches"] = train_list
     model_config["Testing Batches"] = test_list
