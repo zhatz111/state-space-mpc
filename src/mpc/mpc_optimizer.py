@@ -307,7 +307,7 @@ class Bioreactor:
                 """Need to instantiate column mapping to correctly ingest input
                 vectors to dataframe."""
             )
-        for key, data in vector_dict.items():
+        for _, data in vector_dict.items():
             vector = pd.Series(data)
 
             # Rename the input vector to standard column names
@@ -377,6 +377,9 @@ class Bioreactor:
             # Update volume
             if not np.isnan(renamed_vector["VOLUME_L"]):
                 self.vol = renamed_vector["VOLUME_L"]
+
+        # Apply exponential moving average filter to state data
+        self.data.loc[self.data["Day"] <= self.curr_time, self.process_model.state_data_labels] = self.data.loc[self.data["Day"] <= self.curr_time, self.process_model.state_data_labels].ewm(adjust=False,alpha=self.controller_config["Estimation Filter Weight on Data"],ignore_na=True).mean()
 
     def return_data(self, show_daily_inputs: bool = True, exec_date: bool = False):
         """
