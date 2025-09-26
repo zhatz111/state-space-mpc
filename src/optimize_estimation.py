@@ -318,15 +318,21 @@ def update_offset_proportional_gain(keys, values):
         
     return experiment_config
         
-def est_optim_obj(x):
-    experiment_config = update_offset_proportional_gain(keys=keys_offset_gain, values=x[:len(x)//2])
-    experiment_config = update_offset_integral_gain(keys=keys_offset_gain, values=x[len(x)//2:])
+def est_optim_proportional_obj(x):
+    experiment_config = update_offset_proportional_gain(keys=keys_offset_gain, values=x)
     worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_plot=False)
+    # print(max(worst_estimates))
+    return max(worst_estimates)
+
+def est_optim_integral_obj(x):
+    experiment_config = update_offset_integral_gain(keys=keys_offset_gain, values=x)
+    worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_plot=False)
+    # print(max(worst_estimates))
     return max(worst_estimates)
 
 # Define bounds for each value in x (0 to 1.5)
-values_combined = np.concatenate([values_offset_proportional_gain, values_offset_integral_gain])
-bounds = [(0, 5.0) for _ in values_combined]
+# values_combined = np.concatenate([values_offset_proportional_gain, values_offset_integral_gain])
+bounds = [(0, 1.0) for _ in values_offset_proportional_gain]
 
 
 # # Perform optimization
@@ -355,29 +361,38 @@ print(worst_estimates)
 
 # try:
 def display_progress(xk):
-    current_obj_value = est_optim_obj(xk)
+    current_obj_value = est_optim_proportional_obj(xk)
     print(f"Current Objective Value: {current_obj_value}")
 
+# result = minimize(
+#     est_optim_proportional_obj,
+#     x0=values_offset_proportional_gain,
+#     bounds=bounds,
+#     method="L-BFGS-B",
+#     callback=display_progress,
+#     options={"maxiter": max_iterations},
+# )
+
+# experiment_config = update_offset_proportional_gain(keys=keys_offset_gain,values=result.x)
+# print("\n")
+# print("AFTER (proportional):")
+# print(keys_offset_gain)
+# print(result.x)
+
 result = minimize(
-    est_optim_obj,
-    x0=values_combined,
+    est_optim_integral_obj,
+    x0=values_offset_integral_gain,
     bounds=bounds,
-    method="L-BFGS-B",
+    method="SLSQP",#"L-BFGS-B",
     callback=display_progress,
     options={"maxiter": max_iterations},
 )
-# finally:
-#     progress.close()
 
-# # Print the optimization result
-# print("Optimization Result:")
-# print(result)
-experiment_config = update_offset_proportional_gain(keys=keys_offset_gain,values=result.x[:len(result.x)//2])
-experiment_config = update_offset_integral_gain(keys=keys_offset_gain,values=result.x[len(result.x)//2:])
+experiment_config = update_offset_integral_gain(keys=keys_offset_gain,values=result.x)
 
 print("\n")
-print("AFTER:")
+print("AFTER (integral):")
 print(keys_offset_gain)
-print(result.x[:len(result.x)//2])
-print(result.x[len(result.x)//2:])
+print(result.x)
+
 print(run_mpc_simulation(experiment_config=experiment_config,show_plot=False))

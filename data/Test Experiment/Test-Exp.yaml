@@ -418,31 +418,31 @@ Controller_1: {
       "Initial": 67.25,
       "Weight": 0.0001,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 1.0
+      "Offset Integral Gain": 0.5
       },
     "VCC": {
       "Initial": 0.60,
       "Weight": 5.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 1.0
+      "Offset Integral Gain": 0.5
       },
     "Osmolality": {
       "Initial": 329.75,
       "Weight": 0.02,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.25,
+      "Offset Integral Gain": 1.0,
       },
     "Glutamate": {
       "Initial": 2.05,
       "Weight": 13.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.5,
+      "Offset Integral Gain": 1.0,
       },
     "Ammonium": {
       "Initial": 0.71,
       "Weight": 10.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.7,
+      "Offset Integral Gain": 1.0,
       }
   },
   "End of Run Variables":{
@@ -591,7 +591,7 @@ Controller_1: {
   "Control Horizon": 3,
   "Estimation Horizon": 2,
   "Estimation Filter Weight on Data": 0.8,
-  "Offset Proportional Gain": 1.0, # Override individual gains if >= 0
-  "Offset Integral Gain": 0.0, # Override individual gains if >= 0
+  "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
+  "Offset Integral Gain": -1.0, # Override individual gains if >= 0
   "Persist After Control Horizon": True,
 }
