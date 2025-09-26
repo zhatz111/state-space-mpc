@@ -23,6 +23,7 @@ from visualization.visualize import MPCVisualizer
 from models.ssm import StateSpaceModel
 from data.functions import dict_toscaler, read_config
 from scipy.optimize import minimize
+from tqdm import tqdm
 
 warnings.filterwarnings("ignore")
 
@@ -158,7 +159,6 @@ def run_mpc_simulation(experiment_config, show_plot):
 
     # Iterate the main code for each bioreactor
     worst_estimates = np.zeros(len(vessels), dtype=float)
-
     for count_vessel, curr_vessel in enumerate(vessels):
         # Create bioreactor-specific figure output folders
         if isinstance(curr_vessel, str):
@@ -234,32 +234,32 @@ def run_mpc_simulation(experiment_config, show_plot):
         # Plot the MPC Controller for each Bioreactor
         # Use the last controller from the list which is the controller from the current day
 
-        # br_plots = MPCVisualizer(bioreactor, controller)
+        br_plots = MPCVisualizer(bioreactor, controller)
 
-        # if isinstance(curr_vessel, str):
-        #     identifier = f"{bioreactor.vessel}_D{CURR_TIME_END}-{todays_date}"
-        # else:
-        #     identifier = f"BR{bioreactor.vessel:02d}_D{CURR_TIME_END}-{todays_date}"
+        if isinstance(curr_vessel, str):
+            identifier = f"{bioreactor.vessel}_D{CURR_TIME_END}-{todays_date}"
+        else:
+            identifier = f"BR{bioreactor.vessel:02d}_D{CURR_TIME_END}-{todays_date}"
 
-        # worst_estimates[count_vessel] = br_plots.mpc_daily_plot(
-        #     save_paths=(
-        #         fig_path_lv2_BR / f"{identifier}.png",
-        #         fig_path_lv2_day / f"{identifier}.png",
-        #     ),
-        #     identifier=f"{experiment_config['Experiment Number']} \
-        #     -MPC/{identifier}",
-        #     unit_dict=experiment_config["Units Dictionary"],
-        #     metadata={
-        #         "Title": f"{experiment_config['Experiment Number']}-D{CURR_TIME_END}",
-        #         "Author": "Zach Hatzenbeller, Yu Luo",
-        #         "Description": f"MPC plot for {experiment_config['Experiment Number']}. \
-        #         Developed within GSK R&D in BDSD",
-        #         "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
-        #         "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-        #         "Software": f"Python v{sys.version}",
-        #     },
-        #     display=show_plot,
-        # )
+        worst_estimates[count_vessel] = br_plots.mpc_daily_plot(
+            save_paths=(
+                fig_path_lv2_BR / f"{identifier}.png",
+                fig_path_lv2_day / f"{identifier}.png",
+            ),
+            identifier=f"{experiment_config['Experiment Number']} \
+            -MPC/{identifier}",
+            unit_dict=experiment_config["Units Dictionary"],
+            metadata={
+                "Title": f"{experiment_config['Experiment Number']}-D{CURR_TIME_END}",
+                "Author": "Zach Hatzenbeller, Yu Luo",
+                "Description": f"MPC plot for {experiment_config['Experiment Number']}. \
+                Developed within GSK R&D in BDSD",
+                "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
+                "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+                "Software": f"Python v{sys.version}",
+            },
+            display=show_plot,
+        )
 
     #     # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
     #     # DEVELOPED: 2024-06-06
