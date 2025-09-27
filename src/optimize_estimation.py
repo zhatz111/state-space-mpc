@@ -24,6 +24,7 @@ from models.ssm import StateSpaceModel
 from data.functions import dict_toscaler, read_config
 from scipy.optimize import minimize
 from tqdm import tqdm
+from itertools import product
 
 warnings.filterwarnings("ignore")
 
@@ -50,7 +51,7 @@ questions = {
     "message": "Which experiment are you running MPC for?",
     "choices": matching_folders,
 }
-answer = prompt(questions)
+answer = {'folder': 'Test Experiment'} #prompt(questions)
 DATA_FOLDER_NAME = str(answer["folder"])
 
 # Load config
@@ -283,18 +284,39 @@ worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_pl
 
 # Extract keys and values for 'Offset Integral Gain' from Controller_1's State Variables
 state_variables = experiment_config["Controller_1"]["State Variables"]
-keys_offset_gain = list(state_variables.keys())
-values_offset_proportional_gain = [
-    state_variables[key]["Offset Proportional Gain"] for key in keys_offset_gain
+est_gain_keys = list(state_variables.keys())
+est_p_gains = [
+    state_variables[key]["Offset Proportional Gain"] for key in est_gain_keys
 ]
-values_offset_integral_gain = [
-    state_variables[key]["Offset Integral Gain"] for key in keys_offset_gain
+est_i_gains = [
+    state_variables[key]["Offset Integral Gain"] for key in est_gain_keys
 ]
 # print(keys_offset_gain)
 # print(values_offset_proportional_gain)
 # print(values_offset_integral_gain)
 
-def update_offset_integral_gain(keys, values):
+
+
+def update_p_gains(keys, values):
+    if len(keys) != len(values):
+        raise ValueError("Keys and values arrays must have the same length.")
+    
+    for key, value in zip(keys, values):
+        if key in experiment_config["Controller_1"]["State Variables"]:
+            experiment_config["Controller_1"]["State Variables"][key]["Offset Proportional Gain"] = value
+        else:
+            raise KeyError(f"Key '{key}' not found in State Variables.")
+        
+    return experiment_config
+
+def show_p_gains(experiment_config):
+    state_variables = experiment_config["Controller_1"]["State Variables"]
+    return [
+        state_variables[key]["Offset Proportional Gain"]
+        for key in state_variables.keys()
+    ]
+
+def update_i_gains(keys, values):
     if len(keys) != len(values):
         raise ValueError("Keys and values arrays must have the same length.")
     
@@ -306,33 +328,29 @@ def update_offset_integral_gain(keys, values):
         
     return experiment_config
 
-def update_offset_proportional_gain(keys, values):
-    if len(keys) != len(values):
-        raise ValueError("Keys and values arrays must have the same length.")
-    
-    for key, value in zip(keys, values):
-        if key in experiment_config["Controller_1"]["State Variables"]:
-            experiment_config["Controller_1"]["State Variables"][key]["Offset Proportional Gain"] = value
-        else:
-            raise KeyError(f"Key '{key}' not found in State Variables.")
-        
-    return experiment_config
-        
-def est_optim_proportional_obj(x):
-    experiment_config = update_offset_proportional_gain(keys=keys_offset_gain, values=x)
-    worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_plot=False)
-    # print(max(worst_estimates))
-    return max(worst_estimates)
+def show_i_gains(experiment_config):
+    state_variables = experiment_config["Controller_1"]["State Variables"]
+    return [
+        state_variables[key]["Offset Integral Gain"]
+        for key in state_variables.keys()
+    ]
 
-def est_optim_integral_obj(x):
-    experiment_config = update_offset_integral_gain(keys=keys_offset_gain, values=x)
-    worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_plot=False)
-    # print(max(worst_estimates))
-    return max(worst_estimates)
+
+# def est_optim_proportional_obj(x):
+#     experiment_config = update_offset_proportional_gain(keys=keys_offset_gain, values=x)
+#     worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_plot=False)
+#     # print(max(worst_estimates))
+#     return max(worst_estimates)
+
+# def est_optim_integral_obj(x):
+#     experiment_config = update_offset_integral_gain(keys=keys_offset_gain, values=x)
+#     worst_estimates = run_mpc_simulation(experiment_config=experiment_config,show_plot=False)
+#     # print(max(worst_estimates))
+#     return max(worst_estimates)
 
 # Define bounds for each value in x (0 to 1.5)
 # values_combined = np.concatenate([values_offset_proportional_gain, values_offset_integral_gain])
-bounds = [(0, 1.0) for _ in values_offset_proportional_gain]
+# bounds = [(0, 1.0) for _ in values_offset_proportional_gain]
 
 
 # # Perform optimization
@@ -350,49 +368,117 @@ bounds = [(0, 1.0) for _ in values_offset_proportional_gain]
 #         self.pbar.close()
 
 # # Estimate the number of iterations (this is a rough estimate for progress tracking)
-max_iterations = 100  # Adjust based on expected optimization complexity
+# max_iterations = 100  # Adjust based on expected optimization complexity
 # progress = ProgressCallback(max_iterations)
 
-print("BEFORE:")
-print(keys_offset_gain)
-print(values_offset_proportional_gain)
-print(values_offset_integral_gain)
-print(worst_estimates)
+def show_est_tuning(experiment_config):
+    print(
+        {
+            'names':est_gain_keys,
+            'prop gains':show_p_gains(experiment_config),
+            'int gains':show_i_gains(experiment_config),
+            'est horizon':experiment_config["Controller_1"]["Estimation Horizon"], 
+            'alpha':experiment_config["Controller_1"]["Estimation Filter Weight on Data"], 
+        })
 
-# try:
-def display_progress(xk):
-    current_obj_value = est_optim_proportional_obj(xk)
-    print(f"Current Objective Value: {current_obj_value}")
+print("BEFORE:")
+# print(est_gain_keys)
+# print(est_p_gains)
+# print(est_i_gains)
+# print(worst_estimates)
+print("Best Worst Estimate:", worst_estimates)
+print("Best Combination:")
+show_est_tuning(experiment_config)
+
+EST_HORIZONS = [2]
+FILTERS_ON_DATA = [0.75, 0.8]
+PROP_GAINS = [0.0, 0.25]
+INT_GAINS = [0.25, 0.5, 1.0]
+
+best_combination = None
+best_worst_estimate = worst_estimates
+
+# Generate all combinations of PROP_GAINS and INT_GAINS for all keys
+gain_combinations = product(
+    *[PROP_GAINS for _ in est_gain_keys], *[INT_GAINS for _ in est_gain_keys]
+)
+
+total_iterations = len(EST_HORIZONS) * len(FILTERS_ON_DATA) * len(PROP_GAINS) ** len(est_gain_keys) * len(INT_GAINS) ** len(est_gain_keys)
+current_iteration = 0
+
+for est_horizon in EST_HORIZONS:
+    for filter_on_data in FILTERS_ON_DATA:
+
+        # Reset the gains
+        experiment_config = update_p_gains(est_gain_keys, est_p_gains)
+        experiment_config = update_i_gains(est_gain_keys, est_i_gains)
+
+        for gains in gain_combinations:
+            # Update progress
+            current_iteration += 1
+            progress_percentage = (current_iteration / total_iterations) * 100
+            print(f"Progress: {progress_percentage:.2f}%")
+
+            # Split the combined gains into proportional and integral gains
+            prop_gains = gains[:len(est_gain_keys)]
+            int_gains = gains[len(est_gain_keys):]
+
+            # Update the experiment configuration with the current combination
+            experiment_config["Controller_1"]["Estimation Horizon"] = est_horizon
+            experiment_config["Controller_1"]["Estimation Filter Weight on Data"] = filter_on_data
+            experiment_config = update_p_gains(est_gain_keys, prop_gains)
+            experiment_config = update_i_gains(est_gain_keys, int_gains)
+
+            # Run the simulation
+            current_worst_estimates = run_mpc_simulation(experiment_config=experiment_config, show_plot=False)
+
+            # Check if the current combination improves the worst estimate
+            if max(current_worst_estimates) < best_worst_estimate:
+                best_worst_estimate = max(current_worst_estimates)
+                print("Best Worst Estimate:", best_worst_estimate)
+                print("Best Combination:")
+                show_est_tuning(experiment_config)
+
+print("AFTER:")
+print("Best Worst Estimate:", best_worst_estimate)
+print("Best Combination:")
+show_est_tuning(experiment_config)
+
+
+# # try:
+# def display_progress(xk):
+#     current_obj_value = est_optim_proportional_obj(xk)
+#     print(f"Current Objective Value: {current_obj_value}")
+
+# # result = minimize(
+# #     est_optim_proportional_obj,
+# #     x0=values_offset_proportional_gain,
+# #     bounds=bounds,
+# #     method="L-BFGS-B",
+# #     callback=display_progress,
+# #     options={"maxiter": max_iterations},
+# # )
+
+# # experiment_config = update_offset_proportional_gain(keys=keys_offset_gain,values=result.x)
+# # print("\n")
+# # print("AFTER (proportional):")
+# # print(keys_offset_gain)
+# # print(result.x)
 
 # result = minimize(
-#     est_optim_proportional_obj,
-#     x0=values_offset_proportional_gain,
+#     est_optim_integral_obj,
+#     x0=values_offset_integral_gain,
 #     bounds=bounds,
-#     method="L-BFGS-B",
+#     method="SLSQP",#"L-BFGS-B",
 #     callback=display_progress,
 #     options={"maxiter": max_iterations},
 # )
 
-# experiment_config = update_offset_proportional_gain(keys=keys_offset_gain,values=result.x)
+# experiment_config = update_offset_integral_gain(keys=keys_offset_gain,values=result.x)
+
 # print("\n")
-# print("AFTER (proportional):")
+# print("AFTER (integral):")
 # print(keys_offset_gain)
 # print(result.x)
 
-result = minimize(
-    est_optim_integral_obj,
-    x0=values_offset_integral_gain,
-    bounds=bounds,
-    method="SLSQP",#"L-BFGS-B",
-    callback=display_progress,
-    options={"maxiter": max_iterations},
-)
-
-experiment_config = update_offset_integral_gain(keys=keys_offset_gain,values=result.x)
-
-print("\n")
-print("AFTER (integral):")
-print(keys_offset_gain)
-print(result.x)
-
-print(run_mpc_simulation(experiment_config=experiment_config,show_plot=False))
+# print(run_mpc_simulation(experiment_config=experiment_config,show_plot=False))

@@ -418,13 +418,13 @@ Controller_1: {
       "Initial": 67.25,
       "Weight": 0.0001,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.5
+      "Offset Integral Gain": 0.25 #0.75
       },
     "VCC": {
       "Initial": 0.60,
       "Weight": 5.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.5
+      "Offset Integral Gain": 0.5 #0.5
       },
     "Osmolality": {
       "Initial": 329.75,
@@ -590,7 +590,7 @@ Controller_1: {
   "Prediction Horizon": 3,
   "Control Horizon": 3,
   "Estimation Horizon": 2,
-  "Estimation Filter Weight on Data": 0.8,
+  "Estimation Filter Weight on Data": 0.75,
   "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
   "Offset Integral Gain": -1.0, # Override individual gains if >= 0
   "Persist After Control Horizon": True,
