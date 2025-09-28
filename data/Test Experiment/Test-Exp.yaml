@@ -473,7 +473,7 @@ Controller_1: {
         0.0,
         0.0
         ],
-      "Weight": 330000.0,
+      "Weight": 1.0, #330000.0,
       "Constraint": [
         0.0,
         0.065
@@ -499,7 +499,7 @@ Controller_1: {
         36.5,
         36.5
         ],
-      "Weight": 150.0,
+      "Weight": 100.0, #150.0,
       "Constraint": [
         35.5,
         37.5
@@ -525,7 +525,7 @@ Controller_1: {
         7.10,
         7.10
         ],
-      "Weight": 4600.0,
+      "Weight": 100.0, #4600.0,
       "Constraint": [
         6.95,
         7.25
@@ -587,8 +587,8 @@ Controller_1: {
       7.10,
     ],
   },
-  "Prediction Horizon": 3,
-  "Control Horizon": 3,
+  "Prediction Horizon": 100,
+  "Control Horizon": 100,
   "Estimation Horizon": 2,
   "Estimation Filter Weight on Data": 0.75,
   "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
