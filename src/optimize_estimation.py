@@ -53,7 +53,7 @@ questions = {
     "message": "Which experiment are you running MPC for?",
     "choices": matching_folders,
 }
-answer = prompt(questions)
+answer = {'folder': 'Test Experiment'} #prompt(questions)
 DATA_FOLDER_NAME = str(answer["folder"])
 
 # Load config
@@ -455,6 +455,16 @@ bounds = state_bounds + horizon_bounds + estimate_bounds + control_bounds
 max_iterations = 3  # Adjust based on expected optimization complexity
 # progress = ProgressCallback(max_iterations)
 
+def show_est_tuning(experiment_config):
+    print(
+        {
+            'names':est_gain_keys,
+            'prop gains':show_p_gains(experiment_config),
+            'int gains':show_i_gains(experiment_config),
+            'est horizon':experiment_config["Controller_1"]["Estimation Horizon"], 
+            'alpha':experiment_config["Controller_1"]["Estimation Filter Weight on Data"], 
+        })
+
 print("BEFORE:")
 print(tuning_params)
 print(worst_estimates)
@@ -467,17 +477,18 @@ def display_progress(xk):
 
 
 # result = minimize(
-#     est_optim_proportional_obj,
-#     x0=values_offset_proportional_gain,
+#     est_optim_integral_obj,
+#     x0=values_offset_integral_gain,
 #     bounds=bounds,
-#     method="L-BFGS-B",
+#     method="SLSQP",#"L-BFGS-B",
 #     callback=display_progress,
 #     options={"maxiter": max_iterations},
 # )
 
-# experiment_config = update_offset_proportional_gain(keys=keys_offset_gain,values=result.x)
+# experiment_config = update_offset_integral_gain(keys=keys_offset_gain,values=result.x)
+
 # print("\n")
-# print("AFTER (proportional):")
+# print("AFTER (integral):")
 # print(keys_offset_gain)
 # print(result.x)
 

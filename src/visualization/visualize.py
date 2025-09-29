@@ -395,12 +395,15 @@ class MPCVisualizer:
             if display:
                 plt.show()
 
-            # Save the figure if the arguments passed are the correct instances
-            for save_path in save_paths:
-                if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
-                    fig.savefig(fname=save_path, metadata=metadata)
-                elif isinstance(save_path, (str, Path)):
-                    fig.savefig(fname=save_path)
+                # Save the figure if the arguments passed are the correct instances
+                for save_path in save_paths:
+                    if isinstance(save_path, (str, Path)) and isinstance(metadata, dict):
+                        fig.savefig(fname=save_path, metadata=metadata)
+                    elif isinstance(save_path, (str, Path)):
+                        fig.savefig(fname=save_path)
+
+            else:
+                plt.close('all')
 
             # Return the worst estimation (2025-08-29)
             return max(mape_est_ctrl_array[1])

@@ -1078,12 +1078,19 @@ class Controller:
         u2 = u[self.ts >= self.curr_time, :]
         u3_diff = u2_diff[0 : self.ctrl_horizon, :]
         u3 = u2[0 : self.ctrl_horizon, :]
-        u3_diff_norm = np.divide(u3_diff, u3)
+        
+        # Use u3's mean (or max) to normalize u3_diff
+        u4 = np.tile(np.where(np.max(u3, axis=0) == 0, 1, np.max(u3, axis=0)), (u3.shape[0], 1))
+        u3_diff_norm = np.divide(u3_diff, u4)
+        
         u3_cost = np.mean(
             np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts)
         )
         y3_diff = y3 - pv_sps3
-        y3_diff_norm = np.divide(y3_diff, pv_sps3)
+        
+        # Use pv_sps3's mean (or max) to normalize y3_diff
+        pv_sps4 = np.tile(np.where(np.max(pv_sps3, axis=0) == 0, 1, np.max(pv_sps3, axis=0)), (pv_sps3.shape[0], 1))
+        y3_diff_norm = np.divide(y3_diff, pv_sps4)
         y3_cost = np.mean(
             np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts)
         )
