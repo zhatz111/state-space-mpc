@@ -31,7 +31,7 @@ todays_date = datetime.today().strftime("%y%m%d")
 top_dir = Path().absolute()
 
 
-CONTROLLER_NAME = "Controller_1"
+CONTROLLER_NAME = "Controller"
 
 
 # -------------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ questions = {
     "message": "Which experiment are you running MPC for?",
     "choices": matching_folders,
 }
-answer = {'folder': 'Test Experiment'} #prompt(questions)
+answer = prompt(questions) #{'folder': 'Test Experiment'} #prompt(questions)
 DATA_FOLDER_NAME = str(answer["folder"])
 
 # Load config
@@ -402,6 +402,8 @@ class TuningOptimizer:
         if worst_estimates < self.best_worst:
             self.best_worst = worst_estimates[0]
             self.best_x = x
+        
+        self.iters += 1
         return max(worst_estimates)
 
 
@@ -431,7 +433,7 @@ state_bounds = [(0, 1.0) for _ in range(len(state_variables) * 2)]
 horizon_bounds = [
     (1, 20) for _ in ["Prediction Horizon", "Control Horizon", "Estimation Horizon"]
 ]
-estimate_bounds = [(0, 1.0)]
+estimate_bounds = [(1e-10, 1.0)]
 control_bounds = [
     (-1.0, 1.0) for _ in ["Offset Proportional Gain", "Offset Integral Gain"]
 ]
@@ -452,18 +454,18 @@ bounds = state_bounds + horizon_bounds + estimate_bounds + control_bounds
 #         self.pbar.close()
 
 # # Estimate the number of iterations (this is a rough estimate for progress tracking)
-max_iterations = 3  # Adjust based on expected optimization complexity
+max_iterations = 5  # Adjust based on expected optimization complexity
 # progress = ProgressCallback(max_iterations)
 
-def show_est_tuning(experiment_config):
-    print(
-        {
-            'names':est_gain_keys,
-            'prop gains':show_p_gains(experiment_config),
-            'int gains':show_i_gains(experiment_config),
-            'est horizon':experiment_config["Controller_1"]["Estimation Horizon"], 
-            'alpha':experiment_config["Controller_1"]["Estimation Filter Weight on Data"], 
-        })
+# def show_est_tuning(experiment_config):
+#     print(
+#         {
+#             'names':est_gain_keys,
+#             'prop gains':show_p_gains(experiment_config),
+#             'int gains':show_i_gains(experiment_config),
+#             'est horizon':experiment_config["Controller_1"]["Estimation Horizon"], 
+#             'alpha':experiment_config["Controller_1"]["Estimation Filter Weight on Data"], 
+#         })
 
 print("BEFORE:")
 print(tuning_params)

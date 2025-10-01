@@ -239,6 +239,8 @@ class Bioreactor:
         Returns:
             _type_: _description_
         """
+        pred_horizon = self.controller_config["Prediction Horizon"]
+        control_horizon = self.controller_config["Control Horizon"]
         # Assemble result
         result = {
             "Current_Day": self.curr_time,
@@ -262,10 +264,10 @@ class Bioreactor:
                 result[f"Feed_Rate_{var}_mL_min"] = feed_rates_ml_min
 
         for label in self.process_model.state_pred_labels:
-            result[label] = self.data[label].values
+            result[label] = self.data[label].values[self.curr_time:(self.curr_time+pred_horizon+1)]
 
         for label in self.process_model.input_data_labels:
-            result[label] = self.data[label].values
+            result[label] = self.data[label].values[self.curr_time:(self.curr_time+control_horizon+1)]
 
         return result
 
@@ -323,7 +325,6 @@ class Bioreactor:
                             f"{key.upper()}{self.process_model.input_suffix}"
                         ]
                         / renamed_vector["VOLUME_L"]
-                        / 1000
                     )
 
             selected_col = (
@@ -862,10 +863,10 @@ class Controller:
         if open_loop:
             # No change of inputs in open loop
             y_out_after_optim = y_out_before_optim
-            control_matrix_star = mv_array.reshape([-1, len(self.mv_names)])
+            mv_after_optim = mv_array.reshape([-1, len(self.mv_names)])
         elif end_of_run:
             y_out_after_optim = self.bioreactor.state()
-            control_matrix_star = []
+            mv_after_optim = []
         else:
             # Solve the optimization problem
             mv_array_star = optimize.minimize(
@@ -873,7 +874,9 @@ class Controller:
                 x0=mv_array,
                 bounds=bounds,
                 method="SLSQP",
-                options={"disp": False, "maxiter": 100},
+                # callback=callback_function,
+                tol=1e-10,
+                options={"ftol": 1e-10, "maxiter": 2000, "disp": True},
             )
 
             _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(
@@ -1063,37 +1066,89 @@ class Controller:
           process variables
         (x3_cost).
         """
+        # include these in yaml controller at some point
+        self.undershoot_factor = 1.0
+        self.overshoot_factor = 1.0
+        self.trajectory_discount = 1.0
 
-        # Trim to keep only future entries
+        # ----------------------------------------
+        # Control Actions Cost
+        # ----------------------------------------
+
+        # Define min/max constraints for the inputs
+        u_min = self.mv_constr[0, :].reshape(1, -1)
+        u_max = self.mv_constr[1, :].reshape(1, -1)
+
+        # Normalize u to [0,1] range using constraints (MixMaxScaler)
+        u_norm = (u - u_min) / (u_max - u_min + 1e-10)
+
+        # Compute differences on normalized MVs
+        u_diff = np.diff(u_norm, prepend=u_norm[0].reshape(1, -1), axis=0)
+        # Trim u_diff to current time and beyond
+        u2_diff = u_diff[self.ts >= self.curr_time, :]
+        # Trim u2_diff up to control horizon
+        u3_diff = u2_diff[0:self.ctrl_horizon, :]
+        # Second-order difference (rate of rate change, normalized)
+        u3_diff_diff = np.diff(u3_diff, prepend=np.zeros((1, u3_diff.shape[1])), axis=0)
+
+        # First-order difference cost → penalizes aggressive moves
+        u3_cost_1 = np.sum(
+            np.sum(np.multiply(np.square(u3_diff), self.mv_wts), axis=0)
+        )
+        # Second-order difference cost → penalizes oscillatory moves
+        u3_cost_2 = np.sum(
+            np.sum(np.multiply(np.square(u3_diff_diff), self.mv_wts), axis=0)
+        )
+
+        # Total cost of controller input moves
+        u3_cost = u3_cost_1 + u3_cost_2
+
+
+        # ----------------------------------------
+        # Setpoint Trajectory Cost
+        # ----------------------------------------
+
+        # Trim predicted y to current time and beyond
         y2 = y[ts > self.curr_time, :]
+        # Trim setpoint y to current time and beyond
         pv_sps2 = self.pv_sps[self.ts > self.curr_time, :]
 
-        # Trim to keep the prediction and control horizons
+        # Trim predicted y up to the prediction horizon
         y3 = y2[0 : self.pred_horizon, :]
+        # Trim setpoint y up to the prediction horizon
         pv_sps3 = pv_sps2[0 : self.pred_horizon, :]
+        
+        # Normalize relative to setpoint trajectory (per time step)
+        y3_norm = (y3 - pv_sps3)/np.mean(pv_sps3)
+        # penalize large jumps in predicted values?
+        y3_diff = np.diff(y3_norm, prepend=np.zeros((1, y3_norm.shape[1])), axis=0)
 
-        # Calculate the cost
-        u_diff = np.diff(np.vstack((u[0,], u)), axis=0)  # self.mv_constr[0][0]
-        u2_diff = u_diff[self.ts >= self.curr_time, :]
-        u2 = u[self.ts >= self.curr_time, :]
-        u3_diff = u2_diff[0 : self.ctrl_horizon, :]
-        u3 = u2[0 : self.ctrl_horizon, :]
-        
-        # Use u3's mean (or max) to normalize u3_diff
-        u4 = np.tile(np.where(np.max(u3, axis=0) == 0, 1, np.max(u3, axis=0)), (u3.shape[0], 1))
-        u3_diff_norm = np.divide(u3_diff, u4)
-        
-        u3_cost = np.mean(
-            np.multiply(np.sum(np.square(u3_diff_norm), axis=0), self.mv_wts)
+        # Split undershoot vs overshoot
+        overshoot = np.maximum(y3_norm, 0)   # when y > sp
+        undershoot = np.minimum(y3_norm, 0)  # when y < sp
+
+        # Apply discount to emphasize near-term corrections
+        discount = np.linspace(1.0, self.trajectory_discount, y3_norm.shape[0])[:, None]
+
+        # Cost: penalize undershoot more than overshoot
+        undershoot_cost = np.sum(
+            discount * np.multiply(np.square(undershoot), self.pv_wts * self.undershoot_factor),
+            axis=0
         )
-        y3_diff = y3 - pv_sps3
-        
-        # Use pv_sps3's mean (or max) to normalize y3_diff
-        pv_sps4 = np.tile(np.where(np.max(pv_sps3, axis=0) == 0, 1, np.max(pv_sps3, axis=0)), (pv_sps3.shape[0], 1))
-        y3_diff_norm = np.divide(y3_diff, pv_sps4)
-        y3_cost = np.mean(
-            np.multiply(np.sum(np.square(y3_diff_norm), axis=0), self.pv_wts)
+        overshoot_cost = np.sum(
+            discount * np.multiply(np.square(overshoot), self.pv_wts * self.overshoot_factor),
+            axis=0
         )
+        # Cost: penalize large jumps in y predicted values
+        y_diff_cost = np.sum(
+            discount * np.multiply(np.square(y3_diff), self.pv_wts),
+            axis=0
+        )
+
+        # Total cost of setpoint trajectory tracking
+        y3_cost = np.sum(undershoot_cost + overshoot_cost + y_diff_cost)
+
+        # return u3_cost + y3_cost + np.sum(e**2)
         return u3_cost + y3_cost + np.sum(e**2)
 
     def estimate(self):

@@ -48,7 +48,7 @@ questions = {
     "message": "Which experiment are you running MPC for?",
     "choices": matching_folders,
 }
-answer = prompt(questions)
+answer = {"folder": "Test Experiment"}# prompt(questions)
 DATA_FOLDER_NAME = str(answer["folder"])
 
 # Load config
@@ -101,7 +101,7 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 7
+CURR_TIME_USER = 8
 SHOW_PLOT = True
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
     date_delta = (

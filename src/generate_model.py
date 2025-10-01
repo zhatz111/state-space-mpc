@@ -67,7 +67,7 @@ def main():
     The main function reads data, preprocesses it, trains a model, and saves
     the model scaler and matrices.
     """
-    HIDDEN_STATE = False
+    HIDDEN_STATE = model_config["Hidden State"]
 
     if model_config["Scaler"] == "MinMaxScaler":
         scaler_train = MinMaxScaler()
