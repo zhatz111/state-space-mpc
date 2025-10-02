@@ -876,7 +876,7 @@ class Controller:
                 method="SLSQP",
                 # callback=callback_function,
                 tol=1e-10,
-                options={"ftol": 1e-10, "maxiter": 2000, "disp": True},
+                options={"ftol": 1e-10, "maxiter": 2000, "disp": False},
             )
 
             _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(
@@ -1121,7 +1121,7 @@ class Controller:
         # Normalize relative to setpoint trajectory (per time step)
         y3_norm = (y3 - pv_sps3)/np.mean(pv_sps3)
         # penalize large jumps in predicted values?
-        y3_diff = np.diff(y3_norm, prepend=np.zeros((1, y3_norm.shape[1])), axis=0)
+        # y3_diff = np.diff(y3_norm, prepend=np.zeros((1, y3_norm.shape[1])), axis=0)
 
         # Split undershoot vs overshoot
         overshoot = np.maximum(y3_norm, 0)   # when y > sp
@@ -1139,14 +1139,21 @@ class Controller:
             discount * np.multiply(np.square(overshoot), self.pv_wts * self.overshoot_factor),
             axis=0
         )
-        # Cost: penalize large jumps in y predicted values
-        y_diff_cost = np.sum(
-            discount * np.multiply(np.square(y3_diff), self.pv_wts),
+        # # Cost: penalize large jumps in y predicted values
+        # y_diff_cost = np.sum(
+        #     discount * np.multiply(np.square(y3_diff), self.pv_wts),
+        #     axis=0
+        # )
+
+        # # Total cost of setpoint trajectory tracking
+        # y3_cost = np.sum(undershoot_cost + overshoot_cost + y_diff_cost)
+
+        y3_norm_cost = np.sum(
+            np.multiply(np.square(y3_norm), self.pv_wts),
             axis=0
         )
+        y3_cost = np.sum(undershoot_cost + overshoot_cost + y3_norm_cost)
 
-        # Total cost of setpoint trajectory tracking
-        y3_cost = np.sum(undershoot_cost + overshoot_cost + y_diff_cost)
 
         # return u3_cost + y3_cost + np.sum(e**2)
         return u3_cost + y3_cost + np.sum(e**2)
