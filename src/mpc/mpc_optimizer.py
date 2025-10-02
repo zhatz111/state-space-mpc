@@ -762,6 +762,9 @@ class Controller:
         self.ctrl_horizon = ctrl_horizon
         self.mv_constr = mv_constr
         self.persist_after_ctrl_horizon = persist_after_ctrl_horizon
+        self.undershoot_factor = controller_config["Undershoot Weight"]
+        self.overshoot_factor = controller_config["Overshoot Weight"]
+        self.trajectory_discount = controller_config["Trajectory Discount Weight"]
 
         self.output_mods_est = np.zeros((1, len(est_wts)))
         self.est_curr_error = np.zeros((1, len(est_wts)))
@@ -1067,10 +1070,7 @@ class Controller:
         (x3_cost).
         """
         # include these in yaml controller at some point
-        self.undershoot_factor = 1.0
-        self.overshoot_factor = 1.0
-        self.trajectory_discount = 1.0
-
+        
         # ----------------------------------------
         # Control Actions Cost
         # ----------------------------------------

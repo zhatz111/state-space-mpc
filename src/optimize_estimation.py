@@ -429,13 +429,13 @@ tuner = TuningOptimizer(initial_x=tuning_values)
 
 # Define bounds for each value in x (0 to 1.5)
 # values_combined = np.concatenate([values_offset_proportional_gain, values_offset_integral_gain])
-state_bounds = [(0, 1.0) for _ in range(len(state_variables) * 2)]
+state_bounds = [(0, 5.0) for _ in range(len(state_variables) * 2)]
 horizon_bounds = [
-    (1, 20) for _ in ["Prediction Horizon", "Control Horizon", "Estimation Horizon"]
+    (2, 4) for _ in ["Prediction Horizon", "Control Horizon", "Estimation Horizon"]
 ]
 estimate_bounds = [(1e-10, 1.0)]
 control_bounds = [
-    (-1.0, 1.0) for _ in ["Offset Proportional Gain", "Offset Integral Gain"]
+    (-1.0, -1.0) for _ in ["Offset Proportional Gain", "Offset Integral Gain"]
 ]
 bounds = state_bounds + horizon_bounds + estimate_bounds + control_bounds
 
@@ -454,7 +454,7 @@ bounds = state_bounds + horizon_bounds + estimate_bounds + control_bounds
 #         self.pbar.close()
 
 # # Estimate the number of iterations (this is a rough estimate for progress tracking)
-max_iterations = 5  # Adjust based on expected optimization complexity
+max_iterations = 3  # Adjust based on expected optimization complexity
 # progress = ProgressCallback(max_iterations)
 
 # def show_est_tuning(experiment_config):
@@ -467,10 +467,11 @@ max_iterations = 5  # Adjust based on expected optimization complexity
 #             'alpha':experiment_config["Controller_1"]["Estimation Filter Weight on Data"], 
 #         })
 
-print("BEFORE:")
-print(tuning_params)
-print(worst_estimates)
-
+print("BEFORE Optimization:")
+print(f"Tuning Error: {worst_estimates[0]}")
+for key, data in tuning_params.items():
+    print(f"{key}: {data}")
+print("")
 
 # try:
 def display_progress(xk):
@@ -499,14 +500,15 @@ result = minimize(
     x0=tuning_values,
     bounds=bounds,
     method="SLSQP",  # "L-BFGS-B",
-    options={"maxiter": max_iterations},
+    options={"maxiter": max_iterations, "disp": True},
 )
 
 experiment_config = update_tuning_parameters(keys=tuning_keys, values=tuner.best_x)
 
-print("\n")
-print("AFTER (integral):")
-print(tuning_params)
-print(tuner.best_worst)
+print("")
+print("AFTER Optimization:")
+print(f"Tuning Error: {tuner.best_worst}")
+for key, data in tuning_params.items():
+    print(f"{key}: {data}")
 
-print(run_mpc_simulation(experiment_config=experiment_config, show_plot=False))
+# print(run_mpc_simulation(experiment_config=experiment_config, show_plot=False))

@@ -42,6 +42,7 @@ class ModelTraining:
         states: list[str],
         inputs: list[str],
         pv_wghts: list,
+        instability_weight: float,
         num_days: int,
         scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
         algorithm: str = "basinhopping",
@@ -49,7 +50,7 @@ class ModelTraining:
         rho: float = 0.5,
         af_col: np.ndarray = np.array([]),
         af_row: np.ndarray = np.array([]),
-        bf_row: np.ndarray = np.array([])
+        bf_row: np.ndarray = np.array([]),
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -87,6 +88,7 @@ class ModelTraining:
         self.num_days = num_days
         self.scaler = scaler
         self.pv_wghts = pv_wghts
+        self.instability_weight = instability_weight
         self.state_len = len(states)
         self.input_len = len(inputs)
         self.total = self.state_len + self.input_len
@@ -129,34 +131,42 @@ class ModelTraining:
 
         # augmented matrices if using feed hidden state
         if self.hidden_state:
-            self.rho = rho                                      # feed effect decay rate
+            self.rho = rho  # feed effect decay rate
             if af_col.shape[0] == self.state_len:
                 self.af_col = np.array(af_col)
             else:
-                self.af_col = np.ones([self.state_len, 1])          # learnable hidden state
+                self.af_col = np.ones([self.state_len, 1])  # learnable hidden state
 
             if af_row.shape[0] == self.state_len:
                 self.af_row = np.array(af_row)
             else:
-                self.af_row = np.ones([self.state_len, 1])          # learnable hidden state
-            
+                self.af_row = np.ones([self.state_len, 1])  # learnable hidden state
+
             if bf_row.shape[0] == self.input_len:
                 self.bf_row = bf_row
             else:
                 self.bf_row = np.zeros([1, self.input_len])
                 self.bf_row[:, 1] = 1.0
 
-            self.augmented_a_matrix = np.zeros([self.state_len+1, self.state_len+1])
-            self.augmented_a_matrix[:self.state_len, :self.state_len] = self.a_matrix
-            self.augmented_a_matrix[:self.state_len, self.state_len] = self.af_col.flatten()
-            self.augmented_a_matrix[self.state_len, :self.state_len] = self.af_row.flatten()
+            self.augmented_a_matrix = np.zeros([self.state_len + 1, self.state_len + 1])
+            self.augmented_a_matrix[: self.state_len, : self.state_len] = self.a_matrix
+            self.augmented_a_matrix[: self.state_len, self.state_len] = (
+                self.af_col.flatten()
+            )
+            self.augmented_a_matrix[self.state_len, : self.state_len] = (
+                self.af_row.flatten()
+            )
             self.augmented_a_matrix[self.state_len, self.state_len] = self.rho
 
-            self.augmented_b_matrix = np.zeros([self.state_len+1, self.input_len])
-            self.augmented_b_matrix[:self.state_len, :] = self.b_matrix
-            self.augmented_b_matrix[self.state_len, :] = self.bf_row     # only feed (input index 0) affects feed-effect state (hidden state)
+            self.augmented_b_matrix = np.zeros([self.state_len + 1, self.input_len])
+            self.augmented_b_matrix[: self.state_len, :] = self.b_matrix
+            self.augmented_b_matrix[self.state_len, :] = (
+                self.bf_row
+            )  # only feed (input index 0) affects feed-effect state (hidden state)
 
-            self.c_matrix = np.hstack([np.identity(self.state_len), np.zeros([self.state_len, 1])])
+            self.c_matrix = np.hstack(
+                [np.identity(self.state_len), np.zeros([self.state_len, 1])]
+            )
 
     def first_pass_training(self):
         """
@@ -183,7 +193,13 @@ class ModelTraining:
             regression_matrix[j, :] = reg.coef_
         return regression_matrix
 
-    def train_model(self, save_path: Path, first_train: bool=True, iterations: int=10, basin_temp: int = 2000):
+    def train_model(
+        self,
+        save_path: Path,
+        first_train: bool = True,
+        iterations: int = 10,
+        basin_temp: int = 2000,
+    ):
         """
         The `train_model` function trains a system model using the provided training data and saves the
         resulting A and B matrices to CSV files.
@@ -214,12 +230,12 @@ class ModelTraining:
             a_sim = self.a_matrix.reshape(-1, 1)
             b_sim = self.b_matrix.reshape(-1, 1)
             combined_mat = np.vstack([a_sim, b_sim]).flatten()
-        
+
         if self.hidden_state:
-            bounds_ = [(-1,1)] * len(combined_mat)
-            bounds_[len(a_sim)-1] = (0,1)
+            bounds_ = [(-1, 1)] * len(combined_mat)
+            bounds_[len(a_sim) - 1] = (0, 1)
         else:
-            bounds_ = [(-1,1)] * len(combined_mat)
+            bounds_ = [(-1, 1)] * len(combined_mat)
 
         if self.algorithm == "minimize":
             optimize.minimize(
@@ -231,25 +247,22 @@ class ModelTraining:
             )
         elif self.algorithm == "evolution":
             optimize.differential_evolution(
-                func=self.objective_func,
-                bounds=bounds_,
-                maxiter=iterations,
-                disp=False
+                func=self.objective_func, bounds=bounds_, maxiter=iterations, disp=False
             )
         elif self.algorithm == "basinhopping":
             minimizer_kwargs = {
                 "method": "SLSQP",
                 "bounds": bounds_,
-                "options": {"maxiter": iterations*10, "disp": False, "ftol": 1e-07}
+                "options": {"maxiter": iterations * 10, "disp": False, "ftol": 1e-07},
             }
             optimize.basinhopping(
-                    func=self.objective_func,
-                    x0=combined_mat,
-                    minimizer_kwargs=minimizer_kwargs,
-                    niter=iterations,
-                    disp=True,
-                    T=basin_temp,
-                )
+                func=self.objective_func,
+                x0=combined_mat,
+                minimizer_kwargs=minimizer_kwargs,
+                niter=iterations,
+                disp=True,
+                T=basin_temp,
+            )
         else:
             raise KeyError("Must use either Minimize or Basin Hopping algorithms")
 
@@ -267,17 +280,17 @@ class ModelTraining:
 
         if self.hidden_state:
             # This returns the matrix in the correct shape for use later on in the class
-            self.augmented_a_matrix = opt_matrix[: ((self.state_len+1)**2)].reshape(
-                self.state_len+1, self.state_len+1
+            self.augmented_a_matrix = opt_matrix[: ((self.state_len + 1) ** 2)].reshape(
+                self.state_len + 1, self.state_len + 1
             )
-            self.augmented_b_matrix = opt_matrix[((self.state_len+1)**2) :].reshape(
-                self.state_len+1, self.input_len
+            self.augmented_b_matrix = opt_matrix[((self.state_len + 1) ** 2) :].reshape(
+                self.state_len + 1, self.input_len
             )
-            self.a_matrix = self.augmented_a_matrix[:self.state_len, :self.state_len]
-            self.b_matrix = self.augmented_b_matrix[:self.state_len, :]
+            self.a_matrix = self.augmented_a_matrix[: self.state_len, : self.state_len]
+            self.b_matrix = self.augmented_b_matrix[: self.state_len, :]
             self.rho = self.augmented_a_matrix[self.state_len, self.state_len]
-            self.af_col = self.augmented_a_matrix[:self.state_len, self.state_len]
-            self.af_row = self.augmented_a_matrix[self.state_len, :self.state_len]
+            self.af_col = self.augmented_a_matrix[: self.state_len, self.state_len]
+            self.af_row = self.augmented_a_matrix[self.state_len, : self.state_len]
             self.bf_row = self.augmented_b_matrix[self.state_len, :]
         else:
             # This returns the matrix in the correct shape for use later on in the class
@@ -298,13 +311,17 @@ class ModelTraining:
         # pd.DataFrame(self.b_matrix).to_csv(
         #     rf"{save_path}\B_Matrix.csv", index=False, header=False
         # )
-        
+
         if self.hidden_state:
             pd.DataFrame(self.augmented_a_matrix).to_csv(
-                rf"{save_path}\{save_time} Augmented_A_Matrix.csv", index=False, header=False
+                rf"{save_path}\{save_time} Augmented_A_Matrix.csv",
+                index=False,
+                header=False,
             )
             pd.DataFrame(self.augmented_b_matrix).to_csv(
-                rf"{save_path}\{save_time} Augmented_B_Matrix.csv", index=False, header=False
+                rf"{save_path}\{save_time} Augmented_B_Matrix.csv",
+                index=False,
+                header=False,
             )
         else:
             pd.DataFrame(self.a_matrix).to_csv(
@@ -337,10 +354,22 @@ class ModelTraining:
         y_sim_all = np.zeros([self.num_days, self.state_len])
         y_actual_all = np.zeros([self.num_days, self.state_len])
 
-        for _, group in train_grouped:
+        if self.hidden_state:
+            a_matrix = x0[: ((self.state_len + 1) ** 2)].reshape(
+                self.state_len + 1, self.state_len + 1
+            )
+            b_matrix = x0[((self.state_len + 1) ** 2) :].reshape(
+                self.state_len + 1, self.input_len
+            )
+        else:
+            a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
+            b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
 
+        for _, group in train_grouped:
             if self.hidden_state:
-                objfunc_x0 = np.append(np.array(group.filter(self.states).iloc[0, :]), 0)
+                objfunc_x0 = np.append(
+                    np.array(group.filter(self.states).iloc[0, :]), 0
+                )
             else:
                 objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
 
@@ -348,15 +377,10 @@ class ModelTraining:
             objfunc_y = np.array(group.filter(self.states))
             time = np.arange(0, len(objfunc_u), 1)
 
-            if self.hidden_state:
-                a_matrix = x0[: ((self.state_len+1)**2)].reshape(self.state_len+1, self.state_len+1)
-                b_matrix = x0[((self.state_len+1)**2) :].reshape(self.state_len+1, self.input_len)
-            else:
-                a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
-                b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
-
             state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
-            _, objfunc_yout, _ = signal.lsim(state, objfunc_u, time, objfunc_x0, interp=False)
+            _, objfunc_yout, _ = signal.lsim(
+                state, objfunc_u, time, objfunc_x0, interp=False
+            )
 
             if iter_counter == 0:
                 y_sim_all = np.array(objfunc_yout, dtype=np.float64)
@@ -370,11 +394,22 @@ class ModelTraining:
         for count, state in enumerate(self.states):
             y_diff = y_actual_all[:, count] - y_sim_all[:, count]
             feature_cost = np.square(y_diff).sum()
-            negative_cost = sum(y_sim_all[:, count] < 0)*0
-            cost_list.append(feature_cost + feature_cost*negative_cost)
+            negative_cost = sum(y_sim_all[:, count] < 0) * 0
+            cost_list.append(feature_cost + feature_cost * negative_cost)
 
-        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts))
-        unwghtd_cost = sum(np.array(cost_list))
+        eigvals = np.linalg.eigvals(a_matrix)
+        real_parts = np.real(eigvals)
+
+        # Violation amount = how far into unstable region each eigenvalue is
+        violations = np.clip(
+            real_parts + 1e-12, a_min=0.0, a_max=None
+        )  # add small buffer to ensure stability
+
+        # Quadratic penalty for instability
+        penalty = np.sum(np.square(violations)) * self.instability_weight
+
+        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + penalty
+        unwghtd_cost = sum(np.array(cost_list)) + penalty
 
         rmse_sim_scaled = np.hstack(
             (np.array(y_sim_all), np.zeros((y_sim_all.shape[0], self.input_len)))
@@ -404,7 +439,6 @@ class ModelTraining:
             print(f"Total Standard Error: {unwghtd_cost:.5f}")
         self.iters += 1
         if (wghtd_cost < self.weighted_model_error) or self.iters == 1:
-
             for count, state in enumerate(self.states):
                 rmse = np.sqrt(
                     np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0]
@@ -412,7 +446,7 @@ class ModelTraining:
                 self.true_model_error_dict[state] = rmse
             self.model_error = unwghtd_cost
             self.weighted_model_error = wghtd_cost
-        
+
         if self.weighted_model_error < self.weighted_lowest_model_error:
             self.weighted_lowest_model_error = self.weighted_model_error
             self.lowest_model_error = self.model_error
@@ -450,7 +484,6 @@ class ModelTraining:
         simulation_data_dict = {}
         train_test_data_dict = {}
         for name, group in batch_grouped:
-
             if self.hidden_state:
                 x0_matrix = np.append(np.array(group.filter(self.states).iloc[0, :]), 0)
             else:
@@ -461,7 +494,10 @@ class ModelTraining:
 
             if self.hidden_state:
                 bioreactor = signal.StateSpace(
-                    self.augmented_a_matrix, self.augmented_b_matrix, self.c_matrix, self.d_matrix
+                    self.augmented_a_matrix,
+                    self.augmented_b_matrix,
+                    self.c_matrix,
+                    self.d_matrix,
                 )
             else:
                 bioreactor = signal.StateSpace(
@@ -505,10 +541,18 @@ class ModelTraining:
         fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
         fig.subplots_adjust(top=0.8)
         dict_keys = list(simulation_dict.keys())
-        max_val_sim = max(chain.from_iterable(df[test_label] for df in simulation_dict.values()))
-        max_val_exp = max(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
-        min_val_sim = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
-        min_val_exp = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        max_val_sim = max(
+            chain.from_iterable(df[test_label] for df in simulation_dict.values())
+        )
+        max_val_exp = max(
+            chain.from_iterable(df[test_label] for df in train_test_dict.values())
+        )
+        min_val_sim = min(
+            chain.from_iterable(df[test_label] for df in train_test_dict.values())
+        )
+        min_val_exp = min(
+            chain.from_iterable(df[test_label] for df in train_test_dict.values())
+        )
         max_value = max(max_val_sim, max_val_exp)
         min_value = min(min_val_sim, min_val_exp)
         for count, ax_test in enumerate(axes.reshape(-1)):
@@ -564,10 +608,18 @@ class ModelTraining:
         """
         cols = 4
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="train")
-        max_val_sim = max(chain.from_iterable(df[test_label] for df in simulation_dict.values()))
-        max_val_exp = max(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
-        min_val_sim = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
-        min_val_exp = min(chain.from_iterable(df[test_label] for df in train_test_dict.values()))
+        max_val_sim = max(
+            chain.from_iterable(df[test_label] for df in simulation_dict.values())
+        )
+        max_val_exp = max(
+            chain.from_iterable(df[test_label] for df in train_test_dict.values())
+        )
+        min_val_sim = min(
+            chain.from_iterable(df[test_label] for df in train_test_dict.values())
+        )
+        min_val_exp = min(
+            chain.from_iterable(df[test_label] for df in train_test_dict.values())
+        )
         max_value = max(max_val_sim, max_val_exp)
         min_value = min(min_val_sim, min_val_exp)
 
@@ -752,7 +804,12 @@ class ModelTraining:
         return df_corr
 
     def train_test_model(
-        self, save_path, test_label: str, first_train=True, iterations=10, basin_temp: int = 2000
+        self,
+        save_path,
+        test_label: str,
+        first_train=True,
+        iterations=10,
+        basin_temp: int = 2000,
     ):
         """
         The function trains a model, saves it to a specified path, and then plots test data using the
@@ -773,7 +830,7 @@ class ModelTraining:
             save_path=save_path,
             first_train=first_train,
             iterations=iterations,
-            basin_temp=basin_temp
+            basin_temp=basin_temp,
         )
 
         self.plot_test_data(

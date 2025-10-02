@@ -118,6 +118,7 @@ def main():
         states=model_config["Model States"],
         inputs=model_config["Model Inputs"],
         pv_wghts=model_config["Process Variable Weights"],
+        instability_weight=model_config["Instability Weight"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
         algorithm="basinhopping",
