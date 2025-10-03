@@ -133,21 +133,25 @@ def main():
     new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
     new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
 
-    model_train_obj.train_test_model(
-        save_path=new_directory,
-        test_label=model_config["Target Plotting Label"],
-        iterations=model_config["Training Iterations"],
-        basin_temp=model_config["BasinHopping Temperature"],
-        first_train=False,
-    )
+    EVALUATION_TYPE = "train"
 
-    # model_train_obj.plot_train_data(
-    #     test_label=model_config["Target Plotting Label"]
-    # )
+    if EVALUATION_TYPE.lower() == "train":
+        model_train_obj.train_test_model(
+            save_path=new_directory,
+            test_label=model_config["Target Plotting Label"],
+            iterations=model_config["Training Iterations"],
+            basin_temp=model_config["BasinHopping Temperature"],
+            first_train=False,
+            show_plots=False,
+        )
+    else:
+        model_train_obj.plot_train_data(
+            test_label=model_config["Target Plotting Label"]
+        )
 
-    # model_train_obj.plot_test_data(
-    #     test_label=model_config["Target Plotting Label"]
-    # )
+        model_train_obj.plot_test_data(
+            test_label=model_config["Target Plotting Label"]
+        )
 
     # Update the model config file
     model_config["Hidden State"] = HIDDEN_STATE
@@ -168,6 +172,7 @@ def main():
         model_config["Model RMSE"] = model_train_obj.lowest_model_error
         model_config["States RMSE"] = model_train_obj.lowest_model_error_dict
         model_config["Last Model Training"] = time
+        model_config["Matrix Stability Error"] = model_train_obj.stability_error_dict
 
     # Export updated data back to JSON file
     dict_to_json(json_files[0], model_config)

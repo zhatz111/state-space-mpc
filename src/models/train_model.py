@@ -20,8 +20,10 @@ import pandas as pd
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
+from scipy.optimize import NonlinearConstraint
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, root_mean_squared_error
+from scipy.linalg import solve_continuous_lyapunov as scl, eigvalsh
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 warnings.filterwarnings("ignore")
@@ -105,6 +107,12 @@ class ModelTraining:
         self.lowest_model_error_dict = {}
         self.true_model_error_dict = {}
         self.best_result = np.array([])
+        self.stability_error_dict = {
+            "Eigenvalue Error": np.inf,
+            "Condition Error": np.inf,
+            "Controllability": np.inf,
+            "Observability": np.inf
+        }
 
         # normal matrices for training and testing
         self.a_matrix = a_matrix
@@ -237,6 +245,11 @@ class ModelTraining:
         else:
             bounds_ = [(-1, 1)] * len(combined_mat)
 
+        # build nonlinear constraint object
+        stab_con = NonlinearConstraint(
+            lambda p: self.stability_constraint(p, self.a_matrix.shape[0]), -np.inf, 0.0
+        )  # upper bound (enforces <= 0)
+
         if self.algorithm == "minimize":
             optimize.minimize(
                 fun=self.objective_func,
@@ -251,8 +264,13 @@ class ModelTraining:
             )
         elif self.algorithm == "basinhopping":
             minimizer_kwargs = {
+                # "method": "trust-constr",
+                # "bounds": bounds_,
+                # "constraints": [stab_con],
+                # "options": {"maxiter": iterations * 10, "verbose": 0, "gtol": 1e-7},
                 "method": "SLSQP",
                 "bounds": bounds_,
+                # "constraints": [stab_con],
                 "options": {"maxiter": iterations * 10, "disp": False, "ftol": 1e-07},
             }
             optimize.basinhopping(
@@ -397,18 +415,9 @@ class ModelTraining:
             negative_cost = sum(y_sim_all[:, count] < 0) * 0
             cost_list.append(feature_cost + feature_cost * negative_cost)
 
-        eigvals = np.linalg.eigvals(a_matrix)
-        real_parts = np.real(eigvals)
+        penalty, penalty_values = self.matrix_stability_cost(a_matrix=a_matrix, b_matrix=b_matrix)
 
-        # Violation amount = how far into unstable region each eigenvalue is
-        violations = np.clip(
-            real_parts + 1e-12, a_min=0.0, a_max=None
-        )  # add small buffer to ensure stability
-
-        # Quadratic penalty for instability
-        penalty = np.sum(np.square(violations)) * self.instability_weight
-
-        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + penalty
+        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + (penalty * self.instability_weight)
         unwghtd_cost = sum(np.array(cost_list)) + penalty
 
         rmse_sim_scaled = np.hstack(
@@ -438,14 +447,24 @@ class ModelTraining:
             print(f"Total Weighted Error: {wghtd_cost:.5f}")
             print(f"Total Standard Error: {unwghtd_cost:.5f}")
         self.iters += 1
+
+        # update the best model parameters weights and errors
         if (wghtd_cost < self.weighted_model_error) or self.iters == 1:
             for count, state in enumerate(self.states):
                 rmse = np.sqrt(
                     np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0]
                 )
                 self.true_model_error_dict[state] = rmse
+
+            # updates training weights
             self.model_error = unwghtd_cost
             self.weighted_model_error = wghtd_cost
+
+            # Update the stability error dictionary
+            self.stability_error_dict["Eigenvalue Error"] = penalty_values[0]
+            self.stability_error_dict["Condition Error"] = penalty_values[1]
+            self.stability_error_dict["Controllability"] = penalty_values[2]
+            self.stability_error_dict["Observability"] = penalty_values[3]
 
         if self.weighted_model_error < self.weighted_lowest_model_error:
             self.weighted_lowest_model_error = self.weighted_model_error
@@ -810,6 +829,7 @@ class ModelTraining:
         first_train=True,
         iterations=10,
         basin_temp: int = 2000,
+        show_plots: bool = True,
     ):
         """
         The function trains a model, saves it to a specified path, and then plots test data using the
@@ -832,14 +852,14 @@ class ModelTraining:
             iterations=iterations,
             basin_temp=basin_temp,
         )
+        if show_plots:
+            self.plot_test_data(
+                test_label=test_label,
+            )
 
-        self.plot_test_data(
-            test_label=test_label,
-        )
-
-        self.plot_train_data(
-            test_label=test_label,
-        )
+            self.plot_train_data(
+                test_label=test_label,
+            )
 
     def single_batch_test(self, test_label):
         """
@@ -876,3 +896,73 @@ class ModelTraining:
         plt.legend(loc="best")
         fig.tight_layout()
         plt.show()
+
+    def stability_constraint(self, params, n, eps=1e-6):
+        """
+        Nonlinear constraint: Re(eig(A)) <= -eps for all eigenvalues.
+        Works as inequality constraint g(x) <= 0.
+
+        params: flat vector containing A (and maybe B)
+        n: dimension of A
+        eps: margin for stability
+        """
+        # unpack A from flat params
+        A = params[: n * n].reshape((n, n))
+
+        eigvals = np.linalg.eigvals(A)
+        real_parts = np.real(eigvals)
+
+        # violations: positive real parts above -eps
+        return real_parts + eps  # must be <= 0 for all i
+
+    def matrix_stability_cost(self, a_matrix, b_matrix):
+        n = a_matrix.shape[0]
+        b = b_matrix.shape[1]
+
+
+        # -----------------------------------
+        # Eigenvalue Penalty
+        # -----------------------------------
+
+        # penalizes eigenvalues > 0
+        eigvals = np.linalg.eigvals(a_matrix)
+        real_parts = np.real(eigvals)
+        # Violation amount = how far into unstable region each eigenvalue is
+        violations_1 = np.clip(
+            real_parts + 1e-12, a_min=0.0, a_max=None
+        )  # add small buffer to ensure stability
+        eigen_penalty = np.sum(np.square(violations_1))
+
+
+        # -----------------------------------
+        # Condition Value Penalty
+        # -----------------------------------
+
+        # tries to reduce condition to 0
+        # helps with ill-conditioned b_matrix for MPC
+        condition = np.linalg.cond(b_matrix)
+
+
+        # -----------------------------------
+        # Controllability Gramian Penalty
+        # -----------------------------------
+        Wc = scl(a_matrix, -b_matrix.dot(b_matrix.T))
+        eigs = np.real(np.linalg.eigvals(Wc))
+        # penalize tiny eigenvalues: want eig >= margin
+        violations_2 = np.clip(1e-3 - eigs, a_min=0.0, a_max=None)
+        gramian_penalty_1 = np.sum(violations_2**2)
+
+
+        # -----------------------------------
+        # Observability Gramian Penalty
+        # -----------------------------------
+        Wo = scl(a_matrix.T, -self.c_matrix.T.dot(self.c_matrix))
+        # symmetric eigenvalues
+        eigs = np.real(eigvalsh(Wo))
+        # clamp to avoid zeros/negatives
+        eigs_clamped = np.clip(eigs, a_min=1e-10, a_max=None)
+        gramian_penalty_2 = np.sum(eigs_clamped)
+        # gramian_penalty_2 = -np.sum(np.log(eigs_clamped)) / n
+
+        # Total penalty for state space matrices instability
+        return (eigen_penalty + condition), (eigen_penalty, condition, gramian_penalty_1, gramian_penalty_2)

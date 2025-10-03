@@ -879,7 +879,7 @@ class Controller:
                 method="SLSQP",
                 # callback=callback_function,
                 tol=1e-10,
-                options={"ftol": 1e-10, "maxiter": 2000, "disp": False},
+                options={"ftol": 1e-10, "maxiter": 2000, "disp": True},
             )
 
             _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(
@@ -1148,11 +1148,7 @@ class Controller:
         # # Total cost of setpoint trajectory tracking
         # y3_cost = np.sum(undershoot_cost + overshoot_cost + y_diff_cost)
 
-        y3_norm_cost = np.sum(
-            np.multiply(np.square(y3_norm), self.pv_wts),
-            axis=0
-        )
-        y3_cost = np.sum(undershoot_cost + overshoot_cost + y3_norm_cost)
+        y3_cost = np.sum(undershoot_cost + overshoot_cost)
 
 
         # return u3_cost + y3_cost + np.sum(e**2)
