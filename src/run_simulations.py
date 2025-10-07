@@ -119,14 +119,14 @@ def main():
 
     simulator = ModelSimulations(
         simulation_data=sim_data_modifier.df,
-        # historic_data=df_simulations,
+        historic_data=df_simulations,
         a_matrix=a_matrix,
         b_matrix=b_matrix,
         states=model_config["Model States"],
         inputs=model_config["Model Inputs"],
         num_days=model_config["Process Time"],
         scaler=scaler_experiment,
-        hidden_state=True,
+        hidden_state=model_config["Hidden State"],
         rho=model_config["rho"],
         af_col=af_col_matrix,
         af_row=af_row_matrix,

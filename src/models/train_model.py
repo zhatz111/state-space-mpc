@@ -556,7 +556,7 @@ class ModelTraining:
         """
         cols = 4
         simulation_dict, train_test_dict = self.get_model_data_dict(data_agg="test")
-        rows = math.floor(len(simulation_dict) / cols)
+        rows = np.maximum(math.floor(len(simulation_dict) / cols), 1)
         fig, axes = plt.subplots(rows, cols, figsize=(9, 7), squeeze=False)
         fig.subplots_adjust(top=0.8)
         dict_keys = list(simulation_dict.keys())
@@ -643,9 +643,9 @@ class ModelTraining:
         min_value = min(min_val_sim, min_val_exp)
 
         if len(simulation_dict) > 15:
-            rows = math.floor(15 / cols)
+            rows = np.maximum(math.floor(15 / cols), 1)
         else:
-            rows = math.floor(len(simulation_dict) / cols)
+            rows = np.maximum(math.floor(len(simulation_dict) / cols), 1)
 
         fig, axes = plt.subplots(
             rows,

@@ -99,6 +99,7 @@ class Bioreactor:
         self.process_model = (
             process_model  # Model (if provided) for simulating a process
         )
+        self.volume_label = "VOLUME_L"
 
         # this parameter is necessary for tech automation
         # when the data vector is passed to this class the columns must be mapped
@@ -127,7 +128,7 @@ class Bioreactor:
                 "Bioreactor",
                 "Day",
                 "Date",
-                "VOLUME_L",
+                self.volume_label,
             ]
 
             cols = (
@@ -153,19 +154,19 @@ class Bioreactor:
             data = pd.DataFrame(data=zero_arr, columns=cols)
 
             # Initialize reference and nominal data
-            for key in controller_config["Process Variables"]:
+            for key in self.controller_config["Process Variables"]:
                 data[f"{key.upper()}{self.process_model.data_sp_suffix}"] = np.array(
                     controller_config["Process Variables"][key]["Data"]
                 )
-            for key in controller_config["Manipulated Variables"]:
+            for key in self.controller_config["Manipulated Variables"]:
                 data[f"{key.upper()}{self.process_model.input_ref_suffix}"] = np.array(
                     controller_config["Manipulated Variables"][key]["Data"]
                 )
-            for key in controller_config["Input Variables"]:
+            for key in self.controller_config["Input Variables"]:
                 data[f"{key.upper()}{self.process_model.input_suffix}"] = np.array(
-                    controller_config["Input Variables"][key]
+                    controller_config["Input Variables"][key]["Data"]
                 )
-            for key in controller_config["State Variables"]:
+            for key in self.controller_config["State Variables"]:
                 data[f"{key.upper()}{self.process_model.data_suffix}"][0] = (
                     controller_config["State Variables"][key]["Initial"]
                 )
@@ -175,7 +176,7 @@ class Bioreactor:
             data["Bioreactor"] = str(self.vessel)
 
             # Initialize volume
-            data["VOLUME_L"] = self.init_vol
+            data[self.volume_label] = self.init_vol
 
             self.data = data.copy(deep=True)
         else:
@@ -202,7 +203,7 @@ class Bioreactor:
 
         # convert monotonic cumulative manipulated variables to non-monotonic daily variables
         self.monotonic_inputs = []
-        for key, value in controller_config["Manipulated Variables"].items():
+        for key, value in self.controller_config["Input Variables"].items():
             if value["Monotonic"]:
                 self.data[f"{key.upper()}{self.process_model.input_suffix}"] = (
                     np.append(
@@ -264,11 +265,26 @@ class Bioreactor:
                 result[f"Feed_Rate_{var}_mL_min"] = feed_rates_ml_min
 
         for label in self.process_model.state_pred_labels:
-            result[label] = self.data[label].values[self.curr_time:(self.curr_time+pred_horizon+1)]
+            result[label] = self.data[label].values[
+                self.curr_time : (self.curr_time + pred_horizon + 1)
+            ]
 
         for label in self.process_model.input_data_labels:
-            result[label] = self.data[label].values[self.curr_time:(self.curr_time+control_horizon+1)]
-
+            input_name = label.split("--")[0]
+            for key, value in self.controller_config["Input Variables"].items():
+                if key.upper() == input_name and value["Normalized"]:
+                    result[label] = np.multiply(
+                        self.data[label].values[
+                            self.curr_time : (self.curr_time + control_horizon + 1)
+                        ],
+                        self.data[self.volume_label].values[
+                            self.curr_time : (self.curr_time + control_horizon + 1)
+                        ]*1000, # Need to convert to mL for output to DCS, make sure this is consistent across scales!!!
+                    )
+                elif key.upper() == input_name:
+                    result[label] = self.data[label].values[
+                        self.curr_time : (self.curr_time + control_horizon + 1)
+                    ]
         return result
 
     def show_data(self):
@@ -316,7 +332,7 @@ class Bioreactor:
             renamed_vector = vector.rename(self.column_map)
 
             # specify volume units
-            for key, var in self.controller_config["Manipulated Variables"].items():
+            for key, var in self.controller_config["Input Variables"].items():
                 if var["Normalized"]:
                     renamed_vector[
                         f"{key.upper()}{self.process_model.input_suffix}"
@@ -324,13 +340,13 @@ class Bioreactor:
                         renamed_vector[
                             f"{key.upper()}{self.process_model.input_suffix}"
                         ]
-                        / renamed_vector["VOLUME_L"]
+                        / renamed_vector[self.volume_label]
                     )
 
             selected_col = (
                 self.process_model.state_data_labels
                 + self.process_model.input_data_labels
-                + ["VOLUME_L"]
+                + [self.volume_label]
             )
             if renamed_vector is not None:
                 # might need to change this if the day is the key
@@ -376,8 +392,8 @@ class Bioreactor:
                 )
 
             # Update volume
-            if not np.isnan(renamed_vector["VOLUME_L"]):
-                self.vol = renamed_vector["VOLUME_L"]
+            if not np.isnan(renamed_vector[self.volume_label]):
+                self.vol = renamed_vector[self.volume_label]
 
         # Apply exponential moving average filter to state data
         self.data.loc[
@@ -1070,7 +1086,7 @@ class Controller:
         (x3_cost).
         """
         # include these in yaml controller at some point
-        
+
         # ----------------------------------------
         # Control Actions Cost
         # ----------------------------------------
@@ -1087,14 +1103,12 @@ class Controller:
         # Trim u_diff to current time and beyond
         u2_diff = u_diff[self.ts >= self.curr_time, :]
         # Trim u2_diff up to control horizon
-        u3_diff = u2_diff[0:self.ctrl_horizon, :]
+        u3_diff = u2_diff[0 : self.ctrl_horizon, :]
         # Second-order difference (rate of rate change, normalized)
         u3_diff_diff = np.diff(u3_diff, prepend=np.zeros((1, u3_diff.shape[1])), axis=0)
 
         # First-order difference cost → penalizes aggressive moves
-        u3_cost_1 = np.sum(
-            np.sum(np.multiply(np.square(u3_diff), self.mv_wts), axis=0)
-        )
+        u3_cost_1 = np.sum(np.sum(np.multiply(np.square(u3_diff), self.mv_wts), axis=0))
         # Second-order difference cost → penalizes oscillatory moves
         u3_cost_2 = np.sum(
             np.sum(np.multiply(np.square(u3_diff_diff), self.mv_wts), axis=0)
@@ -1102,7 +1116,6 @@ class Controller:
 
         # Total cost of controller input moves
         u3_cost = u3_cost_1 + u3_cost_2
-
 
         # ----------------------------------------
         # Setpoint Trajectory Cost
@@ -1117,14 +1130,14 @@ class Controller:
         y3 = y2[0 : self.pred_horizon, :]
         # Trim setpoint y up to the prediction horizon
         pv_sps3 = pv_sps2[0 : self.pred_horizon, :]
-        
+
         # Normalize relative to setpoint trajectory (per time step)
-        y3_norm = (y3 - pv_sps3)/np.mean(pv_sps3)
+        y3_norm = (y3 - pv_sps3) / np.mean(pv_sps3)
         # penalize large jumps in predicted values?
         # y3_diff = np.diff(y3_norm, prepend=np.zeros((1, y3_norm.shape[1])), axis=0)
 
         # Split undershoot vs overshoot
-        overshoot = np.maximum(y3_norm, 0)   # when y > sp
+        overshoot = np.maximum(y3_norm, 0)  # when y > sp
         undershoot = np.minimum(y3_norm, 0)  # when y < sp
 
         # Apply discount to emphasize near-term corrections
@@ -1132,12 +1145,14 @@ class Controller:
 
         # Cost: penalize undershoot more than overshoot
         undershoot_cost = np.sum(
-            discount * np.multiply(np.square(undershoot), self.pv_wts * self.undershoot_factor),
-            axis=0
+            discount
+            * np.multiply(np.square(undershoot), self.pv_wts * self.undershoot_factor),
+            axis=0,
         )
         overshoot_cost = np.sum(
-            discount * np.multiply(np.square(overshoot), self.pv_wts * self.overshoot_factor),
-            axis=0
+            discount
+            * np.multiply(np.square(overshoot), self.pv_wts * self.overshoot_factor),
+            axis=0,
         )
         # # Cost: penalize large jumps in y predicted values
         # y_diff_cost = np.sum(
@@ -1149,7 +1164,6 @@ class Controller:
         # y3_cost = np.sum(undershoot_cost + overshoot_cost + y_diff_cost)
 
         y3_cost = np.sum(undershoot_cost + overshoot_cost)
-
 
         # return u3_cost + y3_cost + np.sum(e**2)
         return u3_cost + y3_cost + np.sum(e**2)

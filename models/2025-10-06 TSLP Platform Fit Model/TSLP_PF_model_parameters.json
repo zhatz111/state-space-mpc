@@ -1,0 +1,217 @@
+{
+    "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - Documents\\General\\data\\2025-10-06 TSLP Platform Fit Model",
+    "Asset": "TSLP_PF",
+    "Training Data Study": "AR25-064",
+    "Operator": "Zach Hatzenbeller",
+    "Github Link": "https://github.com/gsk-tech/state-space-model",
+    "IDBS Number": "EXXXXX",
+    "Modeling Data File Name": "AR25-064 Model Data",
+    "Modeling Data Folder Name": "2025-10-06 TSLP Platform Fit Model",
+    "A & B Matrices Folder Name": "Matrices",
+    "Testing Data Size": 0.1,
+    "Number Cross Val Splits": 2,
+    "Random Seed": 41,
+    "Window Length": 2,
+    "Target Plotting Label": "IGG",
+    "Instability Weight": 5,
+    "Training Iterations": 10,
+    "BasinHopping Temperature": 50,
+    "Process Time": 15,
+    "Scaler": "MinMaxScaler",
+    "Training Batches": [
+        "AR25-064-001",
+        "AR25-064-008",
+        "AR25-064-010",
+        "AR25-064-013",
+        "AR25-064-015"
+    ],
+    "Testing Batches": [
+        "AR25-064-005"
+    ],
+    "Batches to Discard": [],
+    "Include Data Columns": [
+        "Batch",
+        "Day"
+    ],
+    "Model States": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Glutamate",
+        "Ammonium"
+    ],
+    "Data Smoothing List": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Glutamate",
+        "Ammonium"
+    ],
+    "Model Inputs": [
+        "Normalized_Bolus_Feed",
+        "Temperature_setpoint",
+        "pH_setpoint"
+    ],
+    "Process Variable Weights": [
+        10.0,
+        10.0,
+        1.0,
+        1.0,
+        1.0
+    ],
+    "a_matrix": [
+        [
+            -0.16566987946796,
+            0.18924086814224542,
+            -0.0709574424126971,
+            -0.25053516933022135,
+            0.38954439056514256
+        ],
+        [
+            -0.39282821910417537,
+            0.18601807630288797,
+            -0.2374286778272754,
+            0.9871435362612578,
+            -0.4086055775742917
+        ],
+        [
+            -0.35453682030597167,
+            0.12382142993597768,
+            0.08937484767727569,
+            -0.8848490696555228,
+            0.6066917214310816
+        ],
+        [
+            -0.15018769220198905,
+            0.04941922807011247,
+            -0.04410492029848451,
+            -0.6926992952136726,
+            0.6812418619744542
+        ],
+        [
+            0.2060911563484634,
+            -0.13573774225062576,
+            0.09659526416265607,
+            0.05209809219221482,
+            -0.15779007470418271
+        ]
+    ],
+    "b_matrix": [
+        [
+            -0.04204400406366954,
+            0.04859660395401154,
+            0.050237649484242045
+        ],
+        [
+            -0.031078054620071495,
+            0.15348676216197074,
+            -0.08179713056978034
+        ],
+        [
+            -0.048684025146245986,
+            -0.030311787845595933,
+            0.13203724336061246
+        ],
+        [
+            0.09706955908491845,
+            0.11326937853990895,
+            0.11492888182743505
+        ],
+        [
+            0.16239068988266586,
+            -0.03488439682111933,
+            -0.031868191381296956
+        ]
+    ],
+    "af_col": [],
+    "af_row": [],
+    "bf_row": [],
+    "rho": 0,
+    "scaler": {
+        "feature_range": [
+            0,
+            1
+        ],
+        "copy": true,
+        "clip": false,
+        "feature_names_in_": [
+            "IGG",
+            "VCC",
+            "Viability",
+            "Glutamate",
+            "Ammonium",
+            "Normalized_Bolus_Feed",
+            "Temperature_setpoint",
+            "pH_setpoint"
+        ],
+        "n_features_in_": 8,
+        "n_samples_seen_": 75,
+        "scale_": [
+            0.00013675016193954176,
+            0.054089431465985854,
+            0.05449591280653948,
+            0.10775862068965517,
+            0.06963788300835655,
+            19.399999906879998,
+            0.6666666666666666,
+            2.5000000000000036
+        ],
+        "min_": [
+            -0.010049003600030061,
+            -0.03094456374169051,
+            -4.40326975476839,
+            -0.18103448275862066,
+            -0.04108635097493036,
+            0.0,
+            -23.333333333333332,
+            -17.250000000000025
+        ],
+        "data_min_": [
+            73.4844,
+            0.5721,
+            80.8,
+            1.68,
+            0.59,
+            0.0,
+            35.0,
+            6.9
+        ],
+        "data_max_": [
+            7386.09,
+            19.060000000000002,
+            99.15,
+            10.96,
+            14.95,
+            0.051546392,
+            36.5,
+            7.3
+        ],
+        "data_range_": [
+            7312.6056,
+            18.487900000000003,
+            18.35000000000001,
+            9.280000000000001,
+            14.36,
+            0.051546392,
+            1.5,
+            0.39999999999999947
+        ]
+    },
+    "Iterations": 95859,
+    "Model RMSE": 3.5620125832230434,
+    "States RMSE": {
+        "IGG": 199.40237422820596,
+        "VCC": 0.9909908361924316,
+        "Viability": 1.7196043872541433,
+        "Glutamate": 1.1979307360850597,
+        "Ammonium": 0.9769734703813157
+    },
+    "Matrix Stability Error": {
+        "Eigenvalue Error": 0.03456095700537492,
+        "Condition Error": 1.000641928150426,
+        "Controllability": 0.5724287117746142,
+        "Observability": 0.4975794072260939
+    },
+    "Last Model Training": "2025/10/07 12:21:34",
+    "Hidden State": false
+}

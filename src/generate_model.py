@@ -133,7 +133,7 @@ def main():
     new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
     new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
 
-    EVALUATION_TYPE = "train"
+    EVALUATION_TYPE = "train"  # "train" or "evaluate"
 
     if EVALUATION_TYPE.lower() == "train":
         model_train_obj.train_test_model(
