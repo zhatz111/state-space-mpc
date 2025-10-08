@@ -85,7 +85,6 @@ target/
 /data/Test Experiment/Test Figures/
 /data/Test Experiment/master-data-old/
 
-
 # exclude reports from source control by default
 /reports/
 
@@ -104,3 +103,6 @@ target/
 .mypy_cache/
 *.ipynb
 *.ipynb
+
+# MISC files
+*.dxp
