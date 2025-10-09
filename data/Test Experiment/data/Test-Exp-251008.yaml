@@ -1,116 +1,101 @@
-# SAM Lab 1000L Experiment Configuration File
-
-# Batch Information
+# Experiment Config File
 Asset: B7H4
-Campaign ID: GSK5730912
-Lot ID: SAMMPCWATERRUN
-Batch ID: SAMMPCWATERRUN
-Inoc Date: 2025-10-13
+Experiment Number: Test-Exp
+ELN Number: EXXXXX
+Inoc Date: "2025-5-15"
 Last Day: 14
-
-# Feeding type and Reactor Volumes
 Feed Type: B # C for Continuous feeding, B for Bolus feeding
-Tubing Factor: 7.2 # mL/Rotation
-Maximum Pump Speed: 190 # RPM (Rotations/minute)
-# Tubing Factor x Maximum Pump Speed (decreased flowrate slightly to account for errors in tubing factor calculation)
-Bolus Feed Flowrate: 1360 # in mL/min 
-Scale: 1000L
+Bolus Feed Flowrate: 
+Scale: ambr250
 Initial Volumes: # Initial volumes in L
   ambr250: 0.190
-  1000L: 740.0
-  2000L: 1740.0
+  1000L: 750.0
+  2000L: 1750.0
 
-# Dictionary for all measurement units
+# If bioreactor list is true, only specify the start and end reactors and a list is created
+# in between these for syntax simplicity, otherwise list out all reactors
+Arange Bioreactors: False
+Bioreactors:
+  # - AR25-050-004
+  # - AR25-050-005
+  # - AR25-050-006
+  - AR25-050-007
+  # - AR25-050-008
+  # - AR25-050-009
+
+Data Folder: Test Experiment
+Figures Folder: figures
+CSV Export Folder: data
+Master Data File: Test-MasterDataTable.xlsx
+
+Controller Dictionary:
+  Controller:
+  - AR25-050-004
+  - AR25-050-005
+  - AR25-050-006
+  - AR25-050-007
+  - AR25-050-008
+  - AR25-050-009
+
 Units Dictionary:
-  # Cedex Units
   IGG: mg/L
-  LDH: mg/L
-
-  # ViCell Units
-  TCC: MM cells/mL
   VCC: MM cells/mL
   VIABILITY: "%"
-  DIAMETER: um
-
-  # Nova Flex2 Units
   OSMOLALITY: mOsm/kg
-  AMMONIUM: mM
-  CALCIUM: mg/L
-  GLUCOSE: g/L
-  GLUTAMINE: mM
   GLUTAMATE: mM
-  LACTATE: g/L
-  PH: ""
-  PCO2: mmHg 
-  PO2: mmHg
-  POTASSIUM: mg/L 
-  SODIUM: mg/L
-  BICARBONATE:  
-  PCO2_AT_TEMP: mmHg 
-  PO2_AT_TEMP: mmHg
-  PH_AT_TEMP: ""
-
-  # DCS Units
-  PH_SETPOINT: ""
-  TEMPERATURE_SETPOINT: °C
-  DO_SETPOINT: "%"
-  DO: "%"
-  TEMPERATURE: °C
-  ONLINE_PH: ""
-  VOLUME_L: "L"
+  AMMONIUM: mM
   NORMALIZED_BOLUS_FEED: L/L
-
+  TEMPERATURE_SETPOINT: °C
+  PH_SETPOINT: ""
 
 # This maps the names of the columns in the data
-# file to the names of the states and inputs needed.
-# This column mapping is based on the names from the
-# SAM lab fileshare, DCS, and CLS
+# file to the names of the states and inputs needed
 Column Mapping: {
     # Metadata Mapping
     "Sample Time": "Date",
     "time": "Date",
-    "Day": "Day",
-    "vesselid": "Bioreactor",
-    "batch_id": "Bioreactor",
+    "Batch": "Bioreactor",
+    "batchid": "Bioreactor",
+    "SampleAmount": "Sample Volume",
 
     # Vicell Mapping
-    "total_cells": "TCC--STATE_DATA",
-    "total_viable_cells": "VCC--STATE_DATA",
-    "CellCultureViability": "VIABILITY--STATE_DATA",
-    "average_diameter": "DIAMETER--STATE_DATA",
+    "TCC": "TCC--STATE_DATA",
+    "VCC": "VCC--STATE_DATA",
+    "Viability": "VIABILITY--STATE_DATA",
+    "Diameter": "DIAMETER--STATE_DATA",
 
     # Flex2 Mapping
     "Osmolality": "OSMOLALITY--STATE_DATA",
-    "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
-    "calcium": "CALCIUM--STATE_DATA",
-    "GlucoseConcentration": "GLUCOSE--STATE_DATA",
+    "Ammonium": "AMMONIUM--STATE_DATA",
+    "Calcium": "CALCIUM--STATE_DATA",
+    "Glucose": "GLUCOSE--STATE_DATA",
     "Glutamine": "GLUTAMINE--STATE_DATA",
     "Glutamate": "GLUTAMATE--STATE_DATA",
-    "LactateConcentration": "LACTATE--STATE_DATA",
+    "Lactate": "LACTATE--STATE_DATA",
     "pH": "PH--STATE_DATA",
     "pCO2": "PCO2--STATE_DATA",
     "pO2": "PO2--STATE_DATA",
     "Potassium": "POTASSIUM--STATE_DATA",
     "Sodium": "SODIUM--STATE_DATA",
-    "bicarbonate": "BICARBONATE--STATE_DATA",
-    "pCO2atTemperature": "PCO2_AT_TEMP--STATE_DATA",
-    "pO2atTemperature": "PO2_AT_TEMP--STATE_DATA",
-    "pHatTemperature": "PH_AT_TEMP--INPUT_DATA",
+    "Bicarbonate": "BICARBONATE--STATE_DATA",
+    "pCO2 at Temp": "PCO2_AT_TEMP--STATE_DATA",
+    "pO2 at Temp": "PO2_AT_TEMP--STATE_DATA",
+    "pH at Temp": "PH_AT_TEMP--INPUT_DATA",
 
     # Cedex Mapping
-    "titre": "IGG--STATE_DATA",
+    "IGG": "IGG--STATE_DATA",
     "LDH": "LDH--STATE_DATA",
 
     # Online DCS Mapping
     "pH_setpoint": "PH_SETPOINT--INPUT_DATA",
-    "temperature_setpoint": "TEMPERATURE_SETPOINT--INPUT_DATA",
+    "Temp_setpoint": "TEMPERATURE_SETPOINT--INPUT_DATA",
     "DO_setpoint": "DO_SETPOINT--INPUT_DATA",
-    "dissolved_oxygen": "DO--INPUT_DATA",
+    "DO": "DO--INPUT_DATA",
     "Online pH": "ONLINE_PH--INPUT_DATA",
-    "temperature": "TEMPERATURE--INPUT_DATA",
+    "Vessel Temp (*C)": "TEMPERATURE--INPUT_DATA",
     # Ensure that both feed inputs are of same unit
-    "nutrient_total": "NORMALIZED_BOLUS_FEED--INPUT_DATA", # nutrient total is from totalizer so this needs to be converted to daily
-    "vessel_weight": "VOLUME_L",
+    "Daily Feed Amount (L)": "NORMALIZED_BOLUS_FEED--INPUT_DATA",
+    "Volume from Reactor (L)": "VOLUME_L",
 }
 
 # B7H4 model
@@ -385,6 +370,7 @@ Model Parameters: {
 }
 
 
+
 Controller: {
   "Time": [
       0,
@@ -405,6 +391,24 @@ Controller: {
   ],
   "Process Variables": {
     "IGG": {
+      # unsmoothed titer setpoint
+      # "Data": [
+      #   70.17535,
+      #   70.44185,
+      #   67.8482,
+      #   99.87905,
+      #   199.2194667,
+      #   333.6794333,
+      #   581.6932667,
+      #   753.3958453,
+      #   1268.352534,
+      #   1592.095871,
+      #   2151.979007,
+      #   2589.13785,
+      #   2951.65385,
+      #   3102.8716,
+      #   3544.1503
+      # ],
       "Data": [
         70.17535,
         70.38855,
@@ -429,31 +433,31 @@ Controller: {
     "IGG": {
       "Initial": 70.17535,
       "Weight": 0.0001,
-      "Offset Proportional Gain": 0.03229,
+      "Offset Proportional Gain": 1,
       "Offset Integral Gain": 0.6037 #0.75
       },
     "VCC": {
       "Initial": 0.60,
       "Weight": 5.0,
-      "Offset Proportional Gain": 0.0,
+      "Offset Proportional Gain": 1.0,
       "Offset Integral Gain": 0.5145 #0.5
       },
     "Viability": {
       "Initial": 98.6,
       "Weight": 0.02,
-      "Offset Proportional Gain": 0.0,
+      "Offset Proportional Gain": 1.0,
       "Offset Integral Gain": 0.0,
       },
     "Glutamate": {
       "Initial": 2.05,
       "Weight": 13.0,
-      "Offset Proportional Gain": 0.0,
+      "Offset Proportional Gain": 1.0,
       "Offset Integral Gain": 0.8336,
       },
     "Ammonium": {
       "Initial": 0.71,
       "Weight": 10.0,
-      "Offset Proportional Gain": 0.0,
+      "Offset Proportional Gain": 1.0,
       "Offset Integral Gain": 0.0,
       }
   },
@@ -469,23 +473,23 @@ Controller: {
   "Manipulated Variables": {
     "Normalized_Bolus_Feed": {
       "Data": [
-        0.,
-        0.,
-        0.,
-        0.,
-        0.05344585,
-        0.05344585,
-        0.10530175,
-        0.10530175,
-        0.155553,
-        0.155553,
-        0.20425097,
-        0.20425097,
-        0.25135763,
-        0.25135763,
-        0.25135763
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.053445851,
+        0.0,
+        0.051855895,
+        0.0,
+        0.050251256,
+        0.0,
+        0.04869797,
+        0.0,
+        0.047106659,
+        0.0,
+        0.0
         ],
-      "Weight": 1.0,
+      "Weight": 1.0, #330000.0,
       "Constraint": [
         0.0,
         0.065
@@ -509,7 +513,7 @@ Controller: {
         36.5,
         36.5
         ],
-      "Weight": 1.0,
+      "Weight": 1.0, #150.0,
       "Constraint": [
         35.5,
         37.5
@@ -533,7 +537,7 @@ Controller: {
         7.10,
         7.10
         ],
-      "Weight": 0.0,
+      "Weight": 0.0, #4600.0,
       "Constraint": [
         6.90,
         7.30
@@ -543,23 +547,23 @@ Controller: {
   "Input Variables": {
     "Normalized_Bolus_Feed": {
       "Data": [
-        0.,
-        0.,
-        0.,
-        0.,
-        0.05344585,
-        0.05344585,
-        0.10530175,
-        0.10530175,
-        0.155553,
-        0.155553,
-        0.20425097,
-        0.20425097,
-        0.25135763,
-        0.25135763,
-        0.25135763
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.053445851,
+        0.0,
+        0.051855895,
+        0.0,
+        0.050251256,
+        0.0,
+        0.04869797,
+        0.0,
+        0.047106659,
+        0.0,
+        0.0
       ],
-    "Monotonic": True,
+    "Monotonic": False,
     "Normalized": True,
     },
     "Temperature_setpoint": {
