@@ -23,7 +23,8 @@ import matplotlib.pyplot as plt
 from scipy.optimize import NonlinearConstraint
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, root_mean_squared_error
-from scipy.linalg import solve_continuous_lyapunov as scl, eigvalsh
+from scipy.linalg import solve_discrete_lyapunov as solve_lyap_dt
+from scipy.linalg import solve_continuous_lyapunov as solve_lyap_ct
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 warnings.filterwarnings("ignore")
@@ -108,10 +109,9 @@ class ModelTraining:
         self.true_model_error_dict = {}
         self.best_result = np.array([])
         self.stability_error_dict = {
-            "Eigenvalue Error": np.inf,
-            "Condition Error": np.inf,
-            "Controllability": np.inf,
-            "Observability": np.inf
+            "Eigenvalue Penalty": np.inf,
+            "Condition Penalty": np.inf,
+            "Gramian Penalty": np.inf,
         }
 
         # normal matrices for training and testing
@@ -286,12 +286,23 @@ class ModelTraining:
 
         print("")
         print("--------------------Final Results--------------------")
+
+        # Consistent widths for alignment
+        label_width = 35
+        value_width = 12
+
         for key, value in self.lowest_model_error_dict.items():
-            print(f"{key} Error: {value:.5f}")
+            print(f"{key + ' Error:':<{label_width}}{value:>{value_width}.5f}")
+
         print("--------------------")
-        print(f"Iterations: {self.iters}")
-        print(f"Weighted Model Error: {self.weighted_lowest_model_error:.5f}")
-        print(f"Standard Model Error: {self.lowest_model_error:.5f}")
+
+        for key, value in self.stability_error_dict.items():
+            print(f"{key + ' Penalty:':<{label_width}}{value:>{value_width}.5f}")
+
+        print("--------------------")
+        print(f"{'Iterations:':<{label_width}}{self.iters:>{value_width}d}")
+        print(f"{'Weighted Model Error:':<{label_width}}{self.weighted_lowest_model_error:>{value_width}.5f}")
+        print(f"{'Standard Model Error:':<{label_width}}{self.lowest_model_error:>{value_width}.5f}")
 
         # opt_matrix = res.x
         opt_matrix = self.best_result
@@ -415,9 +426,13 @@ class ModelTraining:
             negative_cost = sum(y_sim_all[:, count] < 0) * 0
             cost_list.append(feature_cost + feature_cost * negative_cost)
 
-        penalty, penalty_values = self.matrix_stability_cost(a_matrix=a_matrix, b_matrix=b_matrix)
+        penalty, penalty_values = self.matrix_stability_cost(
+            a_matrix=a_matrix, b_matrix=b_matrix
+        )
 
-        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + (penalty * self.instability_weight)
+        wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + (
+            penalty * self.instability_weight
+        )
         unwghtd_cost = sum(np.array(cost_list)) + penalty
 
         rmse_sim_scaled = np.hstack(
@@ -437,15 +452,25 @@ class ModelTraining:
         if self.iters % 50 == 0:
             print("")
             print(f"Iteration: {self.iters}")
-            for count, state in enumerate(self.states):
-                rmse = np.sqrt(
-                    np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0]
-                )
-                self.model_error_dict[state] = rmse
-                print(f"{state} Error: {rmse:.5f}")
             print("--------------------")
-            print(f"Total Weighted Error: {wghtd_cost:.5f}")
-            print(f"Total Standard Error: {unwghtd_cost:.5f}")
+
+            # Define a consistent width for right alignment
+            label_width = 35
+            value_width = 12
+
+            for count, state in enumerate(self.states):
+                rmse = np.sqrt(np.square(rmse_diff[:, count]).sum() / rmse_diff.shape[0])
+                self.model_error_dict[state] = rmse
+                print(f"{state + ' Error:':<{label_width}}{rmse:>{value_width}.5f}")
+
+            print("--------------------")
+            print(f"{'Total Matrix Stability Penalty:':<{label_width}}{penalty * self.instability_weight:>{value_width}.5f}")
+            print(f"{'Eigenvalue Penalty:':<{label_width}}{penalty_values[0]:>{value_width}.5f}")
+            print(f"{'Condition Penalty:':<{label_width}}{penalty_values[1]:>{value_width}.5f}")
+            print(f"{'Gramian Penalty:':<{label_width}}{penalty_values[2]:>{value_width}.5f}")
+            print("--------------------")
+            print(f"{'Total Weighted Error:':<{label_width}}{wghtd_cost:>{value_width}.5f}")
+            print(f"{'Total Standard Error:':<{label_width}}{unwghtd_cost:>{value_width}.5f}")
         self.iters += 1
 
         # update the best model parameters weights and errors
@@ -461,10 +486,9 @@ class ModelTraining:
             self.weighted_model_error = wghtd_cost
 
             # Update the stability error dictionary
-            self.stability_error_dict["Eigenvalue Error"] = penalty_values[0]
-            self.stability_error_dict["Condition Error"] = penalty_values[1]
-            self.stability_error_dict["Controllability"] = penalty_values[2]
-            self.stability_error_dict["Observability"] = penalty_values[3]
+            self.stability_error_dict["Eigenvalue Penalty"] = penalty_values[0]
+            self.stability_error_dict["Condition Penalty"] = penalty_values[1]
+            self.stability_error_dict["Gramian Penalty"] = penalty_values[2]
 
         if self.weighted_model_error < self.weighted_lowest_model_error:
             self.weighted_lowest_model_error = self.weighted_model_error
@@ -915,54 +939,98 @@ class ModelTraining:
         # violations: positive real parts above -eps
         return real_parts + eps  # must be <= 0 for all i
 
-    def matrix_stability_cost(self, a_matrix, b_matrix):
-        n = a_matrix.shape[0]
-        b = b_matrix.shape[1]
+    def softplus(self, x, beta=10.0):
+        # beta controls sharpness; higher beta => closer to hinge
+        return (1.0 / beta) * np.log1p(np.exp(beta * x))
 
+    def matrix_stability_cost(
+        self,
+        a_matrix,
+        b_matrix,
+        c_matrix=None,
+        discrete=False,
+        eig_margin=-1e-3,  # for continuous: want real(eig) <= eig_margin (<0)
+        disc_margin=0.99,  # for discrete: spectral radius <= disc_margin (<1)
+        gramian_min_eig=1e-3,
+        cond_penalty_weight=1.0,
+        eig_penalty_weight=1.0,
+        gramian_penalty_weight=1.0,
+    ):
+        cost = 0.0
 
-        # -----------------------------------
-        # Eigenvalue Penalty
-        # -----------------------------------
+        # -----------------------
+        # Eigenvalue / spectral penalty
+        # -----------------------
+        eigs = np.linalg.eigvals(a_matrix)
+        if discrete:
+            # discrete-time: penalize eigenvalues with |lambda| >= disc_margin
+            mags = np.abs(eigs)
+            # smooth violation of (mags - disc_margin) > 0
+            violations = self.softplus(mags - disc_margin, beta=20.0)
+            eig_penalty = np.sum(violations**2)
+        else:
+            # continuous-time: penalize real(eig) > eig_margin (eig_margin should be negative)
+            reals = np.real(eigs)
+            violations = self.softplus(
+                reals - eig_margin, beta=20.0
+            )  # positive if real > margin
+            eig_penalty = np.sum(violations**2)
 
-        # penalizes eigenvalues > 0
-        eigvals = np.linalg.eigvals(a_matrix)
-        real_parts = np.real(eigvals)
-        # Violation amount = how far into unstable region each eigenvalue is
-        violations_1 = np.clip(
-            real_parts + 1e-12, a_min=0.0, a_max=None
-        )  # add small buffer to ensure stability
-        eigen_penalty = np.sum(np.square(violations_1))
+        cost += eig_penalty_weight * eig_penalty
 
+        # -----------------------
+        # Condition number penalty
+        # -----------------------
+        # Use the controllability matrix or B directly depending on dimensions.
+        try:
+            # prefer cond of B @ B^T (symmetric) or cond(Wc) if available later
+            b_cond = np.linalg.cond(b_matrix)
+            cond_pen = np.log1p(b_cond)  # log to dampen extreme values
+        except Exception:
+            cond_pen = 0.0
+        cost += cond_penalty_weight * cond_pen
 
-        # -----------------------------------
-        # Condition Value Penalty
-        # -----------------------------------
+        # -----------------------
+        # Gramian penalties (continuous or discrete)
+        # -----------------------
+        eps = 1e-12
+        gramian_pen = 0.0
+        try:
+            if discrete:
+                # Solve discrete Lyapunov: A X A^T - X = -B B^T -> solve_discrete_lyapunov(A, B B^T)
+                Wc = solve_lyap_dt(a_matrix, b_matrix.dot(b_matrix.T))
+                if c_matrix is not None:
+                    Wo = solve_lyap_dt(a_matrix.T, c_matrix.T.dot(c_matrix))
+                else:
+                    Wo = None
+            else:
+                # continuous Lyapunov: A W + W A^T = -Q  => call solve_continuous_lyapunov(A, Q)
+                Wc = solve_lyap_ct(a_matrix, b_matrix.dot(b_matrix.T))
+                if c_matrix is not None:
+                    Wo = solve_lyap_ct(a_matrix.T, c_matrix.T.dot(c_matrix))
+                else:
+                    Wo = None
 
-        # tries to reduce condition to 0
-        # helps with ill-conditioned b_matrix for MPC
-        condition = np.linalg.cond(b_matrix)
+            # ensure symmetry
+            Wc = 0.5 * (Wc + Wc.T)
+            eigs_Wc = np.linalg.eigvalsh(Wc)
+            # penalize small eigenvalues of Wc (controllability)
+            small_viols = np.clip(gramian_min_eig - eigs_Wc, a_min=0.0, a_max=None)
+            gramian_pen += np.sum(small_viols**2)
 
+            if Wo is not None:
+                Wo = 0.5 * (Wo + Wo.T)
+                eigs_Wo = np.linalg.eigvalsh(Wo)
+                # avoid zeros/negative numerics
+                eigs_Wo_clamped = np.clip(eigs_Wo, a_min=1e-12, a_max=None)
+                # use log barrier to push up smallest eigenvalues smoothly
+                gramian_pen += -np.sum(np.log(eigs_Wo_clamped))
 
-        # -----------------------------------
-        # Controllability Gramian Penalty
-        # -----------------------------------
-        Wc = scl(a_matrix, -b_matrix.dot(b_matrix.T))
-        eigs = np.real(np.linalg.eigvals(Wc))
-        # penalize tiny eigenvalues: want eig >= margin
-        violations_2 = np.clip(1e-3 - eigs, a_min=0.0, a_max=None)
-        gramian_penalty_1 = np.sum(violations_2**2)
+        except Exception as e:
+            # numeric failure computing gramians -> penalize to encourage stable/valid A,B
+            gramian_pen += 1e3
 
-
-        # -----------------------------------
-        # Observability Gramian Penalty
-        # -----------------------------------
-        Wo = scl(a_matrix.T, -self.c_matrix.T.dot(self.c_matrix))
-        # symmetric eigenvalues
-        eigs = np.real(eigvalsh(Wo))
-        # clamp to avoid zeros/negatives
-        eigs_clamped = np.clip(eigs, a_min=1e-10, a_max=None)
-        gramian_penalty_2 = np.sum(eigs_clamped)
-        # gramian_penalty_2 = -np.sum(np.log(eigs_clamped)) / n
+        cost += gramian_penalty_weight * gramian_pen
 
         # Total penalty for state space matrices instability
-        return (eigen_penalty + condition), (eigen_penalty, condition, gramian_penalty_1, gramian_penalty_2)
+        return cost, (eig_penalty, cond_pen, gramian_pen)

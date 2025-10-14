@@ -182,10 +182,6 @@ class Bioreactor:
         else:
             self.data = data.copy(deep=True)
 
-        # Feed names
-        # self.total_feed_name = self.experiment_config["Total Feed Name"]
-        # self.daily_feed_name = self.experiment_config["Daily Feed Name"]
-
         # Data frame for open_loop simulation results
         self.open_loop_df = pd.DataFrame()
 
@@ -325,6 +321,10 @@ class Bioreactor:
                 """Need to instantiate column mapping to correctly ingest input
                 vectors to dataframe."""
             )
+        
+        # set the current time based on number of vectors in dictionary
+        self.curr_time = len(vector_dict) - 1
+
         for _, data in vector_dict.items():
             vector = pd.Series(data)
 
