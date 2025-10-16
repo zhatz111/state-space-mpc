@@ -275,7 +275,8 @@ class Bioreactor:
                         ],
                         self.data[self.volume_label].values[
                             self.curr_time : (self.curr_time + control_horizon + 1)
-                        ]*1000, # Need to convert to mL for output to DCS, make sure this is consistent across scales!!!
+                        ]
+                        * 1000,  # Need to convert to mL for output to DCS, make sure this is consistent across scales!!!
                     )
                 elif key.upper() == input_name:
                     result[label] = self.data[label].values[
@@ -292,11 +293,12 @@ class Bioreactor:
         if self.monotonic_inputs:
             data = self.data.copy(deep=True)
             for name in self.monotonic_inputs:
-                data = data.rename(
-                    columns={
-                        f"{name.upper()}{self.process_model.input_suffix}": f"DAILY_{name.upper()}{self.process_model.input_suffix}"
-                    }
-                )
+                pass
+                # data = data.rename(
+                #     columns={
+                #         f"{name.upper()}{self.process_model.input_suffix}": f"DAILY_{name.upper()}{self.process_model.input_suffix}"
+                #     }
+                # )
         else:
             data = self.data
 
@@ -321,7 +323,7 @@ class Bioreactor:
                 """Need to instantiate column mapping to correctly ingest input
                 vectors to dataframe."""
             )
-        
+
         # set the current time based on number of vectors in dictionary
         self.curr_time = len(vector_dict) - 1
 
@@ -332,16 +334,17 @@ class Bioreactor:
             renamed_vector = vector.rename(self.column_map)
 
             # specify volume units
-            for key, var in self.controller_config["Input Variables"].items():
-                if var["Normalized"]:
-                    renamed_vector[
-                        f"{key.upper()}{self.process_model.input_suffix}"
-                    ] = (
-                        renamed_vector[
-                            f"{key.upper()}{self.process_model.input_suffix}"
-                        ]
-                        / renamed_vector[self.volume_label]
-                    )
+            # for key, var in self.controller_config["Input Variables"].items():
+            #     if var["Normalized"]:
+            #         renamed_vector[
+            #             f"{key.upper()}{self.process_model.input_suffix}"
+            #         ] = (
+            #             renamed_vector[
+            #                 f"{key.upper()}{self.process_model.input_suffix}"
+            #             ]
+            #             / renamed_vector[self.volume_label]
+            #             / 1000
+            #         )
 
             selected_col = (
                 self.process_model.state_data_labels
@@ -364,36 +367,58 @@ class Bioreactor:
                 renamed_vector[selected_col].dropna()
             )
 
-            # Convert bioreactor data from daily to cumulative
-            for name in self.monotonic_inputs:
-                # Convert input data from daily to cumulative
-                daily_input_data = self.data[
-                    f"{name.upper()}{self.process_model.input_suffix}"
-                ]
-                total_input_data = np.append(0, np.cumsum(daily_input_data[0:-1]))
+            if self.experiment_config["Feed Type"] == "C":
+                # Convert bioreactor data from daily to cumulative
+                for name in self.monotonic_inputs:
+                    # Convert input data from daily to cumulative
+                    daily_input_data = self.data[
+                        f"{name.upper()}{self.process_model.input_suffix}"
+                    ]
+                    total_input_data = np.append(0, np.cumsum(daily_input_data[0:-1]))
 
-                # Adjust future daily values based on the offset between predicted and measured
-                curr_total = renamed_vector[
-                    f"{name.upper()}{self.process_model.input_suffix}"
-                ]
-                if not np.isnan(curr_total):
-                    curr_time_offset = curr_total - total_input_data[insert_index]
-                    total_input_data[insert_index:] = (
-                        total_input_data[insert_index:] + curr_time_offset
+                    # Adjust future daily values based on the offset between predicted and measured
+                    curr_total = renamed_vector[
+                        f"{name.upper()}{self.process_model.input_suffix}"
+                    ]
+                    if not np.isnan(curr_total):
+                        curr_time_offset = curr_total - total_input_data[insert_index]
+                        total_input_data[insert_index:] = (
+                            total_input_data[insert_index:] + curr_time_offset
+                        )
+                        daily_input_data = np.append(np.diff(total_input_data), 0)
+
+                        # Check for negative daily feeds
+                        if np.any(daily_input_data < 0):
+                            raise ValueError("Negative daily feeds!")
+
+                    self.data[f"{name.upper()}{self.process_model.input_suffix}"] = (
+                        daily_input_data
                     )
-                    daily_input_data = np.append(np.diff(total_input_data), 0)
-
-                    # Check for negative daily feeds
-                    if np.any(daily_input_data < 0):
-                        raise ValueError("Negative daily feeds!")
-
-                self.data[f"{name.upper()}{self.process_model.input_suffix}"] = (
-                    daily_input_data
-                )
 
             # Update volume
             if not np.isnan(renamed_vector[self.volume_label]):
                 self.vol = renamed_vector[self.volume_label]
+
+        # convert cumulative to daily feed for the optimizer
+        if self.curr_time > 0:
+            for name in self.monotonic_inputs:
+                # Convert input data back to daily
+                total_input_data = self.data[
+                    f"{name.upper()}{self.process_model.input_suffix}"
+                ]
+                daily_input_data = np.append(np.diff(total_input_data), 0)
+                self.data[f"{name.upper()}{self.process_model.input_suffix}"] = (
+                    daily_input_data
+                )
+
+        # normalize variables outside of the loop to avoid negative values
+        for key, var in self.controller_config["Input Variables"].items():
+            if var["Normalized"]:
+                self.data[f"{key.upper()}{self.process_model.input_suffix}"] = (
+                    self.data[f"{key.upper()}{self.process_model.input_suffix}"]
+                    / self.data[self.volume_label]
+                    / 1000
+                )
 
         # Apply exponential moving average filter to state data
         self.data.loc[
@@ -430,34 +455,35 @@ class Bioreactor:
             ]
             data = data[new_cols].copy(deep=True)
 
-        if self.monotonic_inputs:
-            if show_daily_inputs:
-                for name in self.monotonic_inputs:
-                    data = data.rename(
-                        columns={
-                            f"{name.upper()}{self.process_model.input_suffix}": f"DAILY_{name.upper()}{self.process_model.input_suffix}",
-                            f"{name.upper()}{self.process_model.input_ref_suffix}": f"DAILY_{name.upper()}{self.process_model.input_ref_suffix}",
-                        }
-                    )
-            else:
-                for name in self.monotonic_inputs:
-                    # Convert input data back to cumulative
-                    daily_input_data = data[
-                        f"{name.upper()}{self.process_model.input_suffix}"
-                    ]
-                    total_input_data = np.append(0, np.cumsum(daily_input_data[0:-1]))
-                    data[f"{name.upper()}{self.process_model.input_suffix}"] = (
-                        total_input_data
-                    )
+        # if self.monotonic_inputs:
+        #     if show_daily_inputs:
+        #         for name in self.monotonic_inputs:
+        #             pass
+        # data = data.rename(
+        #     columns={
+        #         f"{name.upper()}{self.process_model.input_suffix}": f"DAILY_{name.upper()}{self.process_model.input_suffix}",
+        #         f"{name.upper()}{self.process_model.input_ref_suffix}": f"DAILY_{name.upper()}{self.process_model.input_ref_suffix}",
+        #     }
+        # )
+        # else:
+        #     for name in self.monotonic_inputs:
+        #         # Convert input data back to cumulative
+        #         daily_input_data = data[
+        #             f"{name.upper()}{self.process_model.input_suffix}"
+        #         ]
+        #         total_input_data = np.append(0, np.cumsum(daily_input_data[0:-1]))
+        #         data[f"{name.upper()}{self.process_model.input_suffix}"] = (
+        #             total_input_data
+        #         )
 
-                    # Convert reference data back to cumulative
-                    daily_input_ref = data[
-                        f"{name.upper()}{self.process_model.input_ref_suffix}"
-                    ]
-                    total_input_ref = np.append(0, np.cumsum(daily_input_ref[0:-1]))
-                    data[f"{name.upper()}{self.process_model.input_ref_suffix}"] = (
-                        total_input_ref
-                    )
+        #         # Convert reference data back to cumulative
+        #         daily_input_ref = data[
+        #             f"{name.upper()}{self.process_model.input_ref_suffix}"
+        #         ]
+        #         total_input_ref = np.append(0, np.cumsum(daily_input_ref[0:-1]))
+        #         data[f"{name.upper()}{self.process_model.input_ref_suffix}"] = (
+        #             total_input_ref
+        #         )
 
         return data
 
@@ -856,7 +882,8 @@ class Controller:
         ].values
 
         # Update reference input with current input data and previously optimized data
-        self.bioreactor.data[self.mv_ref_names] = self.bioreactor.data[self.mv_names]
+        if self.curr_time > 0:
+            self.bioreactor.data[self.mv_ref_names] = self.data_after_optim_dict[self.curr_time-1][self.mv_names]
 
         # Flatten initial mv
         mv_array = control_matrix.flatten()
@@ -870,7 +897,7 @@ class Controller:
 
         # Simulate before optimization
         _, y_out_before_optim, _ = self.obj_func_wrapper(mv_array)
-        data_before_optim = self.data_before_optim
+        data_before_optim = self.data_before_optim.copy()
         data_before_optim.loc[
             data_before_optim["Day"] >= self.curr_time,
             self.controller_model.state_pred_labels,

@@ -259,7 +259,7 @@ def dict_to_json(json_file_path: Union[str, Path], data: dict):
     file.close()
 
 
-def read_config(path_directory: Union[str, Path], export=False):
+def read_config(path_directory: Union[str, Path], export_folder: str = "data", export=False):
     """
     The `read_config` function reads a YAML file containing experiment configuration data and
     returns the parsed configuration.
@@ -277,7 +277,7 @@ def read_config(path_directory: Union[str, Path], export=False):
     if export:
         src_path = Path(yaml_files[0])
         dest_file = f"{src_path.stem}-{todays_date}{src_path.suffix}"
-        csv_path_top_dir = Path(path_directory, yaml_config["CSV Export Folder"])
+        csv_path_top_dir = Path(path_directory, export_folder)
         csv_path_top_dir.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(src_path, Path(csv_path_top_dir, dest_file))
 
