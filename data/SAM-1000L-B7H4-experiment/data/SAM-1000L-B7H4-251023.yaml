@@ -2,10 +2,10 @@
 
 # Batch Information
 Asset: B7H4
-Vessel ID: [FER027] # In list format in case of multiple batches
+Vessel ID: [FER437] # In list format in case of multiple batches
 Campaign ID: GSK5730912
-Lot ID: SAMMPCWATERRUN
-Batch ID: SAMMPCWATERRUN
+Lot ID: SAMMPCTESTRUN
+Batch ID: SAMMPCTESTRUN
 Inoc Date: 2025-10-13
 Last Day: 14
 
@@ -22,7 +22,7 @@ Initial Volumes: # Initial volumes in L
   2000L: 1740.0
 
 # Data file information specific to R&D testing
-Master Data File: SAMMPCWATERRUN-MasterDataFile.json
+Master Data File: SAM-1000L-B7H4-MasterDataFile.json
 
 # Dictionary for all measurement units
 Units Dictionary:
@@ -133,9 +133,8 @@ Model Parameters: {
     "Random Seed": 1,
     "Window Length": 2,
     "Target Plotting Label": "IGG",
-    "Instability Weight": 1,
-    "Training Iterations": 5,
-    "BasinHopping Temperature": 100,
+    "Training Iterations": 10,
+    "BasinHopping Temperature": 50,
     "Process Time": 15,
     "Scaler": "MinMaxScaler",
     "Training Batches": [
@@ -216,7 +215,7 @@ Model Parameters: {
         "pH_setpoint"
     ],
     "Process Variable Weights": [
-        10.0,
+        50.0,
         1.0,
         1.0,
         1.0,
@@ -224,66 +223,66 @@ Model Parameters: {
     ],
     "a_matrix": [
         [
-            0.04406997009478105,
-            0.3245645552391274,
-            0.03843869144273591,
-            -0.4958601827020259,
-            0.10923996271711643
+            -0.3661207297445918,
+            -0.05042064735830906,
+            -0.09939279367050474,
+            -0.03490829888738944,
+            0.7129797968189284
         ],
         [
-            -0.09473941230919872,
-            -0.022269566121728274,
-            0.07748491416085063,
-            0.148840206209159,
-            -0.10984763143535294
+            -0.5239887896882612,
+            -0.8408148418985298,
+            -0.2839247819558018,
+            0.7863591489787659,
+            0.7782879562822892
         ],
         [
-            -0.3376632743558152,
-            -0.09203611949544555,
-            -0.06633935284523881,
-            0.09061698336092715,
-            0.35201998983594196
+            -0.1729111087422849,
+            -0.43118637223766865,
+            -0.13232376093089537,
+            0.474754294918824,
+            0.12905930584351988
         ],
         [
-            0.3280161227967492,
-            -0.07245869349970255,
-            0.1660704475188163,
-            -0.9381000203529312,
-            0.39112399468098236
+            -0.14097364469486795,
+            -0.5264547840275821,
+            0.016535543529054012,
+            -0.48536342325714454,
+            1.0
         ],
         [
-            0.8532816321759925,
-            0.03355437515451822,
-            0.3247882755763159,
-            -0.35413837293400524,
-            -0.9474283507897272
+            0.19160489578342374,
+            0.28902079364857586,
+            0.14263828238414633,
+            -0.1270910957575863,
+            -0.3908354626518715
         ]
     ],
     "b_matrix": [
         [
-            -0.008667463600582844,
-            0.05960940606007965,
-            0.06320324750221364
+            0.0007513694368404085,
+            0.12065455093036734,
+            0.07052244714756144
         ],
         [
-            0.06184038926662378,
-            -0.013899941055398905,
-            -0.06539595749424994
+            0.24900043838526284,
+            0.4240720253876945,
+            0.1489597742109416
         ],
         [
-            -0.038749814235178454,
-            -0.029282976996688345,
-            0.11488774108000116
+            0.07552134228410867,
+            0.1439097111504612,
+            0.05640528122108516
         ],
         [
-            0.2495681589769644,
-            0.129395390734886,
-            0.13247516705260526
+            0.21297625577464546,
+            0.31902893853829284,
+            0.17029045332007522
         ],
         [
-            0.1823151437236326,
-            0.05518962415381874,
-            -0.3478709209484045
+            -0.026884861435593686,
+            -0.17628768223251623,
+            -0.08451580902087807
         ]
     ],
     "af_col": [
@@ -376,24 +375,17 @@ Model Parameters: {
             0.5500000000000007
         ]
     },
-    "Iterations": 1335731,
-    "Model RMSE": 16.311273536105368,
+    "Iterations": 1049204,
+    "Model RMSE": 22.143684192950772,
     "States RMSE": {
-        "IGG": 218.02367413550823,
-        "VCC": 2.0486627662552173,
-        "Viability": 1.4363193812731079,
-        "Glutamate": 0.6317692256374365,
-        "Ammonium": 1.3587999088167821
+        "IGG": 212.80481558823823,
+        "VCC": 2.388548007624618,
+        "Viability": 1.66552051577895,
+        "Glutamate": 0.8083917169125637,
+        "Ammonium": 1.5996380362812554
     },
-    "Last Model Training": "2025/10/18 11:43:02",
-    "Hidden State": false,
-    "Matrix Stability Penalties": {
-        "Eigenvalue Penalty": 0.08721764836591596,
-        "B-matrix Scale Penalty": 0.21698558791181355,
-        "Condition Penalty": 2.032602155153614,
-        "Gramian Penalty": 0.17215206065996458,
-        "Gramian Condition Penalty": 2.235780770415031
-    }
+    "Last Model Training": "2025/10/02 15:04:13",
+    "Hidden State": false
 }
 
 
@@ -441,32 +433,32 @@ Controller: {
     "IGG": {
       "Initial": 70.17535,
       "Weight": 0.0001,
-      "Offset Proportional Gain": 0.03229,
-      "Offset Integral Gain": 0.6037 #0.75
+      "Offset Proportional Gain": 0.5540,
+      "Offset Integral Gain": 0.3569 #0.75
       },
     "VCC": {
       "Initial": 0.60,
       "Weight": 5.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.5145 #0.5
+      "Offset Integral Gain": 0.5 #0.5
       },
     "Viability": {
       "Initial": 98.6,
       "Weight": 0.02,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.0,
+      "Offset Integral Gain": 0.5,
       },
     "Glutamate": {
       "Initial": 2.05,
       "Weight": 13.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.8336,
+      "Offset Integral Gain": 0.5,
       },
     "Ammonium": {
       "Initial": 0.71,
       "Weight": 10.0,
       "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.0,
+      "Offset Integral Gain": 0.5,
       }
   },
   "End of Run Variables":{
@@ -497,10 +489,10 @@ Controller: {
         0.25135763,
         0.25135763
         ],
-      "Weight": 1.0,
+      "Weight": 0.0,
       "Constraint": [
         0.0,
-        0.03
+        0.06
         ],
     },
     "Temperature_setpoint": {
@@ -617,10 +609,10 @@ Controller: {
     "Normalized": False,
     }
   },
-  "Prediction Horizon": 20,
-  "Control Horizon": 20,
+  "Prediction Horizon": 4,
+  "Control Horizon": 4,
   "Estimation Horizon": 2,
-  "Estimation Filter Weight on Data": 1.0, # 0.583,
+  "Estimation Filter Weight on Data": 0.7952, # 0.583,
   "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
   "Offset Integral Gain": -1.0, # Override individual gains if >= 0
   "Overshoot Weight": 1.0,

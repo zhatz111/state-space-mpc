@@ -172,7 +172,7 @@ def main():
         model_config["Model RMSE"] = model_train_obj.lowest_model_error
         model_config["States RMSE"] = model_train_obj.lowest_model_error_dict
         model_config["Last Model Training"] = time
-        model_config["Matrix Stability Error"] = model_train_obj.stability_error_dict
+        model_config["Matrix Stability Penalties"] = model_train_obj.stability_error_dict
 
     # Export updated data back to JSON file
     dict_to_json(json_files[0], model_config)

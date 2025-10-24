@@ -108,11 +108,7 @@ class ModelTraining:
         self.lowest_model_error_dict = {}
         self.true_model_error_dict = {}
         self.best_result = np.array([])
-        self.stability_error_dict = {
-            "Eigenvalue Penalty": np.inf,
-            "Condition Penalty": np.inf,
-            "Gramian Penalty": np.inf,
-        }
+        self.stability_error_dict = {}
 
         # normal matrices for training and testing
         self.a_matrix = a_matrix
@@ -246,9 +242,9 @@ class ModelTraining:
             bounds_ = [(-1, 1)] * len(combined_mat)
 
         # build nonlinear constraint object
-        stab_con = NonlinearConstraint(
-            lambda p: self.stability_constraint(p, self.a_matrix.shape[0]), -np.inf, 0.0
-        )  # upper bound (enforces <= 0)
+        # stab_con = NonlinearConstraint(
+        #     lambda p: self.stability_constraint(p, self.a_matrix.shape[0]), -np.inf, 0.0
+        # )  # upper bound (enforces <= 0)
 
         if self.algorithm == "minimize":
             optimize.minimize(
@@ -297,7 +293,7 @@ class ModelTraining:
         print("--------------------")
 
         for key, value in self.stability_error_dict.items():
-            print(f"{key + ' Penalty:':<{label_width}}{value:>{value_width}.5f}")
+            print(f"{key + ':':<{label_width}}{value:>{value_width}.5f}")
 
         print("--------------------")
         print(f"{'Iterations:':<{label_width}}{self.iters:>{value_width}d}")
@@ -433,7 +429,7 @@ class ModelTraining:
         wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + (
             penalty * self.instability_weight
         )
-        unwghtd_cost = sum(np.array(cost_list)) + penalty
+        unwghtd_cost = sum(np.array(cost_list))
 
         rmse_sim_scaled = np.hstack(
             (np.array(y_sim_all), np.zeros((y_sim_all.shape[0], self.input_len)))
@@ -465,9 +461,11 @@ class ModelTraining:
 
             print("--------------------")
             print(f"{'Total Matrix Stability Penalty:':<{label_width}}{penalty * self.instability_weight:>{value_width}.5f}")
-            print(f"{'Eigenvalue Penalty:':<{label_width}}{penalty_values[0]:>{value_width}.5f}")
-            print(f"{'Condition Penalty:':<{label_width}}{penalty_values[1]:>{value_width}.5f}")
-            print(f"{'Gramian Penalty:':<{label_width}}{penalty_values[2]:>{value_width}.5f}")
+            print(f"{'Eigenvalue Penalty:':<{label_width}}{penalty_values["eig_penalty"]:>{value_width}.5f}")
+            print(f"{'Condition Penalty:':<{label_width}}{penalty_values["cond_pen"]:>{value_width}.5f}")
+            print(f"{'B-matrix Condition Penalty:':<{label_width}}{penalty_values["b_scale_pen"]:>{value_width}.5f}")
+            print(f"{'Gramian Penalty:':<{label_width}}{penalty_values["gramian_pen"]:>{value_width}.5f}")
+            print(f"{'Gramian Condiiton Penalty:':<{label_width}}{penalty_values["gramian_cond_pen"]:>{value_width}.5f}")
             print("--------------------")
             print(f"{'Total Weighted Error:':<{label_width}}{wghtd_cost:>{value_width}.5f}")
             print(f"{'Total Standard Error:':<{label_width}}{unwghtd_cost:>{value_width}.5f}")
@@ -486,9 +484,11 @@ class ModelTraining:
             self.weighted_model_error = wghtd_cost
 
             # Update the stability error dictionary
-            self.stability_error_dict["Eigenvalue Penalty"] = penalty_values[0]
-            self.stability_error_dict["Condition Penalty"] = penalty_values[1]
-            self.stability_error_dict["Gramian Penalty"] = penalty_values[2]
+            self.stability_error_dict["Eigenvalue Penalty"] = penalty_values["eig_penalty"]
+            self.stability_error_dict["B-matrix Scale Penalty"] = penalty_values["b_scale_pen"]
+            self.stability_error_dict["Condition Penalty"] = penalty_values["cond_pen"]
+            self.stability_error_dict["Gramian Penalty"] = penalty_values["gramian_pen"]
+            self.stability_error_dict["Gramian Condition Penalty"] = penalty_values["gramian_cond_pen"]
 
         if self.weighted_model_error < self.weighted_lowest_model_error:
             self.weighted_lowest_model_error = self.weighted_model_error
@@ -940,7 +940,7 @@ class ModelTraining:
         return real_parts + eps  # must be <= 0 for all i
 
     def softplus(self, x, beta=10.0):
-        # beta controls sharpness; higher beta => closer to hinge
+        # smooth hinge
         return (1.0 / beta) * np.log1p(np.exp(beta * x))
 
     def matrix_stability_cost(
@@ -949,88 +949,124 @@ class ModelTraining:
         b_matrix,
         c_matrix=None,
         discrete=False,
-        eig_margin=-1e-3,  # for continuous: want real(eig) <= eig_margin (<0)
-        disc_margin=0.99,  # for discrete: spectral radius <= disc_margin (<1)
+        eig_margin=-1e-3,   # continuous: real(eig) <= eig_margin
+        disc_margin=0.99,   # discrete: |eig| <= disc_margin
         gramian_min_eig=1e-3,
         cond_penalty_weight=1.0,
-        eig_penalty_weight=1.0,
+        eig_penalty_weight=10.0,
         gramian_penalty_weight=1.0,
+        b_scale_penalty_weight=10.0,
+        gramian_cond_weight=1.0,
+        b_target_norm=1.0,  # desired Frobenius norm for B
     ):
         cost = 0.0
 
-        # -----------------------
-        # Eigenvalue / spectral penalty
-        # -----------------------
+        # ================================================================
+        # 1. Spectral-radius / Eigenvalue stability penalty
+        # ================================================================
         eigs = np.linalg.eigvals(a_matrix)
         if discrete:
-            # discrete-time: penalize eigenvalues with |lambda| >= disc_margin
             mags = np.abs(eigs)
-            # smooth violation of (mags - disc_margin) > 0
+            # use softplus around |λ|-disc_margin for smooth gradient
             violations = self.softplus(mags - disc_margin, beta=20.0)
-            eig_penalty = np.sum(violations**2)
+            # smooth log-sum-exp spectral radius proxy
+            eig_penalty = np.log1p(np.sum(np.exp(20.0 * (mags - disc_margin))))
         else:
-            # continuous-time: penalize real(eig) > eig_margin (eig_margin should be negative)
             reals = np.real(eigs)
-            violations = self.softplus(
-                reals - eig_margin, beta=20.0
-            )  # positive if real > margin
-            eig_penalty = np.sum(violations**2)
+            violations = self.softplus(reals - eig_margin, beta=20.0)
+            eig_penalty = np.log1p(np.sum(np.exp(20.0 * (reals - eig_margin))))
 
         cost += eig_penalty_weight * eig_penalty
 
-        # -----------------------
-        # Condition number penalty
-        # -----------------------
-        # Use the controllability matrix or B directly depending on dimensions.
-        try:
-            # prefer cond of B @ B^T (symmetric) or cond(Wc) if available later
-            b_cond = np.linalg.cond(b_matrix)
-            cond_pen = np.log1p(b_cond)  # log to dampen extreme values
-        except Exception:
-            cond_pen = 0.0
-        cost += cond_penalty_weight * cond_pen
+        # ================================================================
+        # 2. B matrix authority / scaling penalty
+        # ================================================================
+        b_norm = np.linalg.norm(b_matrix, ord="fro")
+        b_scale_pen = ((b_norm / b_target_norm) - 1.0) ** 2
+        cost += b_scale_penalty_weight * b_scale_pen
 
-        # -----------------------
-        # Gramian penalties (continuous or discrete)
-        # -----------------------
-        eps = 1e-12
+        # ================================================================
+        # 3. Gramian controllability and observability penalties
+        # ================================================================
         gramian_pen = 0.0
+        gramian_cond_pen = 0.0
         try:
             if discrete:
-                # Solve discrete Lyapunov: A X A^T - X = -B B^T -> solve_discrete_lyapunov(A, B B^T)
                 Wc = solve_lyap_dt(a_matrix, b_matrix.dot(b_matrix.T))
                 if c_matrix is not None:
                     Wo = solve_lyap_dt(a_matrix.T, c_matrix.T.dot(c_matrix))
                 else:
                     Wo = None
             else:
-                # continuous Lyapunov: A W + W A^T = -Q  => call solve_continuous_lyapunov(A, Q)
                 Wc = solve_lyap_ct(a_matrix, b_matrix.dot(b_matrix.T))
                 if c_matrix is not None:
                     Wo = solve_lyap_ct(a_matrix.T, c_matrix.T.dot(c_matrix))
                 else:
                     Wo = None
 
-            # ensure symmetry
+            # symmetrize
             Wc = 0.5 * (Wc + Wc.T)
             eigs_Wc = np.linalg.eigvalsh(Wc)
-            # penalize small eigenvalues of Wc (controllability)
-            small_viols = np.clip(gramian_min_eig - eigs_Wc, a_min=0.0, a_max=None)
-            gramian_pen += np.sum(small_viols**2)
 
+            # --- controllability strength (maximize smallest eigenvalue)
+            small_viols = np.clip(gramian_min_eig - eigs_Wc, a_min=0.0, a_max=None)
+            gramian_pen += np.sum(small_viols ** 2)
+
+            # --- Gramian condition number penalty
+            cond_Wc = np.linalg.cond(Wc + 1e-10 * np.eye(Wc.shape[0]))
+            gramian_cond_pen += np.log1p(cond_Wc)
+
+            # --- Observability Gramian barrier (if C provided)
             if Wo is not None:
                 Wo = 0.5 * (Wo + Wo.T)
-                eigs_Wo = np.linalg.eigvalsh(Wo)
-                # avoid zeros/negative numerics
-                eigs_Wo_clamped = np.clip(eigs_Wo, a_min=1e-12, a_max=None)
-                # use log barrier to push up smallest eigenvalues smoothly
-                gramian_pen += -np.sum(np.log(eigs_Wo_clamped))
+                eigs_Wo = np.clip(np.linalg.eigvalsh(Wo), a_min=1e-12, a_max=None)
+                gramian_pen += -np.sum(np.log(eigs_Wo))
 
         except Exception as e:
-            # numeric failure computing gramians -> penalize to encourage stable/valid A,B
+            # numeric failure in Gramian → heavy penalty
             gramian_pen += 1e3
+            gramian_cond_pen += 1e3
 
         cost += gramian_penalty_weight * gramian_pen
+        cost += gramian_cond_weight * gramian_cond_pen
 
-        # Total penalty for state space matrices instability
-        return cost, (eig_penalty, cond_pen, gramian_pen)
+        # ================================================================
+        # 4. B condition number penalty (backup when Gramian fails)
+        # ================================================================
+        try:
+            b_cond = np.linalg.cond(b_matrix)
+            cond_pen = np.log1p(b_cond)
+        except Exception:
+            cond_pen = 0.0
+        cost += cond_penalty_weight * cond_pen
+
+        # ================================================================
+        # 5. (Optional) Closed-loop LQR stability penalty
+        # ================================================================
+        # If you want to ensure MPC-compatibility, you can compute
+        # a nominal LQR gain and penalize spectral radius of (A+BK)
+        # Uncomment to use:
+        """
+        try:
+            Q = np.eye(a_matrix.shape[0])
+            R = np.eye(b_matrix.shape[1])
+            # Solve discrete algebraic Riccati
+            P = solve_discrete_lyapunov(a_matrix.T, Q + b_matrix.dot(np.linalg.inv(R)).dot(b_matrix.T))
+            K = np.linalg.inv(R + b_matrix.T.dot(P).dot(b_matrix)).dot(b_matrix.T.dot(P.dot(a_matrix)))
+            eigs_cl = np.abs(np.linalg.eigvals(a_matrix - b_matrix.dot(K)))
+            cl_pen = np.log1p(np.sum(np.exp(20.0 * (eigs_cl - disc_margin))))
+            cost += 0.5 * cl_pen  # weighted softly
+        except Exception:
+            pass
+        """
+
+        # ================================================================
+        # Total and details
+        # ================================================================
+        return cost, {
+            "eig_penalty": eig_penalty,
+            "b_scale_pen": b_scale_pen,
+            "gramian_pen": gramian_pen,
+            "gramian_cond_pen": gramian_cond_pen,
+            "cond_pen": cond_pen,
+        }

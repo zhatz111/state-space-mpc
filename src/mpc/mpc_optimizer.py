@@ -576,22 +576,22 @@ class Bioreactor:
         u_matrix_daily = self.data.loc[:, self.process_model.input_data_labels].values
 
         # Convert daily variable to cumulative variable
-        u_matrix_cumulative = daily_to_cumulative(
-            model=self.process_model,
-            input_variables=self.monotonic_inputs,
-            u_matrix_daily=u_matrix_daily,
-        )
+        # u_matrix_cumulative = daily_to_cumulative(
+        #     model=self.process_model,
+        #     input_variables=self.monotonic_inputs,
+        #     u_matrix_daily=u_matrix_daily,
+        # )
 
         # Filter future inputs
-        u_matrix_cumulative = u_matrix_cumulative[self.data["Day"] >= curr_time, :]
+        u_matrix_daily = u_matrix_daily[self.data["Day"] >= curr_time, :]
 
         # Get time array
-        ts = np.arange(u_matrix_cumulative.shape[0])
+        ts = np.arange(u_matrix_daily.shape[0])
 
         # Solve
         x_out, y_out = self.process_model.ssm_lsim(
             initial_state=x0,
-            input_matrix=u_matrix_cumulative,
+            input_matrix=u_matrix_daily,
             time=ts,
             output_mods=output_mods,
             hidden_state=self.process_model.hidden_state,
@@ -832,7 +832,7 @@ class Controller:
         self.data_before_optim_dict = {}
         self.data_after_optim_dict = {}
 
-    def optimize(self, open_loop=False, print_pred=False, end_of_run=False):
+    def optimize(self, open_loop=False, print_pred=False, end_of_run=False, disp=True):
         """
         The `optimize` function optimizes future inputs for a bioreactor system
         and updates the dataset with the optimized inputs.
@@ -922,7 +922,7 @@ class Controller:
                 method="SLSQP",
                 # callback=callback_function,
                 tol=1e-10,
-                options={"ftol": 1e-10, "maxiter": 2000, "disp": True},
+                options={"ftol": 1e-10, "maxiter": 2000, "disp": disp},
             )
 
             _, y_out_after_optim, mv_after_optim = self.obj_func_wrapper(
@@ -1027,15 +1027,15 @@ class Controller:
             u_matrix_daily[after_ctrl_horizon_where, :] = u_matrix_daily_ctrl_horizon[
                 -1, :
             ]
-        u_matrix_cumulative = u_matrix_daily
+        # u_matrix_cumulative = u_matrix_daily
 
         # Convert daily feed to cumulative feed
         # if self.bioreactor.has_cumulative_feed_data:
-        u_matrix_cumulative = daily_to_cumulative(
-            model=self.controller_model,
-            input_variables=self.bioreactor.monotonic_inputs,
-            u_matrix_daily=u_matrix_daily,
-        )
+        # u_matrix_cumulative = daily_to_cumulative(
+        #     model=self.controller_model,
+        #     input_variables=self.bioreactor.monotonic_inputs,
+        #     u_matrix_daily=u_matrix_daily,
+        # )
 
         # Time array
         ts = np.arange(
@@ -1045,7 +1045,7 @@ class Controller:
         # Simulate the modified output
         _, y_out = self.controller_model.ssm_lsim(
             initial_state=self.bioreactor.measurement(),  # state(),
-            input_matrix=u_matrix_cumulative[
+            input_matrix=u_matrix_daily[
                 self.bioreactor.data["Day"] >= self.curr_time, :
             ],
             time=ts,

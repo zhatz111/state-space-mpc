@@ -95,7 +95,7 @@ controller_model = StateSpaceModel(
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
     date_delta = (
         datetime.today().date()
-        - datetime.strptime(experiment_config["Inoc Date"], "%Y-%m-%d").date()
+        - experiment_config["Inoc Date"]
     )
     CURR_TIME_END = np.min((experiment_config["Last Day"], date_delta.days))
 else:
@@ -174,7 +174,7 @@ for count_vessel, curr_vessel in enumerate(vessels):
 
         # Ingest data from Input topic
         bioreactor.curr_time = curr_time
-        vector_key = f"{curr_vessel}-{experiment_config["Batch ID"]}-day{curr_time}"
+        vector_key = f"{curr_vessel}-{experiment_config['Batch ID']}-day{curr_time}"
         input_message = master_sheet[vector_key]
         input_message_dict[bioreactor.curr_time] = input_message
         bioreactor.ingest_vectors(input_message_dict)

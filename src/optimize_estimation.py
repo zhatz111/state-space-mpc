@@ -13,7 +13,6 @@ from datetime import datetime
 
 # 3rd Party Library Imports
 import numpy as np
-import pandas as pd
 from termcolor import colored
 from InquirerPy.resolver import prompt
 
@@ -21,7 +20,7 @@ from InquirerPy.resolver import prompt
 from mpc.mpc_optimizer import Bioreactor, Controller
 from visualization.visualize import MPCVisualizer
 from models.ssm import StateSpaceModel
-from data.functions import dict_toscaler, read_config
+from data.functions import dict_toscaler, read_config, json_to_dict
 from scipy.optimize import minimize
 
 warnings.filterwarnings("ignore")
@@ -36,6 +35,12 @@ CONTROLLER_NAME = "Controller"
 
 # -------------------------------------------------------------------------------------
 # USER SPECIFIED DATA
+
+
+# User specified current culture day: determined automatically if -1
+CURR_TIME_USER = 14
+SHOW_PLOT = False
+
 
 # Use this path for experiment folders in GitHub repository
 PARENT_FILE_PATH = top_dir / "data"
@@ -53,7 +58,7 @@ questions = {
     "message": "Which experiment are you running MPC for?",
     "choices": matching_folders,
 }
-answer = prompt(questions) #{'folder': 'Test Experiment'} #prompt(questions)
+answer = prompt(questions)
 DATA_FOLDER_NAME = str(answer["folder"])
 
 # Load config
@@ -61,32 +66,15 @@ PATH_DIRECTORY = Path(PARENT_FILE_PATH, DATA_FOLDER_NAME)
 experiment_config = read_config(PATH_DIRECTORY)
 
 # Set up vessels
-if (
-    len(experiment_config["Bioreactors"]) == 2
-    and experiment_config["Arange Bioreactors"]
-):
-    vessels = np.arange(
-        experiment_config["Bioreactors"][0], experiment_config["Bioreactors"][1] + 1
-    )
-else:
-    vessels = np.array(experiment_config["Bioreactors"])
+vessels = np.array(experiment_config["Vessel ID"])
 
-# Load the master data sheet (mock INPUT TOPIC storing table)
-if ".xlsx" in experiment_config["Master Data File"]:
-    master_sheet = pd.read_excel(
+# Load the JSON file with all MPC payloads similar to vectors from kafka
+if ".json" in experiment_config["Master Data File"]:
+    master_sheet = json_to_dict(
         Path(PATH_DIRECTORY, experiment_config["Master Data File"]),
-        skiprows=[0],
-    ).rename(
-        columns={
-            "Batch": "Bioreactor",
-        }
-    )
-elif ".csv" in experiment_config["Master Data File"]:
-    master_sheet = pd.read_csv(
-        Path(PATH_DIRECTORY, experiment_config["Master Data File"])
     )
 else:
-    raise ValueError("Wrong master sheet file extension!")
+    raise ValueError("Wrong Master Sheet File extension!")
 
 # -------------------------------------------------------------------------------------
 # LOAD MODEL DATA
@@ -105,24 +93,18 @@ controller_model = StateSpaceModel(
 # -------------------------------------------------------------------------------------
 # ITERATE FROM DAY 0 TO THE CURRENT DAY
 
-# User specified current culture day: determined automatically if -1
-CURR_TIME_USER = -1
-SHOW_PLOT = False
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
-    date_delta = (
-        datetime.today().date()
-        - datetime.strptime(experiment_config["Inoc Date"], "%Y-%m-%d").date()
-    )
+    date_delta = datetime.today().date() - experiment_config["Inoc Date"]
     CURR_TIME_END = np.min((experiment_config["Last Day"], date_delta.days))
 else:
     CURR_TIME_END = CURR_TIME_USER
 
 # Create figure output folder
-fig_path_top_dir = Path(PATH_DIRECTORY, experiment_config["Figures Folder"])
+fig_path_top_dir = Path(PATH_DIRECTORY, "figures")
 fig_path_top_dir.mkdir(parents=True, exist_ok=True)
 
 # Create CSV data output folder
-csv_path_top_dir = Path(PATH_DIRECTORY, experiment_config["CSV Export Folder"])
+csv_path_top_dir = Path(PATH_DIRECTORY, "data")
 csv_path_top_dir.mkdir(parents=True, exist_ok=True)
 
 # Create a daily figures folder of all reactors
@@ -137,11 +119,8 @@ def run_mpc_simulation(experiment_config, show_plot):
     bioreactors = []
     controllers = []
     for curr_vessel in vessels:
-        # Locate the bioreactor-specific controller setting
-        for key, value in experiment_config["Controller Dictionary"].items():
-            if curr_vessel in value:
-                controller_key = key
-
+        # The bioreactor controller will always be named "Controller"
+        controller_key = "Controller"
         controller_config = experiment_config[controller_key]
 
         # Initialize a bioreactor instance
@@ -161,8 +140,8 @@ def run_mpc_simulation(experiment_config, show_plot):
         )
         controllers.append(controller)
 
-    # Iterate the main code for each bioreactor
     worst_estimates = np.zeros(len(vessels), dtype=float)
+    # Iterate the main code for each bioreactor
     for count_vessel, curr_vessel in enumerate(vessels):
         # Create bioreactor-specific figure output folders
         if isinstance(curr_vessel, str):
@@ -186,11 +165,7 @@ def run_mpc_simulation(experiment_config, show_plot):
         bioreactor = bioreactors[count_vessel]
         controller = controllers[count_vessel]
 
-        # print("")
-        # print("-" * 80)
-
         # Parse the states from the reference data csv file
-        input_messages = master_sheet.loc[master_sheet["Bioreactor"] == curr_vessel, :]
         input_message_dict = {}
         # Iterate from Day 0 to the current day
         for curr_time in range(0, CURR_TIME_END + 1):
@@ -199,11 +174,8 @@ def run_mpc_simulation(experiment_config, show_plot):
 
             # Ingest data from Input topic
             bioreactor.curr_time = curr_time
-            input_message = (
-                input_messages.loc[input_messages["Day"] == curr_time, :]
-                .squeeze()
-                .to_dict()
-            )
+            vector_key = f"{curr_vessel}-{experiment_config['Batch ID']}-day{curr_time}"
+            input_message = master_sheet[vector_key]
             input_message_dict[bioreactor.curr_time] = input_message
             bioreactor.ingest_vectors(input_message_dict)
 
@@ -224,17 +196,11 @@ def run_mpc_simulation(experiment_config, show_plot):
 
             if curr_time < experiment_config["Last Day"]:
                 controller.optimize(
-                    open_loop=False, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
+                    open_loop=False,
+                    print_pred=False,
+                    end_of_run=END_OF_RUN,
+                    disp=False,
                 )
-
-        # # Retrieve and print current feed rate (mL/min) for the feed pump
-        # result = bioreactor.get_result()
-        # print("")
-        # br_heading = f"{curr_vessel} on Day {curr_time}:"
-        # print(colored(br_heading, "green"))
-        # for key, value in result.items():
-        #     print(key, end=None)
-        #     print(colored(np.round(value, 4), "blue", attrs=["bold"]))
 
         # -------------------------------------------------------------------------------------
         # GENERATED PLOTS SAVED
@@ -254,36 +220,21 @@ def run_mpc_simulation(experiment_config, show_plot):
                 fig_path_lv2_BR / f"{identifier}.png",
                 fig_path_lv2_day / f"{identifier}.png",
             ),
-            identifier=f"{experiment_config['Experiment Number']} \
+            identifier=f"{experiment_config['Batch ID']} \
             -MPC/{identifier}",
             unit_dict=experiment_config["Units Dictionary"],
             metadata={
-                "Title": f"{experiment_config['Experiment Number']}-D{CURR_TIME_END}",
+                "Title": f"{experiment_config['Batch ID']}-D{CURR_TIME_END}",
                 "Author": "Zach Hatzenbeller, Yu Luo",
-                "Description": f"MPC plot for {experiment_config['Experiment Number']}. \
+                "Description": f"MPC plot for {experiment_config['Batch ID']}. \
                 Developed within GSK R&D in BDSD",
                 "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
                 "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
                 "Software": f"Python v{sys.version}",
             },
-            display=show_plot,
+            display=SHOW_PLOT,
         )
 
-    #     # NEW CODE TO OUTPUT A SEPERATE CSV FILE EACH DAY FOR EACH REACTOR
-    #     # DEVELOPED: 2024-06-06
-    #     filenames = [
-    #         f"{bioreactor.vessel}_D{CURR_TIME_END}-{todays_date}-daily_feed.csv",
-    #     ]
-
-    #     # If no file exist currently
-    #     bioreactor.return_data(show_daily_inputs=True, exec_date=True).to_csv(
-    #         csv_path_lv2_BR / filenames[0], index=False
-    #     )
-
-    # # Save and export the current config file
-    # read_config(PATH_DIRECTORY, export=True)
-
-    # Return the worst estimate
     return worst_estimates
 
 
@@ -301,38 +252,32 @@ for key, data in experiment_config[CONTROLLER_NAME]["State Variables"].items():
     tuning_params[prop_key] = data["Offset Proportional Gain"]
     tuning_params[inte_key] = data["Offset Integral Gain"]
 
-tuning_params["Prediction Horizon"] = experiment_config[CONTROLLER_NAME][
-    "Prediction Horizon"
-]
-tuning_params["Control Horizon"] = experiment_config[CONTROLLER_NAME]["Control Horizon"]
+# tuning_params["Prediction Horizon"] = experiment_config[CONTROLLER_NAME][
+#     "Prediction Horizon"
+# ]
+# tuning_params["Control Horizon"] = experiment_config[CONTROLLER_NAME]["Control Horizon"]
 tuning_params["Estimation Horizon"] = experiment_config[CONTROLLER_NAME][
     "Estimation Horizon"
 ]
 tuning_params["Estimation Filter Weight on Data"] = experiment_config[CONTROLLER_NAME][
     "Estimation Filter Weight on Data"
 ]
-tuning_params["Offset Proportional Gain"] = experiment_config[CONTROLLER_NAME][
-    "Offset Proportional Gain"
-]
-tuning_params["Offset Integral Gain"] = experiment_config[CONTROLLER_NAME][
-    "Offset Integral Gain"
-]
+# tuning_params["Overshoot Weight"] = experiment_config[CONTROLLER_NAME][
+#     "Overshoot Weight"
+# ]
+# tuning_params["Undershoot Weight"] = experiment_config[CONTROLLER_NAME][
+#     "Undershoot Weight"
+# ]
+# tuning_params["Trajectory Discount Weight"] = experiment_config[CONTROLLER_NAME][
+#     "Trajectory Discount Weight"
+# ]
+
 
 
 # Extract keys and values for 'Offset Integral Gain' from the controllers State Variables
 state_variables = experiment_config[CONTROLLER_NAME]["State Variables"].keys()
 tuning_values = [value for _, value in tuning_params.items()]
 tuning_keys = list(tuning_params.keys())
-
-# values_offset_proportional_gain = [
-#     state_variables[key]["Offset Proportional Gain"] for key in keys_offset_gain
-# ]
-# values_offset_integral_gain = [
-#     state_variables[key]["Offset Integral Gain"] for key in keys_offset_gain
-# ]
-# print(keys_offset_gain)
-# print(values_offset_proportional_gain)
-# print(values_offset_integral_gain)
 
 
 def update_tuning_parameters(keys, values):
@@ -343,9 +288,15 @@ def update_tuning_parameters(keys, values):
         tuning_params[dict_key] = value
         key_list = dict_key.split("--")
         if len(key_list) == 3:
-            experiment_config[CONTROLLER_NAME][key_list[0]][key_list[1]][key_list[2]] = value
+            experiment_config[CONTROLLER_NAME][key_list[0]][key_list[1]][
+                key_list[2]
+            ] = value
         else:
-            if key_list[0] in ["Prediction Horizon", "Control Horizon", "Estimation Horizon"]:
+            if key_list[0] in [
+                "Prediction Horizon",
+                "Control Horizon",
+                "Estimation Horizon",
+            ]:
                 experiment_config[CONTROLLER_NAME][key_list[0]] = int(value)
             else:
                 experiment_config[CONTROLLER_NAME][key_list[0]] = value
@@ -353,39 +304,8 @@ def update_tuning_parameters(keys, values):
     return experiment_config
 
 
-# def update_offset_integral_gain(keys, values):
-#     if len(keys) != len(values):
-#         raise ValueError("Keys and values arrays must have the same length.")
-
-#     for key, value in zip(keys, values):
-#         if key in experiment_config["Controller_1"]["State Variables"]:
-#             experiment_config["Controller_1"]["State Variables"][key][
-#                 "Offset Integral Gain"
-#             ] = value
-#         else:
-#             raise KeyError(f"Key '{key}' not found in State Variables.")
-
-#     return experiment_config
-
-
-# def update_offset_proportional_gain(keys, values):
-#     if len(keys) != len(values):
-#         raise ValueError("Keys and values arrays must have the same length.")
-
-#     for key, value in zip(keys, values):
-#         if key in experiment_config["Controller_1"]["State Variables"]:
-#             experiment_config["Controller_1"]["State Variables"][key][
-#                 "Offset Proportional Gain"
-#             ] = value
-#         else:
-#             raise KeyError(f"Key '{key}' not found in State Variables.")
-
-#     return experiment_config
-
 class TuningOptimizer:
-
     def __init__(self, initial_x):
-
         self.best_worst = np.inf
         self.best_x = initial_x
         self.iters = 0
@@ -397,75 +317,30 @@ class TuningOptimizer:
         worst_estimates = run_mpc_simulation(
             experiment_config=experiment_config, show_plot=False
         )
-        if self.iters % 20 == 0:
+        if self.iters % 5 == 0:
             print(f"Iteration: {self.iters}, Tuning Error: {worst_estimates[0]}")
         if worst_estimates < self.best_worst:
             self.best_worst = worst_estimates[0]
             self.best_x = x
-        
+
         self.iters += 1
         return max(worst_estimates)
 
 
 tuner = TuningOptimizer(initial_x=tuning_values)
 
-# def est_optim_proportional_obj(x):
-#     experiment_config = update_offset_proportional_gain(keys=keys_offset_gain, values=x)
-#     worst_estimates = run_mpc_simulation(
-#         experiment_config=experiment_config, show_plot=False
-#     )
-#     # print(max(worst_estimates))
-#     return max(worst_estimates)
-
-
-# def est_optim_integral_obj(x):
-#     experiment_config = update_offset_integral_gain(keys=keys_offset_gain, values=x)
-#     worst_estimates = run_mpc_simulation(
-#         experiment_config=experiment_config, show_plot=False
-#     )
-#     # print(max(worst_estimates))
-#     return max(worst_estimates)
-
-
 # Define bounds for each value in x (0 to 1.5)
-# values_combined = np.concatenate([values_offset_proportional_gain, values_offset_integral_gain])
 state_bounds = [(0, 5.0) for _ in range(len(state_variables) * 2)]
 horizon_bounds = [
-    (2, 4) for _ in ["Prediction Horizon", "Control Horizon", "Estimation Horizon"]
+    (2, 4) for _ in ["Estimation Horizon"] # "Control Horizon", "Prediction Horizon", 
 ]
 estimate_bounds = [(1e-10, 1.0)]
-control_bounds = [
-    (-1.0, -1.0) for _ in ["Offset Proportional Gain", "Offset Integral Gain"]
-]
-bounds = state_bounds + horizon_bounds + estimate_bounds + control_bounds
+# control_bounds = [
+#     (0.5, 5.0) for _ in ["Overshoot Weight", "Undershoot Weight", "Trajectory Discount Weight"]
+# ]
+bounds = state_bounds + horizon_bounds + estimate_bounds # + control_bounds
 
-# # Perform optimization
-# # Wrap the objective function to display progress
-# class ProgressCallback:
-#     def __init__(self, total_iterations):
-#         self.pbar = tqdm(total=total_iterations, desc="Optimization Progress")
-#         self.iteration = 0
-
-#     def __call__(self, xk):
-#         self.iteration += 1
-#         self.pbar.update(1)
-
-#     def close(self):
-#         self.pbar.close()
-
-# # Estimate the number of iterations (this is a rough estimate for progress tracking)
 max_iterations = 3  # Adjust based on expected optimization complexity
-# progress = ProgressCallback(max_iterations)
-
-# def show_est_tuning(experiment_config):
-#     print(
-#         {
-#             'names':est_gain_keys,
-#             'prop gains':show_p_gains(experiment_config),
-#             'int gains':show_i_gains(experiment_config),
-#             'est horizon':experiment_config["Controller_1"]["Estimation Horizon"], 
-#             'alpha':experiment_config["Controller_1"]["Estimation Filter Weight on Data"], 
-#         })
 
 print("BEFORE Optimization:")
 print(f"Tuning Error: {worst_estimates[0]}")
@@ -473,27 +348,12 @@ for key, data in tuning_params.items():
     print(f"{key}: {data}")
 print("")
 
+
 # try:
 def display_progress(xk):
     current_obj_value = tuner.est_optim_tuning_obj(xk)
     print(f"Current Objective Value: {current_obj_value}")
 
-
-# result = minimize(
-#     est_optim_integral_obj,
-#     x0=values_offset_integral_gain,
-#     bounds=bounds,
-#     method="SLSQP",#"L-BFGS-B",
-#     callback=display_progress,
-#     options={"maxiter": max_iterations},
-# )
-
-# experiment_config = update_offset_integral_gain(keys=keys_offset_gain,values=result.x)
-
-# print("\n")
-# print("AFTER (integral):")
-# print(keys_offset_gain)
-# print(result.x)
 
 result = minimize(
     tuner.est_optim_tuning_obj,
@@ -510,5 +370,3 @@ print("AFTER Optimization:")
 print(f"Tuning Error: {tuner.best_worst}")
 for key, data in tuning_params.items():
     print(f"{key}: {data}")
-
-# print(run_mpc_simulation(experiment_config=experiment_config, show_plot=False))

@@ -101,9 +101,10 @@ class MPCVisualizer:
             # Create a mask for NaN Values
             last_ax_used = 0
             sub_ax = ax.flatten()
-            mape_est_ctrl_array = np.full(
-                (3, len(self.bioreactor.process_model.states)), np.nan
-            )
+            # mape_est_ctrl_array = np.full(
+            #     (3, len(self.bioreactor.process_model.states)), np.nan
+            # )
+            mape_est_ctrl_array = []
             for count, state in enumerate(self.bioreactor.process_model.states):
                 # Retrieve the latest modifier
                 modifiers_data = plot_data[state + "--STATE_MOD"].values
@@ -139,11 +140,18 @@ class MPCVisualizer:
                         y_data[y_data_est_have_values], y_est[y_data_est_have_values]
                     )
                 )
+                nrmse_est = 100 * np.sqrt(
+                    mean_squared_error(
+                        y_data[y_data_est_have_values], y_est[y_data_est_have_values]
+                    )
+                )/(np.max(y_data[y_data_est_have_values]) - np.min(y_data[y_data_est_have_values]))
+
                 mape_est = 100 * mean_absolute_percentage_error(
                     y_data[y_data_est_have_values], y_est[y_data_est_have_values]
                 )
-                mape_est_ctrl_array[0, count] = self.controller.offset_ki[count]
-                mape_est_ctrl_array[1, count] = mape_est
+                # mape_est_ctrl_array[0, count] = self.controller.offset_ki[count]
+                # mape_est_ctrl_array[1, count] = nrmse_est
+                mape_est_ctrl_array.append(nrmse_est)
 
                 if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
@@ -178,7 +186,7 @@ class MPCVisualizer:
                         #     modifiers[plot_data["Day"] <= self.bioreactor.curr_time]
                         #     ),
                         "b-o",
-                        label=f"Estimated Output ({np.round(mape_est,2)}%)",
+                        label=f"Estimated Output ({np.round(nrmse_est,2)}%)",
                     )
                     try:
                         y_sp = (
@@ -198,7 +206,7 @@ class MPCVisualizer:
                         mape_ctrl = 100 * mean_absolute_percentage_error(
                             y_sp[y_data_sp_have_values], y_data[y_data_sp_have_values]
                         )
-                        mape_est_ctrl_array[2, count] = mape_ctrl
+                        # mape_est_ctrl_array[2, count] = mape_ctrl
 
                         sub_ax[count].plot(
                             plot_data["Day"],
@@ -259,11 +267,11 @@ class MPCVisualizer:
 
                 sub_ax[count].set_xlim([0, np.max(plot_data["Day"])])
 
-            mape_df = pd.DataFrame(
-                np.round(mape_est_ctrl_array, 2),
-                columns=self.bioreactor.process_model.states,
-                index=["Est. gain", "Est.%", "Ctrl.%"],
-            )
+            # mape_df = pd.DataFrame(
+            #     np.round(mape_est_ctrl_array, 2),
+            #     columns=self.bioreactor.process_model.states,
+            #     index=["Est. gain", "Est.%", "Ctrl.%"],
+            # )
 
             # Comment out for estimator optimization (2025-08-29)
             # print("")
@@ -406,7 +414,7 @@ class MPCVisualizer:
                 plt.close('all')
 
             # Return the worst estimation (2025-08-29)
-            return max(mape_est_ctrl_array[1])
+            return max(mape_est_ctrl_array)
 
         else:
             raise ValueError(

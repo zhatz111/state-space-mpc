@@ -2,10 +2,10 @@
 
 # Batch Information
 Asset: B7H4
-Vessel ID: [FER027] # In list format in case of multiple batches
+Vessel ID: [FER437] # In list format in case of multiple batches
 Campaign ID: GSK5730912
-Lot ID: SAMMPCWATERRUN
-Batch ID: SAMMPCWATERRUN
+Lot ID: SAMMPCTESTRUN
+Batch ID: SAMMPCTESTRUN
 Inoc Date: 2025-10-13
 Last Day: 14
 
@@ -22,7 +22,7 @@ Initial Volumes: # Initial volumes in L
   2000L: 1740.0
 
 # Data file information specific to R&D testing
-Master Data File: SAMMPCWATERRUN-MasterDataFile.json
+Master Data File: SAM-1000L-B7H4-MasterDataFile.json
 
 # Dictionary for all measurement units
 Units Dictionary:
@@ -545,7 +545,7 @@ Controller: {
         7.10,
         7.10
         ],
-      "Weight": 1.0,
+      "Weight": 0.0,
       "Constraint": [
         6.90,
         7.30
