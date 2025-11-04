@@ -1,30 +1,37 @@
 # SAM Lab 1000L Experiment Configuration File
 
-# Batch Information
+# ---- Batch Information ----
 Asset: B7H4
-Vessel ID: [FER437] # In list format in case of multiple batches
+Vessel ID: [FER027] # In list format in case of multiple batches
 Campaign ID: GSK5730912
-Lot ID: SAMMPCTESTRUN
-Batch ID: SAMMPCTESTRUN
-Inoc Date: 2025-10-13
+Lot ID: 5730912-0M00-D00 (FF)
+Batch ID: 5730912-0M00-D00 (FF)
+Inoc Date: 2025-11-21
 Last Day: 14
 
-# Feeding type and Reactor Volumes
+# ---- Feeding type and Reactor Volumes ----
 Feed Type: B # C for Continuous feeding, B for Bolus feeding
 Tubing Factor: 7.2 # mL/Rotation
 Maximum Pump Speed: 190 # RPM (Rotations/minute)
 # Tubing Factor x Maximum Pump Speed (decreased flowrate slightly to account for errors in tubing factor calculation)
-Bolus Feed Flowrate: 1360 # in mL/min 
+Bolus Feed Flowrate: 1360 # in mL/min
 Scale: 1000L
 Initial Volumes: # Initial volumes in L
   ambr250: 0.190
   1000L: 740.0
   2000L: 1740.0
 
-# Data file information specific to R&D testing
-Master Data File: SAM-1000L-B7H4-MasterDataFile.json
+# ---- Units specification ----
+# "Volume Unit": Unit that reactor weight and non-feed items will be
+# this unit should be the same or bigger than feed unit
+# "Feed Unit": Unit that the totalizer or feed source we be
+Volume Unit: L # either "mL" or "L"
+Feed Unit: mL # either "mL" or "L"
 
-# Dictionary for all measurement units
+# ---- Data file information specific to R&D testing ----
+Master Data File: SAM-1000L-B7H4-MasterDataTable.json
+
+# ---- Dictionary for all measurement units ----
 Units Dictionary:
   # Cedex Units
   IGG: mg/L
@@ -117,7 +124,7 @@ Column Mapping: {
     "vessel_weight": "VOLUME_L",
 }
 
-# B7H4 model
+# ---- Process model ----
 Model Parameters: {
     "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - Documents\\General\\data\\2025-07-21 B7H4 Model",
     "Asset": "B7H4",
@@ -133,10 +140,16 @@ Model Parameters: {
     "Random Seed": 1,
     "Window Length": 2,
     "Target Plotting Label": "IGG",
-    "Training Iterations": 10,
-    "BasinHopping Temperature": 50,
+    "Training Iterations": 5,
+    "BasinHopping Temperature": 1000,
     "Process Time": 15,
     "Scaler": "MinMaxScaler",
+    "Instability Weights": {
+        "Eigenvalue": 1000.0,
+        "B-matrix Authority": 50.0,
+        "B-matrix Condition": 50.0,
+        "Controllability": 110000.0
+    },
     "Training Batches": [
         "AR25-050-001",
         "AR25-050-003",
@@ -215,96 +228,80 @@ Model Parameters: {
         "pH_setpoint"
     ],
     "Process Variable Weights": [
-        50.0,
-        1.0,
-        1.0,
-        1.0,
-        1.0
+        450.0,
+        30.0,
+        30.0,
+        20.0,
+        20.0
     ],
     "a_matrix": [
         [
-            -0.3661207297445918,
-            -0.05042064735830906,
-            -0.09939279367050474,
-            -0.03490829888738944,
-            0.7129797968189284
+            -0.02696303232555089,
+            0.17298498124598977,
+            -0.0001429425456469584,
+            0.027332351262555097,
+            -0.014168975511957168
         ],
         [
-            -0.5239887896882612,
-            -0.8408148418985298,
-            -0.2839247819558018,
-            0.7863591489787659,
-            0.7782879562822892
+            -0.42057505143801555,
+            0.0016213499958725958,
+            -0.007905695195558891,
+            -0.21578977242437689,
+            0.6031188673899895
         ],
         [
-            -0.1729111087422849,
-            -0.43118637223766865,
-            -0.13232376093089537,
-            0.474754294918824,
-            0.12905930584351988
+            -0.6006451588041326,
+            -0.35562846230931155,
+            -0.29579062978237325,
+            0.8929548790968808,
+            0.19681739641210655
         ],
         [
-            -0.14097364469486795,
-            -0.5264547840275821,
-            0.016535543529054012,
-            -0.48536342325714454,
-            1.0
+            1.1465510658204319,
+            0.5326316752900457,
+            0.7128575716665766,
+            -2.1708320086329476,
+            -0.23525089675418154
         ],
         [
-            0.19160489578342374,
-            0.28902079364857586,
-            0.14263828238414633,
-            -0.1270910957575863,
-            -0.3908354626518715
+            -0.18604617567493212,
+            -0.3046148590916519,
+            -0.14698486024187832,
+            1.0497467915516274,
+            -0.3975052935415117
         ]
     ],
     "b_matrix": [
         [
-            0.0007513694368404085,
-            0.12065455093036734,
-            0.07052244714756144
+            -0.04459704860864228,
+            -0.02902928836550554,
+            -0.021058331943126566
         ],
         [
-            0.24900043838526284,
-            0.4240720253876945,
-            0.1489597742109416
+            0.06777549374081791,
+            0.04918339121096911,
+            0.13496028909813543
         ],
         [
-            0.07552134228410867,
-            0.1439097111504612,
-            0.05640528122108516
+            0.11584814242509364,
+            0.07306081531487778,
+            0.04141854416400793
         ],
         [
-            0.21297625577464546,
-            0.31902893853829284,
-            0.17029045332007522
+            0.09846606728954652,
+            -0.18122303403253875,
+            0.017766206370320173
         ],
         [
-            -0.026884861435593686,
-            -0.17628768223251623,
-            -0.08451580902087807
+            0.10715895278706808,
+            0.044001729789530195,
+            -0.15408481592910475
         ]
     ],
-    "af_col": [
-        -0.04017128491849915,
-        -0.1335219227604297,
-        -0.05720643216591866,
-        0.16333257756329778,
-        -0.06703944739897968
-    ],
-    "af_row": [
-        -1.0,
-        0.8694619931869146,
-        0.1587414164835674,
-        -1.0,
-        0.07518257326713024
-    ],
-    "bf_row": [
-        0.39429970983205204,
-        0.05531243382510239,
-        0.1944630969398928
-    ],
-    "rho": 7.882610319819177e-18,
+    "af_col": [],
+    "af_row": [],
+    "bf_row": [],
+    "rho": 0.0,
     "scaler": {
         "feature_range": [
             0,
@@ -375,20 +372,38 @@ Model Parameters: {
             0.5500000000000007
         ]
     },
-    "Iterations": 1049204,
-    "Model RMSE": 22.143684192950772,
+    "Iterations": 1198330,
+    "Model RMSE": 14.490631946319072,
     "States RMSE": {
-        "IGG": 212.80481558823823,
-        "VCC": 2.388548007624618,
-        "Viability": 1.66552051577895,
-        "Glutamate": 0.8083917169125637,
-        "Ammonium": 1.5996380362812554
+        "IGG": 218.53395131279126,
+        "VCC": 1.5672168029744336,
+        "Viability": 1.53687460104273,
+        "Glutamate": 0.6185061897498326,
+        "Ammonium": 1.416288538753125
     },
-    "Last Model Training": "2025/10/02 15:04:13",
-    "Hidden State": false
+    "Last Model Training": "2025/10/30 13:20:46",
+    "Hidden State": false,
+    "Matrix Stability Penalties": {
+        "Eigenvalue": {
+            "Value": -0.1519577593381658,
+            "Penalty": 0.0047828290468992
+        },
+        "B-matrix Authority": {
+            "Value": 0.3591522517173124,
+            "Penalty": 0.4106858364789908
+        },
+        "B-matrix Condition": {
+            "Value": 1.0396050605445903,
+            "Penalty": 0.508021388295495
+        },
+        "Controllability SVD": {
+            "Value": 0.03826021560147381,
+            "Penalty": 0.0004726182256509232
+        }
+    }
 }
 
-
+# ---- Controller Configuration ----
 Controller: {
   "Time": [
       0,
@@ -433,14 +448,14 @@ Controller: {
     "IGG": {
       "Initial": 70.17535,
       "Weight": 0.0001,
-      "Offset Proportional Gain": 0.0, #0.3387,
-      "Offset Integral Gain": 0.0, # 0.5464
+      "Offset Proportional Gain": 0.51514, #0.3387,
+      "Offset Integral Gain": 0.40387, # 0.5464
       },
     "VCC": {
       "Initial": 0.60,
       "Weight": 5.0,
-      "Offset Proportional Gain": 0.081144,
-      "Offset Integral Gain": 0.11694 #0.5
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.49644 #0.5
       },
     "Viability": {
       "Initial": 98.6,
@@ -451,14 +466,14 @@ Controller: {
     "Glutamate": {
       "Initial": 2.05,
       "Weight": 13.0,
-      "Offset Proportional Gain": 0.1694,
-      "Offset Integral Gain": 0.6556,
+      "Offset Proportional Gain": 0.2459,
+      "Offset Integral Gain": 0.105666,
       },
     "Ammonium": {
       "Initial": 0.71,
       "Weight": 10.0,
-      "Offset Proportional Gain": 0.0,
-      "Offset Integral Gain": 0.0,
+      "Offset Proportional Gain": 0.4027,
+      "Offset Integral Gain": 0.2447,
       }
   },
   "End of Run Variables":{
@@ -492,7 +507,7 @@ Controller: {
       "Weight": 0.0,
       "Constraint": [
         0.0,
-        0.06
+        0.03
         ],
     },
     "Temperature_setpoint": {
@@ -609,14 +624,14 @@ Controller: {
     "Normalized": False,
     }
   },
-  "Prediction Horizon": 4,
-  "Control Horizon": 4,
+  "Prediction Horizon": 20, #4
+  "Control Horizon": 20, #4
   "Estimation Horizon": 2,
-  "Estimation Filter Weight on Data": 0.74374, # 0.583,
+  "Estimation Filter Weight on Data": 1.0, # 0.583,
   "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
   "Offset Integral Gain": -1.0, # Override individual gains if >= 0
   "Overshoot Weight": 1.0,
   "Undershoot Weight": 1.0,
-  "Trajectory Discount Weight": 1.0,
+  "Trajectory Discount Weight": 0.5,
   "Persist After Control Horizon": True,
 }

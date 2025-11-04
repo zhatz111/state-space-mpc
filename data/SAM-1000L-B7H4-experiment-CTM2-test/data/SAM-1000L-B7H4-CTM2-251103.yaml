@@ -1,0 +1,637 @@
+# SAM Lab 1000L Experiment Configuration File
+
+# ---- Batch Information ----
+Asset: B7H4
+Vessel ID: [FER437] # In list format in case of multiple batches
+Campaign ID: GSK5730912
+Lot ID: 5730912-0BA0-C00 (FF)
+Batch ID: 5730912-0BA0-C00 (FF)
+Inoc Date: 2025-03-25
+Last Day: 14
+
+# ---- Feeding type and Reactor Volumes ----
+Feed Type: B # C for Continuous feeding, B for Bolus feeding
+Tubing Factor: 7.2 # mL/Rotation
+Maximum Pump Speed: 190 # RPM (Rotations/minute)
+# Tubing Factor x Maximum Pump Speed (decreased flowrate slightly to account for errors in tubing factor calculation)
+Bolus Feed Flowrate: 1360 # in mL/min
+Scale: 1000L
+Initial Volumes: # Initial volumes in L
+  ambr250: 0.190
+  1000L: 740.0
+  2000L: 1740.0
+
+# ---- Units specification ----
+# "Volume Unit": Unit that reactor weight and non-feed items will be
+# this unit should be the same or bigger than feed unit
+# "Feed Unit": Unit that the totalizer or feed source we be
+Volume Unit: L # either "mL" or "L"
+Feed Unit: mL # either "mL" or "L"
+
+# ---- Data file information specific to R&D testing ----
+Master Data File: SAM-1000L-B7H4-CTM2-MasterDataTable.json
+
+# ---- Dictionary for all measurement units ----
+Units Dictionary:
+  # Cedex Units
+  IGG: mg/L
+  LDH: mg/L
+
+  # ViCell Units
+  TCC: MM cells/mL
+  VCC: MM cells/mL
+  VIABILITY: "%"
+  DIAMETER: um
+
+  # Nova Flex2 Units
+  OSMOLALITY: mOsm/kg
+  AMMONIUM: mM
+  CALCIUM: mg/L
+  GLUCOSE: g/L
+  GLUTAMINE: mM
+  GLUTAMATE: mM
+  LACTATE: g/L
+  PH: ""
+  PCO2: mmHg 
+  PO2: mmHg
+  POTASSIUM: mg/L 
+  SODIUM: mg/L
+  BICARBONATE:  
+  PCO2_AT_TEMP: mmHg 
+  PO2_AT_TEMP: mmHg
+  PH_AT_TEMP: ""
+
+  # DCS Units
+  PH_SETPOINT: ""
+  TEMPERATURE_SETPOINT: °C
+  DO_SETPOINT: "%"
+  DO: "%"
+  TEMPERATURE: °C
+  ONLINE_PH: ""
+  VOLUME_L: "L"
+  NORMALIZED_BOLUS_FEED: L/L
+
+
+# This maps the names of the columns in the data
+# file to the names of the states and inputs needed.
+# This column mapping is based on the names from the
+# SAM lab fileshare, DCS, and CLS
+Column Mapping: {
+    # Metadata Mapping
+    "Sample Time": "Date",
+    "time": "Date",
+    "Day": "Day",
+    "vesselid": "Bioreactor",
+    "batch_id": "Bioreactor",
+
+    # Vicell Mapping
+    "total_cells": "TCC--STATE_DATA",
+    "total_viable_cells": "VCC--STATE_DATA",
+    "CellCultureViability": "VIABILITY--STATE_DATA",
+    "average_diameter": "DIAMETER--STATE_DATA",
+
+    # Flex2 Mapping
+    "Osmolality": "OSMOLALITY--STATE_DATA",
+    "AmmoniumConcentration": "AMMONIUM--STATE_DATA",
+    "calcium": "CALCIUM--STATE_DATA",
+    "GlucoseConcentration": "GLUCOSE--STATE_DATA",
+    "Glutamine": "GLUTAMINE--STATE_DATA",
+    "Glutamate": "GLUTAMATE--STATE_DATA",
+    "LactateConcentration": "LACTATE--STATE_DATA",
+    "pH": "PH--STATE_DATA",
+    "pCO2": "PCO2--STATE_DATA",
+    "pO2": "PO2--STATE_DATA",
+    "Potassium": "POTASSIUM--STATE_DATA",
+    "Sodium": "SODIUM--STATE_DATA",
+    "bicarbonate": "BICARBONATE--STATE_DATA",
+    "pCO2atTemperature": "PCO2_AT_TEMP--STATE_DATA",
+    "pO2atTemperature": "PO2_AT_TEMP--STATE_DATA",
+    "pHatTemperature": "PH_AT_TEMP--INPUT_DATA",
+
+    # Cedex Mapping
+    "titre": "IGG--STATE_DATA",
+    "LDH": "LDH--STATE_DATA",
+
+    # Online DCS Mapping
+    "pH_setpoint": "PH_SETPOINT--INPUT_DATA",
+    "Temp_setpoint": "TEMPERATURE_SETPOINT--INPUT_DATA",
+    "DO_setpoint": "DO_SETPOINT--INPUT_DATA",
+    "dissolved_oxygen": "DO--INPUT_DATA",
+    "Online pH": "ONLINE_PH--INPUT_DATA",
+    "temperature": "TEMPERATURE--INPUT_DATA",
+    # Ensure that both feed inputs are of same unit
+    "nutrient_total": "NORMALIZED_BOLUS_FEED--INPUT_DATA", # nutrient total is from totalizer so this needs to be converted to daily
+    "vessel_weight": "VOLUME_L",
+}
+
+# ---- Process model ----
+Model Parameters: {
+    "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - Documents\\General\\data\\2025-07-21 B7H4 Model",
+    "Asset": "B7H4",
+    "Training Data Study": "AR25-050, AR25-051, AR25-068",
+    "Operator": "Zach Hatzenbeller",
+    "Github Link": "https://github.com/gsk-tech/state-space-model",
+    "IDBS Number": "EXXXXX",
+    "Modeling Data File Name": "AR25-050_051_068 Model Data",
+    "Modeling Data Folder Name": "2025-07-22 B7H4 SAM 1000L Model",
+    "A & B Matrices Folder Name": "Matrices",
+    "Testing Data Size": 0.2,
+    "Number Cross Val Splits": 2,
+    "Random Seed": 1,
+    "Window Length": 2,
+    "Target Plotting Label": "IGG",
+    "Training Iterations": 5,
+    "BasinHopping Temperature": 1000,
+    "Process Time": 15,
+    "Scaler": "MinMaxScaler",
+    "Instability Weights": {
+        "Eigenvalue": 200.0,
+        "B-matrix Authority": 10.0,
+        "B-matrix Condition": 10.0,
+        "Controllability": 11000.0
+    },
+    "Training Batches": [
+        "AR25-050-001",
+        "AR25-050-003",
+        "AR25-050-005",
+        "AR25-050-008",
+        "AR25-050-009",
+        "AR25-050-011",
+        "AR25-050-013",
+        "AR25-050-014",
+        "AR25-050-018",
+        "AR25-050-019",
+        "AR25-050-020",
+        "AR25-050-023",
+        "AR25-050-024",
+        "AR25-051-003",
+        "AR25-051-005",
+        "AR25-051-006",
+        "AR25-051-007",
+        "AR25-051-009",
+        "AR25-051-011",
+        "AR25-051-013",
+        "AR25-051-014",
+        "AR25-051-015",
+        "AR25-051-016",
+        "AR25-051-017",
+        "AR25-051-020",
+        "AR25-051-021",
+        "AR25-051-022",
+        "AR25-051-024"
+    ],
+    "Testing Batches": [
+        "AR25-050-007",
+        "AR25-051-002",
+        "AR25-051-008",
+        "AR25-051-012",
+        "AR25-051-018",
+        "AR25-051-019",
+        "AR25-051-023"
+    ],
+    "Batches to Discard": [
+        "AR25-050-002",
+        "AR25-050-004",
+        "AR25-050-006",
+        "AR25-050-010",
+        "AR25-050-012",
+        "AR25-050-015",
+        "AR25-050-016",
+        "AR25-050-017",
+        "AR25-050-021",
+        "AR25-050-022",
+        "AR25-051-001",
+        "AR25-051-004",
+        "AR25-051-010"
+    ],
+    "Include Data Columns": [
+        "Batch",
+        "Day"
+    ],
+    "Model States": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Glutamate",
+        "Ammonium"
+    ],
+    "Data Smoothing List": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Glutamate",
+        "Ammonium"
+    ],
+    "Model Inputs": [
+        "Normalized_Bolus_Feed",
+        "Temperature_setpoint",
+        "pH_setpoint"
+    ],
+    "Process Variable Weights": [
+        30.0,
+        10.0,
+        10.0,
+        10.0,
+        10.0
+    ],
+    "a_matrix": [
+        [
+            0.39101170775719557,
+            0.49451753129928344,
+            0.28063960765298396,
+            -1.1685730582469505,
+            0.1227952538820408
+        ],
+        [
+            -1.0895643799151973,
+            -0.29277214121022044,
+            -0.3661824830825673,
+            1.2107085153122827,
+            0.5259830905490185
+        ],
+        [
+            -1.039083147416735,
+            -0.661022046022873,
+            -0.5444984698219006,
+            2.026410582512491,
+            0.14026264096460522
+        ],
+        [
+            1.6456352343291285,
+            1.0202817280396286,
+            1.0169298943672078,
+            -3.6616262689605015,
+            -0.18738661728664008
+        ],
+        [
+            0.35400784814426045,
+            -0.050415957600005536,
+            0.1416534100956737,
+            -0.0782932312704364,
+            -0.30309199832451816
+        ]
+    ],
+    "b_matrix": [
+        [
+            -0.04015883225132223,
+            -0.05918281766392034,
+            0.03848409672793178
+        ],
+        [
+            0.057323547180411424,
+            0.06585220286757412,
+            0.09681221654494476
+        ],
+        [
+            0.08101701836841393,
+            0.05824960718035376,
+            0.003000171928697507
+        ],
+        [
+            0.08865293595456267,
+            -0.11640668056821926,
+            0.04388948949484322
+        ],
+        [
+            0.07432324576390677,
+            -0.007325586104638138,
+            -0.1093531301867294
+        ]
+    ],
+    "af_col": [],
+    "af_row": [],
+    "bf_row": [],
+    "rho": 0.0,
+    "scaler": {
+        "feature_range": [
+            0,
+            1
+        ],
+        "copy": true,
+        "clip": false,
+        "feature_names_in_": [
+            "IGG",
+            "VCC",
+            "Viability",
+            "Glutamate",
+            "Ammonium",
+            "Normalized_Bolus_Feed",
+            "Temperature_setpoint",
+            "pH_setpoint"
+        ],
+        "n_features_in_": 8,
+        "n_samples_seen_": 421,
+        "scale_": [
+            0.0002654366121709376,
+            0.059234863271126856,
+            0.04576659038901603,
+            0.0970873786407767,
+            0.0831946755407654,
+            15.43508764629299,
+            0.3333333333333333,
+            1.818181818181816
+        ],
+        "min_": [
+            -0.017090720235172597,
+            -0.0204064103969032,
+            -3.565217391304349,
+            -0.06407766990291262,
+            -0.039101497504159734,
+            0.0,
+            -11.666666666666666,
+            -12.909090909090892
+        ],
+        "data_min_": [
+            64.3872,
+            0.3445,
+            77.9,
+            0.66,
+            0.47,
+            0.0,
+            35.0,
+            7.1
+        ],
+        "data_max_": [
+            3831.765,
+            17.22645,
+            99.75,
+            10.96,
+            12.49,
+            0.064787452,
+            38.0,
+            7.65
+        ],
+        "data_range_": [
+            3767.3777999999998,
+            16.88195,
+            21.849999999999994,
+            10.3,
+            12.02,
+            0.064787452,
+            3.0,
+            0.5500000000000007
+        ]
+    },
+    "Iterations": 1236514,
+    "Model RMSE": 10.757128280208642,
+    "States RMSE": {
+        "IGG": 235.47316833227276,
+        "VCC": 1.516180748850365,
+        "Viability": 1.2844226852460452,
+        "Glutamate": 0.48679718316004916,
+        "Ammonium": 1.0675530460315423
+    },
+    "Last Model Training": "2025/11/03 14:25:47",
+    "Hidden State": false,
+    "Matrix Stability Penalties": {
+        "Eigenvalue": {
+            "Value": -0.10968370036644348,
+            "Penalty": 0.03001501782445047
+        },
+        "B-matrix Authority": {
+            "Value": 0.2728169847752527,
+            "Penalty": 0.5287951376313552
+        },
+        "B-matrix Condition": {
+            "Value": 1.002369851889184,
+            "Penalty": 0.4820961000162979
+        },
+        "Controllability SVD": {
+            "Value": 0.028508052580252654,
+            "Penalty": 0.0009917427522251477
+        }
+    }
+}
+
+# ---- Controller Configuration ----
+Controller: {
+  "Time": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14
+  ],
+  "Process Variables": {
+    "IGG": {
+      "Data": [
+        23.9,
+        38.5,
+        73.5,
+        115.6,
+        218.4,
+        398.4,
+        713.8,
+        1068.4,
+        1537.9,
+        1941.5,
+        2337.8,
+        2603.3,
+        2902.5,
+        3102.2,
+        3225.0,
+      ],
+      "Weight": 100.0
+    },
+  },
+  "State Variables":{
+    "IGG": {
+      "Initial": 70.17535,
+      "Weight": 0.0001,
+      "Offset Proportional Gain": 0.51514, #0.3387,
+      "Offset Integral Gain": 0.40387, # 0.5464
+      },
+    "VCC": {
+      "Initial": 0.60,
+      "Weight": 5.0,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.49644 #0.5
+      },
+    "Viability": {
+      "Initial": 98.6,
+      "Weight": 0.02,
+      "Offset Proportional Gain": 0.0,
+      "Offset Integral Gain": 0.0,
+      },
+    "Glutamate": {
+      "Initial": 2.05,
+      "Weight": 13.0,
+      "Offset Proportional Gain": 0.2459,
+      "Offset Integral Gain": 0.105666,
+      },
+    "Ammonium": {
+      "Initial": 0.71,
+      "Weight": 10.0,
+      "Offset Proportional Gain": 0.4027,
+      "Offset Integral Gain": 0.2447,
+      }
+  },
+  "End of Run Variables":{
+    # "Viability": {
+    #   "Weight": 0.0,
+    #   "Constraint": [
+    #     80,
+    #     100
+    #     ]
+    #   },
+  },
+  "Manipulated Variables": {
+    "Normalized_Bolus_Feed": {
+      "Data": [
+        0.,
+        0.,
+        0.,
+        0.,
+        0.05344585,
+        0.05344585,
+        0.10530175,
+        0.10530175,
+        0.155553,
+        0.155553,
+        0.20425097,
+        0.20425097,
+        0.25135763,
+        0.25135763,
+        0.25135763
+        ],
+      "Weight": 0.0,
+      "Constraint": [
+        0.0,
+        0.03
+        ],
+    },
+    "Temperature_setpoint": {
+      "Data": [
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5
+        ],
+      "Weight": 1.0,
+      "Constraint": [
+        35.5,
+        37.5
+        ]
+    },
+    "pH_setpoint": {
+      "Data": [
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10
+        ],
+      "Weight": 1.0,
+      "Constraint": [
+        6.90,
+        7.30
+        ]
+    }
+  },
+  "Input Variables": {
+    "Normalized_Bolus_Feed": {
+      "Data": [
+        0.,
+        0.,
+        0.,
+        0.,
+        0.05344585,
+        0.05344585,
+        0.10530175,
+        0.10530175,
+        0.155553,
+        0.155553,
+        0.20425097,
+        0.20425097,
+        0.25135763,
+        0.25135763,
+        0.25135763
+      ],
+    "Monotonic": True,
+    "Normalized": True,
+    },
+    "Temperature_setpoint": {
+      "Data": [
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+        36.5,
+      ],
+    "Monotonic": False,
+    "Normalized": False,
+    },
+    "pH_setpoint": {
+      "Data": [
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+        7.10,
+      ],
+    "Monotonic": False,
+    "Normalized": False,
+    }
+  },
+  "Prediction Horizon": 20, #4
+  "Control Horizon": 20, #4
+  "Estimation Horizon": 2,
+  "Estimation Filter Weight on Data": 1.0, # 0.583,
+  "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
+  "Offset Integral Gain": -1.0, # Override individual gains if >= 0
+  "Overshoot Weight": 1.0,
+  "Undershoot Weight": 1.0,
+  "Trajectory Discount Weight": 0.5,
+  "Persist After Control Horizon": True,
+}

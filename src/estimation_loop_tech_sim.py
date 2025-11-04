@@ -35,7 +35,7 @@ top_dir = Path().absolute()
 
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 0
+CURR_TIME_USER = 10
 SHOW_PLOT = True
 
 
@@ -201,6 +201,8 @@ for count_vessel, curr_vessel in enumerate(vessels):
 
     # Retrieve and print current feed rate (mL/min) for the feed pump
     result = bioreactor.get_result()
+    max_error = bioreactor.estimation_error()
+
     print("")
     br_heading = f"{curr_vessel} on Day {curr_time}:"
     # print("." * len(br_heading))
@@ -250,7 +252,7 @@ for count_vessel, curr_vessel in enumerate(vessels):
     ]
 
     # If no file exist currently
-    bioreactor.return_data(show_daily_inputs=True, exec_date=True).to_csv(
+    bioreactor.return_data(exec_date=True).to_csv(
         csv_path_lv2_BR / filenames[0], index=False
     )
 

@@ -6,19 +6,16 @@ Main code for simulating closed-loop MPC
 """
 
 # Standard Library Imports
-import sys
 import warnings
 from pathlib import Path
 from datetime import datetime
 
 # 3rd Party Library Imports
 import numpy as np
-from termcolor import colored
 from InquirerPy.resolver import prompt
 
 # State-Space-Model Package Imports
 from mpc.mpc_optimizer import Bioreactor, Controller
-from visualization.visualize import MPCVisualizer
 from models.ssm import StateSpaceModel
 from data.functions import dict_toscaler, read_config, json_to_dict
 from scipy.optimize import minimize
@@ -40,7 +37,7 @@ CONTROLLER_NAME = "Controller"
 # User specified current culture day: determined automatically if -1
 CURR_TIME_USER = 14
 SHOW_PLOT = False
-
+max_iterations = 5  # Adjust based on expected optimization complexity
 
 # Use this path for experiment folders in GitHub repository
 PARENT_FILE_PATH = top_dir / "data"
@@ -140,26 +137,10 @@ def run_mpc_simulation(experiment_config, show_plot):
         )
         controllers.append(controller)
 
-    worst_estimates = np.zeros(len(vessels), dtype=float)
+    worst_estimates = np.zeros((len(vessels), CURR_TIME_END+1), dtype=float)
+
     # Iterate the main code for each bioreactor
     for count_vessel, curr_vessel in enumerate(vessels):
-        # Create bioreactor-specific figure output folders
-        if isinstance(curr_vessel, str):
-            fig_path_lv2_BR = Path(fig_path_top_dir.expanduser(), curr_vessel)
-        else:
-            fig_path_lv2_BR = Path(
-                fig_path_top_dir.expanduser(), f"BR{curr_vessel:02d}"
-            )
-        fig_path_lv2_BR.mkdir(parents=True, exist_ok=True)
-
-        # Create bioreactor-specific CSV output folders
-        if isinstance(curr_vessel, str):
-            csv_path_lv2_BR = Path(csv_path_top_dir.expanduser(), curr_vessel)
-        else:
-            csv_path_lv2_BR = Path(
-                csv_path_top_dir.expanduser(), f"BR{curr_vessel:02d}"
-            )
-        csv_path_lv2_BR.mkdir(parents=True, exist_ok=True)
 
         # Retrieve bioreactor and controller instances
         bioreactor = bioreactors[count_vessel]
@@ -182,12 +163,6 @@ def run_mpc_simulation(experiment_config, show_plot):
             # Estimate the current state
             controller.estimate()
 
-            # Print current optimization result at the end of the time loop
-            if curr_time == CURR_TIME_END:
-                PRINT_PRED = True
-            else:
-                PRINT_PRED = False
-
             # Do not optimize at EoR
             if curr_time == experiment_config["Last Day"]:
                 END_OF_RUN = True
@@ -202,38 +177,7 @@ def run_mpc_simulation(experiment_config, show_plot):
                     disp=False,
                 )
 
-        # -------------------------------------------------------------------------------------
-        # GENERATED PLOTS SAVED
-
-        # Plot the MPC Controller for each Bioreactor
-        # Use the last controller from the list which is the controller from the current day
-
-        br_plots = MPCVisualizer(bioreactor, controller)
-
-        if isinstance(curr_vessel, str):
-            identifier = f"{bioreactor.vessel}_D{CURR_TIME_END}-{todays_date}"
-        else:
-            identifier = f"BR{bioreactor.vessel:02d}_D{CURR_TIME_END}-{todays_date}"
-
-        worst_estimates[count_vessel] = br_plots.mpc_daily_plot(
-            save_paths=(
-                fig_path_lv2_BR / f"{identifier}.png",
-                fig_path_lv2_day / f"{identifier}.png",
-            ),
-            identifier=f"{experiment_config['Batch ID']} \
-            -MPC/{identifier}",
-            unit_dict=experiment_config["Units Dictionary"],
-            metadata={
-                "Title": f"{experiment_config['Batch ID']}-D{CURR_TIME_END}",
-                "Author": "Zach Hatzenbeller, Yu Luo",
-                "Description": f"MPC plot for {experiment_config['Batch ID']}. \
-                Developed within GSK R&D in BDSD",
-                "Copyright": f"(c) GSK, R&D, BDSD {datetime.today().year}",
-                "Creation Time": f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-                "Software": f"Python v{sys.version}",
-            },
-            display=SHOW_PLOT,
-        )
+            worst_estimates[count_vessel, curr_time] = bioreactor.estimation_error()
 
     return worst_estimates
 
@@ -242,6 +186,8 @@ def run_mpc_simulation(experiment_config, show_plot):
 worst_estimates = run_mpc_simulation(
     experiment_config=experiment_config, show_plot=False
 )
+sum_row_estimate = np.nansum(worst_estimates, axis=1)
+max_reactor_estimate = np.nanmax(sum_row_estimate)
 
 
 tuning_params = {}
@@ -252,10 +198,11 @@ for key, data in experiment_config[CONTROLLER_NAME]["State Variables"].items():
     tuning_params[prop_key] = data["Offset Proportional Gain"]
     tuning_params[inte_key] = data["Offset Integral Gain"]
 
-# tuning_params["Prediction Horizon"] = experiment_config[CONTROLLER_NAME][
-#     "Prediction Horizon"
-# ]
-# tuning_params["Control Horizon"] = experiment_config[CONTROLLER_NAME]["Control Horizon"]
+tuning_params["Prediction Horizon"] = experiment_config[CONTROLLER_NAME][
+    "Prediction Horizon"
+]
+tuning_params["Control Horizon"] = experiment_config[CONTROLLER_NAME]["Control Horizon"]
+
 tuning_params["Estimation Horizon"] = experiment_config[CONTROLLER_NAME][
     "Estimation Horizon"
 ]
@@ -317,14 +264,16 @@ class TuningOptimizer:
         worst_estimates = run_mpc_simulation(
             experiment_config=experiment_config, show_plot=False
         )
+        sum_row_estimate = np.nansum(worst_estimates, axis=1)
+        max_reactor_estimate = np.nanmax(sum_row_estimate)
         if self.iters % 5 == 0:
-            print(f"Iteration: {self.iters}, Tuning Error: {worst_estimates[0]}")
-        if worst_estimates < self.best_worst:
-            self.best_worst = worst_estimates[0]
+            print(f"Iteration: {self.iters}, Tuning Error: {max_reactor_estimate}")
+        if max_reactor_estimate < self.best_worst:
+            self.best_worst = max_reactor_estimate
             self.best_x = x
 
         self.iters += 1
-        return max(worst_estimates)
+        return max_reactor_estimate
 
 
 tuner = TuningOptimizer(initial_x=tuning_values)
@@ -332,7 +281,7 @@ tuner = TuningOptimizer(initial_x=tuning_values)
 # Define bounds for each value in x (0 to 1.5)
 state_bounds = [(0, 5.0) for _ in range(len(state_variables) * 2)]
 horizon_bounds = [
-    (2, 4) for _ in ["Estimation Horizon"] # "Control Horizon", "Prediction Horizon", 
+    (2, 20) for _ in ["Estimation Horizon", "Control Horizon", "Prediction Horizon",] #  
 ]
 estimate_bounds = [(1e-10, 1.0)]
 # control_bounds = [
@@ -340,12 +289,11 @@ estimate_bounds = [(1e-10, 1.0)]
 # ]
 bounds = state_bounds + horizon_bounds + estimate_bounds # + control_bounds
 
-max_iterations = 3  # Adjust based on expected optimization complexity
-
 print("BEFORE Optimization:")
-print(f"Tuning Error: {worst_estimates[0]}")
+print(f"Tuning Error: {max_reactor_estimate}")
+width = 55
 for key, data in tuning_params.items():
-    print(f"{key}: {data}")
+    print(f"{key:<{width}} : {data}")
 print("")
 
 
@@ -369,4 +317,4 @@ print("")
 print("AFTER Optimization:")
 print(f"Tuning Error: {tuner.best_worst}")
 for key, data in tuning_params.items():
-    print(f"{key}: {data}")
+    print(f"{key:<{width}}: {data}")

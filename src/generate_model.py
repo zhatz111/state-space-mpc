@@ -118,7 +118,7 @@ def main():
         states=model_config["Model States"],
         inputs=model_config["Model Inputs"],
         pv_wghts=model_config["Process Variable Weights"],
-        instability_weight=model_config["Instability Weight"],
+        instability_weights=model_config["Instability Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
         algorithm="basinhopping",
@@ -175,7 +175,11 @@ def main():
         model_config["Matrix Stability Penalties"] = model_train_obj.stability_error_dict
 
     # Export updated data back to JSON file
+    save_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+
     dict_to_json(json_files[0], model_config)
+    dict_to_json(new_directory / f"{Path(json_files[0]).stem}-{save_time}.json", model_config)
+
 
 
 if __name__ == "__main__":
