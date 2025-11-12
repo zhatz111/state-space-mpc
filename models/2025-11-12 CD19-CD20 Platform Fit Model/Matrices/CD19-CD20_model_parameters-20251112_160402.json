@@ -1,0 +1,254 @@
+{
+    "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - Documents\\General\\data\\2025-11-12 CD19-CD20 Platform Fit Model",
+    "Asset": "CD19-CD20",
+    "Training Data Study": "AR25-094",
+    "Operator": "Zach Hatzenbeller",
+    "Github Link": "https://github.com/gsk-tech/state-space-model",
+    "IDBS Number": "EXXXXX",
+    "Modeling Data File Name": "AR25-094 Model Data",
+    "Modeling Data Folder Name": "2025-11-12 CD19-CD20 Platform Fit Model",
+    "A & B Matrices Folder Name": "Matrices",
+    "Testing Data Size": 0.2,
+    "Number Cross Val Splits": 2,
+    "Random Seed": 1,
+    "Window Length": 2,
+    "Target Plotting Label": "IGG",
+    "Training Iterations": 5,
+    "BasinHopping Temperature": 100,
+    "Process Time": 13,
+    "Scaler": "MinMaxScaler",
+    "Instability Weights": {
+        "Eigenvalue": 100.0,
+        "B-matrix Authority": 10.0,
+        "B-matrix Condition": 10.0,
+        "Controllability": 100.0
+    },
+    "Training Batches": [
+        "AR25-094-013",
+        "AR25-094-014",
+        "AR25-094-018",
+        "AR25-094-019",
+        "AR25-094-020",
+        "AR25-094-021",
+        "AR25-094-022",
+        "AR25-094-023",
+        "AR25-094-024"
+    ],
+    "Testing Batches": [
+        "AR25-094-015",
+        "AR25-094-016",
+        "AR25-094-017"
+    ],
+    "Batches to Discard": [
+        "AR25-050-002",
+        "AR25-050-004",
+        "AR25-050-006",
+        "AR25-050-010",
+        "AR25-050-012",
+        "AR25-050-015",
+        "AR25-050-016",
+        "AR25-050-017",
+        "AR25-050-021",
+        "AR25-050-022",
+        "AR25-051-001",
+        "AR25-051-004",
+        "AR25-051-010"
+    ],
+    "Include Data Columns": [
+        "Batch",
+        "Day"
+    ],
+    "Model States": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Osmolality",
+        "Lactate"
+    ],
+    "Data Smoothing List": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Osmolality",
+        "Lactate"
+    ],
+    "Model Inputs": [
+        "Normalized_Daily_Feed",
+        "Temperature_setpoint",
+        "pH_setpoint"
+    ],
+    "Process Variable Weights": [
+        10.0,
+        5.0,
+        5.0,
+        5.0,
+        5.0
+    ],
+    "a_matrix": [
+        [
+            1.7857884777202535,
+            -0.14637795814745597,
+            0.023832284776865102,
+            -2.7681591465240656,
+            1.3095818945550008
+        ],
+        [
+            -1.632780059833332,
+            -0.31246131511288444,
+            0.29817432945354816,
+            2.0727826708307777,
+            -0.4486519626562421
+        ],
+        [
+            -1.0193392494516107,
+            0.04627992637028235,
+            -0.18269440454741018,
+            0.8958801316944636,
+            0.09831702941561712
+        ],
+        [
+            6.701879922753283,
+            -0.13439882899739458,
+            -0.3387051162574878,
+            -10.0,
+            4.576349316283989
+        ],
+        [
+            -0.4828308283629748,
+            -0.24392569808294293,
+            0.21194581694523046,
+            1.44421726845908,
+            -1.2460051083544255
+        ]
+    ],
+    "b_matrix": [
+        [
+            0.14983614558451164,
+            0.36775691022643436,
+            0.1311488145181353
+        ],
+        [
+            0.13983113431085775,
+            0.3864009313423111,
+            -0.17079589360092626
+        ],
+        [
+            0.4438142999743819,
+            -0.25346935836781903,
+            -0.11490266784160962
+        ],
+        [
+            0.09926328996838538,
+            -0.024419585087686643,
+            0.5417902791209753
+        ],
+        [
+            -0.32109890941622254,
+            -0.015044935780661236,
+            -0.013989263716189559
+        ]
+    ],
+    "af_col": [],
+    "af_row": [],
+    "bf_row": [],
+    "rho": 0.0,
+    "scaler": {
+        "feature_range": [
+            0,
+            1
+        ],
+        "copy": true,
+        "clip": false,
+        "feature_names_in_": [
+            "IGG",
+            "VCC",
+            "Viability",
+            "Osmolality",
+            "Lactate",
+            "Normalized_Daily_Feed",
+            "Temperature_setpoint",
+            "pH_setpoint"
+        ],
+        "n_features_in_": 8,
+        "n_samples_seen_": 112,
+        "scale_": [
+            0.00021299927776204897,
+            0.0363623802086837,
+            0.020533880903490762,
+            0.007434944237918215,
+            1.0582010582010584,
+            38.13747698546279,
+            1.0,
+            2.5000000000000036
+        ],
+        "min_": [
+            -0.022364583366170723,
+            -0.5167239677174789,
+            -1.0390143737166326,
+            -1.899628252788104,
+            -0.03703703703703705,
+            0.0,
+            -35.0,
+            -17.250000000000025
+        ],
+        "data_min_": [
+            104.9984,
+            14.2104,
+            50.6,
+            255.5,
+            0.035,
+            0.0,
+            35.0,
+            6.9
+        ],
+        "data_max_": [
+            4799.85,
+            41.711349999999996,
+            99.3,
+            390.0,
+            0.98,
+            0.026220927,
+            35.0,
+            7.3
+        ],
+        "data_range_": [
+            4694.8516,
+            27.500949999999996,
+            48.699999999999996,
+            134.5,
+            0.945,
+            0.026220927,
+            0.0,
+            0.39999999999999947
+        ]
+    },
+    "Iterations": 13192,
+    "Model RMSE": 4.617966535263112,
+    "States RMSE": {
+        "IGG": 167.70184873902278,
+        "VCC": 2.61171784209193,
+        "Viability": 3.2516688274612795,
+        "Osmolality": 12.550544621861887,
+        "Lactate": 0.12597787286041748
+    },
+    "Last Model Training": "2025/11/12 16:02:26",
+    "Hidden State": false,
+    "Matrix Stability Penalties": {
+        "Eigenvalue": {
+            "Value": -0.26031354069460566,
+            "Penalty": 0.004668590105614007
+        },
+        "B-matrix Authority": {
+            "Value": 1.0270632621411098,
+            "Penalty": 0.0007324201577184252
+        },
+        "B-matrix Condition": {
+            "Value": 1.010460885796022,
+            "Penalty": 0.48771226560502806
+        },
+        "Controllability SVD": {
+            "Value": 0.07697034035959487,
+            "Penalty": 0.0
+        }
+    }
+}

@@ -112,7 +112,7 @@ def main():
         states=model_config["Model States"],
         inputs=model_config["Model Inputs"],
         pv_wghts=model_config["Process Variable Weights"],
-        instability_weight=model_config["Instability Weight"],
+        instability_weights=model_config["Instability Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
         hidden_state=model_config["Hidden State"],

@@ -67,7 +67,7 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         # take transpose because state is a row vector
         expAT_dt = linalg.expm(transpose(A) * dt)
         for i in range(1, n_steps):
-            xout[i] = dot(xout[i - 1], expAT_dt) + output_mods_scaled
+            xout[i] = np.clip(dot(xout[i - 1], expAT_dt) + output_mods_scaled, a_min=0, a_max=None)
         yout = squeeze(dot(xout, transpose(C)))
         return T, squeeze(yout), squeeze(xout)
 
@@ -99,7 +99,7 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         Ad = expMT[:n_states, :n_states]
         Bd = expMT[n_states:, :n_states]
         for i in range(1, n_steps):
-            xout[i] = dot(xout[i - 1], Ad) + dot(U[i - 1], Bd) + output_mods_scaled
+            xout[i] = np.clip(dot(xout[i - 1], Ad) + dot(U[i - 1], Bd) + output_mods_scaled, a_min=0, a_max=None)
     else:
         # Linear interpolation between steps
         # Algorithm: to integrate from time 0 to time dt, with linear
@@ -125,9 +125,9 @@ def lsim_mod(system, U, T, X0=None, interp=False, output_mods_scaled=0):
         Bd1 = expMT[n_states + n_inputs :, :n_states]
         Bd0 = expMT[n_states : n_states + n_inputs, :n_states] - Bd1
         for i in range(1, n_steps):
-            xout[i] = (
+            xout[i] = np.clip((
                 dot(xout[i - 1], Ad) + dot(U[i - 1], Bd0) + dot(U[i], Bd1)
-            ) + output_mods_scaled
+            ) + output_mods_scaled, a_min=0, a_max=None)
 
     yout = squeeze(dot(xout, transpose(C))) + squeeze(dot(U, transpose(D)))
     return T, squeeze(yout), squeeze(xout)

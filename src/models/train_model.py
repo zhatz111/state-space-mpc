@@ -926,7 +926,7 @@ class ModelTraining:
         self,
         A: np.ndarray,
         B: np.ndarray,
-        s_min_target: float = 0.10,
+        s_min_target: float = 0.03,
         eps=1e-12,
     ):
         """
