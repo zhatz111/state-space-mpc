@@ -1,9 +1,9 @@
 {
-    "FER437-5730912-0AA0-C00 (FF)-day0":{
+    "FER437-5730912-0AA0-C00-day0":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":0,
         "time":1741171800000,
         "titre":23.9,
@@ -25,11 +25,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day1":{
+    "FER437-5730912-0AA0-C00-day1":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":1,
         "time":1741253460000,
         "titre":35.0,
@@ -51,11 +51,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day2":{
+    "FER437-5730912-0AA0-C00-day2":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":2,
         "time":1741357200000,
         "titre":66.8,
@@ -77,11 +77,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day3":{
+    "FER437-5730912-0AA0-C00-day3":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":3,
         "time":1741421460000,
         "titre":105.1,
@@ -103,11 +103,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day4":{
+    "FER437-5730912-0AA0-C00-day4":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":4,
         "time":1741508160000,
         "titre":198.5,
@@ -129,11 +129,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day5":{
+    "FER437-5730912-0AA0-C00-day5":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":5,
         "time":1741597920000,
         "titre":362.2,
@@ -155,11 +155,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day6":{
+    "FER437-5730912-0AA0-C00-day6":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":6,
         "time":1741684500000,
         "titre":648.9,
@@ -181,11 +181,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day7":{
+    "FER437-5730912-0AA0-C00-day7":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":7,
         "time":1741769640000,
         "titre":971.3,
@@ -207,11 +207,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day8":{
+    "FER437-5730912-0AA0-C00-day8":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":8,
         "time":1741855320000,
         "titre":1398.1,
@@ -233,11 +233,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day9":{
+    "FER437-5730912-0AA0-C00-day9":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":9,
         "time":1741942440000,
         "titre":1765.0,
@@ -259,11 +259,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day10":{
+    "FER437-5730912-0AA0-C00-day10":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":10,
         "time":1742026080000,
         "titre":2125.3,
@@ -285,11 +285,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day11":{
+    "FER437-5730912-0AA0-C00-day11":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":11,
         "time":1742114760000,
         "titre":2366.6,
@@ -311,11 +311,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day12":{
+    "FER437-5730912-0AA0-C00-day12":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":12,
         "time":1742200740000,
         "titre":2638.6,
@@ -337,11 +337,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day13":{
+    "FER437-5730912-0AA0-C00-day13":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":13,
         "time":1742293980000,
         "titre":2820.2,
@@ -363,11 +363,11 @@
         "Temp_setpoint":36.5,
         "pH_setpoint":7.1
     },
-    "FER437-5730912-0AA0-C00 (FF)-day14":{
+    "FER437-5730912-0AA0-C00-day14":{
         "vessel_id":"FER437",
         "campaign_id":"GSK5730912",
-        "lot_id":"5730912-0AA0-C00 (FF)",
-        "batch_id":"5730912-0AA0-C00 (FF)",
+        "lot_id":"5730912-0AA0-C00",
+        "batch_id":"5730912-0AA0-C00",
         "Day":14,
         "time":1742370720000,
         "titre":2931.8,

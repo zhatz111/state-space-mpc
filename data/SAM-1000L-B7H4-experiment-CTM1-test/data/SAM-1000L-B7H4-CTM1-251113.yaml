@@ -2,11 +2,11 @@
 
 # ---- Batch Information ----
 Asset: B7H4
-Vessel ID: [FER027] # In list format in case of multiple batches
+Vessel ID: [FER437] # In list format in case of multiple batches
 Campaign ID: GSK5730912
-Lot ID: 57309120M00D00
-Batch ID: 5730912101002F
-Inoc Date: 2025-11-21
+Lot ID: 5730912-0AA0-C00 (FF)
+Batch ID: 5730912-0AA0-C00 (FF)
+Inoc Date: 2025-03-05
 Last Day: 14
 
 # ---- Feeding type and Reactor Volumes ----
@@ -29,7 +29,7 @@ Volume Unit: L # either "mL" or "L"
 Feed Unit: mL # either "mL" or "L"
 
 # ---- Data file information specific to R&D testing ----
-Master Data File: SAM-1000L-B7H4-MasterDataTable.json
+Master Data File: SAM-1000L-B7H4-CTM1-MasterDataTable.json
 
 # ---- Dictionary for all measurement units ----
 Units Dictionary:

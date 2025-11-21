@@ -4,8 +4,8 @@
 Asset: B7H4
 Vessel ID: [FER437] # In list format in case of multiple batches
 Campaign ID: GSK5730912
-Lot ID: 5730912-0AA0-C00 (FF)
-Batch ID: 5730912-0AA0-C00 (FF)
+Lot ID: 5730912-0AA0-C00
+Batch ID: 0AA0-C00
 Inoc Date: 2025-03-05
 Last Day: 14
 
@@ -554,8 +554,8 @@ Controller: {
         ],
       "Weight": 1.0,
       "Constraint": [
-        6.90,
-        7.30
+        6.95,
+        7.25
         ]
     }
   },

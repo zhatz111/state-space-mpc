@@ -35,7 +35,7 @@ top_dir = Path().absolute()
 
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 10
+CURR_TIME_USER = 0
 SHOW_PLOT = True
 
 
@@ -174,7 +174,7 @@ for count_vessel, curr_vessel in enumerate(vessels):
 
         # Ingest data from Input topic
         bioreactor.curr_time = curr_time
-        vector_key = f"{curr_vessel}-{experiment_config['Batch ID']}-day{curr_time}"
+        vector_key = f"{curr_vessel}-{experiment_config['Lot ID']}-day{curr_time}"
         input_message = master_sheet[vector_key]
         input_message_dict[bioreactor.curr_time] = input_message
         bioreactor.ingest_vectors(input_message_dict)
