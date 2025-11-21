@@ -19,10 +19,6 @@ import matplotlib.pyplot as plt
 # Imports from Classes in Repository
 from mpc.mpc_optimizer import Bioreactor, Controller
 
-# RMSE
-from sklearn.metrics import mean_squared_error
-from sklearn.metrics import mean_absolute_percentage_error
-
 # suppress warnings
 warnings.filterwarnings("ignore")
 
@@ -79,13 +75,6 @@ class MPCVisualizer:
             else:
                 y_var = PV
 
-            # if not MV:
-            #     MV = self.controller.mv_names[0]
-            #     input_var = MV.split("--")[0]
-            #     # input_var = "DAILY_NORMALIZED_FEED"
-            # else:
-            #     input_var = MV
-
             PV_SP_SUFFIX = "--STATE_SP"
             PV_SUFFIX = "--STATE_DATA"
             PRED_SUFFIX = "--STATE_PRED"
@@ -101,58 +90,16 @@ class MPCVisualizer:
             # Create a mask for NaN Values
             last_ax_used = 0
             sub_ax = ax.flatten()
-            # mape_est_ctrl_array = np.full(
-            #     (3, len(self.bioreactor.process_model.states)), np.nan
-            # )
-            # mape_est_ctrl_array = []
             nrmse, nrmse_sp = self.bioreactor.estimation_error(nrmse_only=True)
+
             for count, state in enumerate(self.bioreactor.process_model.states):
                 # Retrieve the latest modifier
                 modifiers_data = plot_data[state + "--STATE_MOD"].values
                 latest_modifier = modifiers_data[~pd.isnull(modifiers_data)][-1]
 
-                # # Use the correct modifiers for days outside the est horizon (2024-02-26)
-                # modifiers = modifiers_data.copy()
-                # modifiers[:] = latest_modifier
-                # if sum(~pd.isnull(modifiers_data)) > self.controller.est_horizon:
-                #     for m in range(sum(~pd.isnull(modifiers_data)) - self.controller.est_horizon):
-                #         modifiers[m] = modifiers_data[m + self.controller.est_horizon - 1]
-
                 # Additive modifier (2024-06-20)
                 modifiers = modifiers_data.copy()
                 modifiers[np.where(np.isnan(modifiers))] = latest_modifier
-
-                # # Calculate est. error
-                y_data = (
-                    plot_data[state + PV_SUFFIX]
-                    .loc[plot_data["Day"] <= self.bioreactor.curr_time]
-                    .values
-                )
-                y_est = (
-                    plot_data[state + EST_SUFFIX]
-                    .loc[plot_data["Day"] <= self.bioreactor.curr_time]
-                    .values
-                )
-                # y_data_est_have_values = ~np.logical_or(
-                #     np.isnan(y_data), np.isnan(y_est)
-                # )
-                # rmse_est = np.sqrt(
-                #     mean_squared_error(
-                #         y_data[y_data_est_have_values], y_est[y_data_est_have_values]
-                #     )
-                # )
-                # nrmse_est = 100 * np.sqrt(
-                #     mean_squared_error(
-                #         y_data[y_data_est_have_values], y_est[y_data_est_have_values]
-                #     )
-                # )/(np.max(y_data[y_data_est_have_values]) - np.min(y_data[y_data_est_have_values]))
-
-                # mape_est = 100 * mean_absolute_percentage_error(
-                #     y_data[y_data_est_have_values], y_est[y_data_est_have_values]
-                # )
-                # # mape_est_ctrl_array[0, count] = self.controller.offset_ki[count]
-                # # mape_est_ctrl_array[1, count] = nrmse_est
-                # mape_est_ctrl_array.append(nrmse_est)
 
                 if state in y_var:
                     measured_mask = np.isfinite(plot_data[state + PV_SUFFIX])
@@ -161,7 +108,6 @@ class MPCVisualizer:
                         plot_data[state + PV_SUFFIX][measured_mask],
                         "ks",
                         label="Measured Output",
-                        # markersize=10
                     )
                     sub_ax[count].plot(
                         plot_data["Day"].loc[
@@ -186,25 +132,6 @@ class MPCVisualizer:
                         label=f"Estimated Output ({np.round(nrmse[count],2)}%)",
                     )
                     try:
-                        y_sp = (
-                            plot_data[state + PV_SP_SUFFIX]
-                            .loc[plot_data["Day"] <= self.bioreactor.curr_time]
-                            .values
-                        )
-                        y_data_sp_have_values = ~np.logical_or(
-                            np.isnan(y_data), np.isnan(y_est)
-                        )
-                        # rmse_ctrl = np.sqrt(
-                        #     mean_squared_error(
-                        #         y_data[y_data_sp_have_values],
-                        #         y_sp[y_data_sp_have_values],
-                        #     )
-                        # )
-                        # mape_ctrl = 100 * mean_absolute_percentage_error(
-                        #     y_sp[y_data_sp_have_values], y_data[y_data_sp_have_values]
-                        # )
-                        # mape_est_ctrl_array[2, count] = mape_ctrl
-
                         sub_ax[count].plot(
                             plot_data["Day"],
                             plot_data[state + PV_SP_SUFFIX],
@@ -259,17 +186,7 @@ class MPCVisualizer:
                 last_ax_used = count
 
                 sub_ax[count].set_xlim([0, np.max(plot_data["Day"])])
-
-            # mape_df = pd.DataFrame(
-            #     np.round(mape_est_ctrl_array, 2),
-            #     columns=self.bioreactor.process_model.states,
-            #     index=["Est. gain", "Est.%", "Ctrl.%"],
-            # )
-
-            # Comment out for estimator optimization (2025-08-29)
-            # print("")
-            # print(mape_df)
-            # print("-" * 80) # len(max(mape_df.to_string().split("\n"), key=len)))
+                sub_ax[count].grid()
 
             # Plot the Controller Actions
             for count, inputs in enumerate(
@@ -281,7 +198,6 @@ class MPCVisualizer:
                         np.isin(self.controller.mv_names, inputs + MV_SUFFIX)
                     )[0]
                     mv_constr = self.controller.mv_constr[:, mv_where]
-                    # mv_constr[0] = 0
                 else:
                     mv_constr = []
 
@@ -327,45 +243,6 @@ class MPCVisualizer:
                         else:
                             sub_ax[count].set_title(f"{inputs}", fontweight="bold")
                     except KeyError:
-                        # sub_ax[count].step(
-                        #     plot_data["Day"].loc[
-                        #         plot_data["Day"] >= self.bioreactor.curr_time
-                        #     ],
-                        #     plot_data[self.bioreactor.daily_feed_name_data].loc[
-                        #         plot_data["Day"] >= self.bioreactor.curr_time
-                        #     ],
-                        #     "r-",
-                        #     label="Predicted Control Input",
-                        #     where="post",
-                        # )
-                        # sub_ax[count].step(
-                        #     plot_data["Day"].loc[
-                        #         plot_data["Day"] <= self.bioreactor.curr_time
-                        #     ],
-                        #     plot_data[self.bioreactor.daily_feed_name_data].loc[
-                        #         plot_data["Day"] <= self.bioreactor.curr_time
-                        #     ],
-                        #     "k-",
-                        #     label="Past Control Input",
-                        #     where="post",
-                        # )
-                        # sub_ax[count].step(
-                        #     plot_data["Day"],
-                        #     plot_data[self.bioreactor.daily_feed_name_ref],
-                        #     "g--",
-                        #     label="Historical Input Reference",
-                        #     where="post",
-                        # )
-                        # if isinstance(unit_dict, dict):
-                        #     label = self.bioreactor.daily_feed_name_ref.split("--")[0]
-                        #     sub_ax[count].set_title(
-                        #         f"{label} (MV) {unit_dict[label]}", fontweight="bold"
-                        #     )
-                        # else:
-                        #     sub_ax[count].set_title(
-                        #         f"{self.bioreactor.daily_feed_name_ref.split('--')[0]} (MV)",
-                        #         fontweight="bold",
-                        #     )
                         pass
                     if len(mv_constr) > 0:
                         # sub_ax[count].set_ylim(mv_constr)
@@ -375,6 +252,7 @@ class MPCVisualizer:
                     sub_ax[count].legend(prop={"size": 9})
 
                 sub_ax[count].set_xlim([0, np.max(plot_data["Day"])])
+                sub_ax[count].grid()
 
             font = {
                 "family": "sans-serif",
@@ -445,14 +323,6 @@ class MPCVisualizer:
                         "k--",
                         label="Target Trajectory",
                     )
-                    # ax.plot(
-                    #     self.controller[count].data_before_optim_dict[key]["Day"],
-                    #     self.controller[count].data_before_optim_dict[key][
-                    #         self.controller[0].pv_names
-                    #     ],
-                    #     "b-",
-                    #     label="Un-optimized",
-                    # )
                     ax.plot(
                         self.controller[count].data_after_optim_dict[key]["Day"],
                         self.controller[count].data_after_optim_dict[key][
@@ -540,7 +410,6 @@ class MPCVisualizer:
             fig, axes = plt.subplots(
                 rows, cols, figsize=(9, 7), squeeze=False, constrained_layout=True
             )
-            # fig.subplots_adjust(top=0.8)
             for count, ax in enumerate(axes.flatten()):
                 if count < len(self.bioreactor):
                     before_keys = list(
@@ -579,7 +448,6 @@ class MPCVisualizer:
             fig2, axes2 = plt.subplots(
                 rows, cols, figsize=(9, 7), squeeze=False, constrained_layout=True
             )
-            # fig2.subplots_adjust(top=0.8)
             for count, ax in enumerate(axes2.flatten()):
                 if count < len(self.bioreactor):
                     before_keys = list(
@@ -626,10 +494,6 @@ class MPCVisualizer:
                     ax.title.set_text(self.bioreactor[count].vessel)
                 if ax == axes2.flatten()[0]:
                     ax.legend()
-
-                # if count == 0:
-                #     pass
-                #     # ax.legend(bbox_to_anchor=(3, 1.3), ncol=3, fancybox=True, shadow=True)
 
             fig.supxlabel("Day", size="x-large", weight="bold")
             fig.supylabel("Level", size="x-large", weight="bold")
