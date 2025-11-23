@@ -353,7 +353,7 @@ class Bioreactor:
 
             selected_col = (
                 self.process_model.state_data_labels
-                + self.process_model.input_data_labels
+                # + self.process_model.input_data_labels # (YL: I don't know why but including the input in this line resulted in Day 0's T being changed from 36.6 back to 36.5 on Day 2)
                 + [self.volume_label]
             )
             if renamed_vector is not None:
@@ -378,18 +378,39 @@ class Bioreactor:
 
         # convert cumulative to daily feed for the optimizer
         if self.curr_time > 0:
-            for name in self.monotonic_inputs:
-                # Convert input data back to daily
-                # convert totalizer values up until the current time only
-                # future times are already daily from optimized inputs
-                total_input_data_curr_time = self.data.loc[
-                    : self.curr_time, f"{name.upper()}{self.process_model.input_suffix}"
-                ]
-                daily_input_data_curr_time = np.diff(total_input_data_curr_time)
-                self.data.loc[
-                    : (self.curr_time - 1),
-                    f"{name.upper()}{self.process_model.input_suffix}",
-                ] = daily_input_data_curr_time
+            # for name in self.monotonic_inputs:
+            #     # Convert input data back to daily
+            #     # convert totalizer values up until the current time only
+            #     # future times are already daily from optimized inputs
+            #     total_input_data_curr_time = self.data.loc[
+            #         : self.curr_time, f"{name.upper()}{self.process_model.input_suffix}"
+            #     ]
+            #     daily_input_data_curr_time = np.diff(total_input_data_curr_time)
+            #     self.data.loc[
+            #         : (self.curr_time - 1),
+            #         f"{name.upper()}{self.process_model.input_suffix}",
+            #     ] = daily_input_data_curr_time
+
+            for name in self.process_model.inputs:
+                if name in self.monotonic_inputs:
+                    
+                    # Convert input data back to daily
+                    # convert totalizer values up until the current time only
+                    # future times are already daily from optimized inputs
+                    total_input_data_curr_time = self.data.loc[
+                        : self.curr_time, f"{name.upper()}{self.process_model.input_suffix}"
+                    ]
+                    daily_input_data_curr_time = np.diff(total_input_data_curr_time)
+                    self.data.loc[
+                        : (self.curr_time - 1),
+                        f"{name.upper()}{self.process_model.input_suffix}",
+                    ] = daily_input_data_curr_time
+
+                else:
+                    # Assign current day's reading of non-totalizer inputs to previous day's input--data
+                    self.data.loc[self.curr_time - 1,
+                        f"{name.upper()}{self.process_model.input_suffix}",
+                    ] = renamed_vector[f"{name.upper()}{self.process_model.input_suffix}"]
 
         # normalize variables outside of the loop to avoid negative values
         for key, var in self.controller_config["Input Variables"].items():
