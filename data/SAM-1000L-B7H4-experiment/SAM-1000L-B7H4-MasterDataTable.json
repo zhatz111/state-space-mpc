@@ -28,7 +28,8 @@
         "pO2atTemperature":120.8,
         "Day":0,
         "titre":22.4,
-        "raman_titer": -134.6042698019802 
+        "hplc_titer": 22.4,
+        "raman_titer":-134.604269802
     },
     "FER027-57309120M00D00-day1":{
         "time":1763738806409,
@@ -58,7 +59,9 @@
         "bicarbonate":26.8,
         "pO2atTemperature":71.5,
         "Day":1,
-        "titre":-27.77
+        "titre":-27.77,
+        "hplc_titer": null,
+        "raman_titer":-27.77
     },
     "FER027-57309120M00D00-day2":{
         "time":1763903652847,
@@ -88,6 +91,40 @@
         "bicarbonate":26.3,
         "pO2atTemperature":70.2,
         "Day":2,
-        "titre":-19.5915273534
+        "titre":-19.5915273534,
+        "hplc_titer": null,
+        "raman_titer":-19.5915273534
+    },
+    "FER027-57309120M00D00-day3":{
+        "time":1763992509795,
+        "batch_id":"5730912101002F",
+        "vessel_id":"FER027",
+        "lot_id":"57309120M00D00",
+        "campaign_id":"GSK5730912",
+        "CellCultureViability":98.8,
+        "Osmolality":304,
+        "pHatTemperature":7.053,
+        "GlucoseConcentration":4.38,
+        "LactateConcentration":0.79,
+        "pCO2atTemperature":55.4,
+        "AmmoniumConcentration":2.31,
+        "dissolved_oxygen":39.7659358789,
+        "pH_setpoint":7.0025434494,
+        "Temp_setpoint":37.4622573853,
+        "nutrient_rate":0.0,
+        "nutrient_total":21989.888671875,
+        "vessel_weight":759.5616068321,
+        "total_cells":4.46,
+        "total_viable_cells":4.41,
+        "average_diameter":14.62,
+        "Glutamine":0.97,
+        "Glutamate":3.86,
+        "calcium":0.44,
+        "bicarbonate":15.6,
+        "pO2atTemperature":61.5,
+        "Day":3,
+        "titre":-13.0444021697,
+        "hplc_titer": null,
+        "raman_titer":-13.0444021697
     }
 }
