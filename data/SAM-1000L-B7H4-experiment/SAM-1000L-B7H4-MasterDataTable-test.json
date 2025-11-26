@@ -1,5 +1,5 @@
 {
-    "FER027-57309120M00D00-day0":{
+    "FER027-57309120M00D00-day0": {
         "time": 1763738806409,
         "batch_id": "5730912101002F",
         "vessel_id": "FER027",
@@ -26,12 +26,10 @@
         "calcium": 0.46,
         "bicarbonate": 27.9,
         "pO2atTemperature": 120.8,
-        "Day":0,
-        "titre":22.4,
-        "hplc_titer":22.4,
-        "raman_titer":-134.604269802
+        "Day": 0,
+        "titre": 22.4
     },
-    "FER027-57309120M00D00-day1":{
+    "FER027-57309120M00D00-day1": {
         "time": 1763828673632,
         "batch_id": "5730912101002F",
         "vessel_id": "FER027",
@@ -58,12 +56,10 @@
         "calcium": 0.46,
         "bicarbonate": 26.8,
         "pO2atTemperature": 71.5,
-        "Day":1,
-        "titre":38.1,
-        "hplc_titer":38.1,
-        "raman_titer":-27.77
+        "Day": 1,
+        "titre": -27.77
     },
-    "FER027-57309120M00D00-day2":{
+    "FER027-57309120M00D00-day2": {
         "time": 1763903652847,
         "batch_id": "5730912101002F",
         "vessel_id": "FER027",
@@ -90,12 +86,10 @@
         "calcium": 0.47,
         "bicarbonate": 26.3,
         "pO2atTemperature": 70.2,
-        "Day":2,
-        "titre":69.6,
-        "hplc_titer":69.6,
-        "raman_titer":-19.5915273534
+        "Day": 2,
+        "titre": 69.6
     },
-    "FER027-57309120M00D00-day3":{
+    "FER027-57309120M00D00-day3": {
         "time": 1763992509795,
         "batch_id": "5730912101002F",
         "vessel_id": "FER027",
@@ -122,12 +116,10 @@
         "calcium": 0.44,
         "bicarbonate": 15.6,
         "pO2atTemperature": 61.5,
-        "Day":3,
-        "titre":136.0,
-        "hplc_titer":136.0,
-        "raman_titer":-13.0444021697
+        "Day": 3,
+        "titre": 136.0
     },
-    "FER027-57309120M00D00-day4":{
+    "FER027-57309120M00D00-day4": {
         "time": 1764077494685,
         "batch_id": "5730912101002F",
         "vessel_id": "FER027",
@@ -154,41 +146,7 @@
         "calcium": 0.41,
         "bicarbonate": 8.4,
         "pO2atTemperature": 54.7,
-        "Day":4,
-        "titre":145.8489240892,
-        "hplc_titer":null,
-        "raman_titer":145.8489240892
-    },
-    "FER027-57309120M00D00-day5":{
-        "time":1764164095952,
-        "batch_id":"5730912101002F",
-        "vessel_id":"FER027",
-        "lot_id":"57309120M00D00",
-        "campaign_id":"GSK5730912",
-        "CellCultureViability":96.8,
-        "Osmolality":332,
-        "pHatTemperature":6.821,
-        "GlucoseConcentration":4.26,
-        "LactateConcentration":1.05,
-        "pCO2atTemperature":51.6,
-        "AmmoniumConcentration":4.94,
-        "dissolved_oxygen":39.8764634085,
-        "pH_setpoint":6.996638298,
-        "Temp_setpoint":36.9497795105,
-        "nutrient_rate":0.0,
-        "nutrient_total":61794.40625,
-        "vessel_weight":807.6817016602,
-        "total_cells":10.28,
-        "total_viable_cells":9.96,
-        "average_diameter":15.04,
-        "Glutamine":1.05,
-        "Glutamate":5.11,
-        "calcium":0.39,
-        "bicarbonate":8.5,
-        "pO2atTemperature":36.6,
-        "Day":5,
-        "titre":371.4794607635,
-        "hplc_titer":null,
-        "raman_titer":371.4794607635
+        "Day": 4,
+        "titre": 145.84892408918626
     }
 }

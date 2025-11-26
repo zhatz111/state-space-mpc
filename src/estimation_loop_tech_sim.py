@@ -35,7 +35,7 @@ top_dir = Path().absolute()
 
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 3
+CURR_TIME_USER = 5
 SHOW_PLOT = True
 CONTROLLER_KEY = "Controller" # Should always be named "Controller"
 

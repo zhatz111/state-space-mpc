@@ -406,13 +406,13 @@ class Bioreactor:
                         f"{name.upper()}{self.process_model.input_suffix}",
                     ] = daily_input_data_curr_time
 
-                else:
-                    # Assign current day's reading of non-totalizer inputs to previous day's input--data
-                    self.data.loc[:self.curr_time - 1,
-                        f"{name.upper()}{self.process_model.input_suffix}",
-                    ] = self.data.loc[1:self.curr_time,
-                        f"{name.upper()}{self.process_model.input_suffix}",
-                    ].values
+                # else:
+                #     # Assign current day's reading of non-totalizer inputs to previous day's input--data
+                #     self.data.loc[:self.curr_time - 1,
+                #         f"{name.upper()}{self.process_model.input_suffix}",
+                #     ] = self.data.loc[1:self.curr_time,
+                #         f"{name.upper()}{self.process_model.input_suffix}",
+                #     ].values
 
         # normalize variables outside of the loop to avoid negative values
         for key, var in self.controller_config["Input Variables"].items():

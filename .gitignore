@@ -8,6 +8,7 @@ __pycache__/
 # Distribution / packaging
 .Python
 .venv/
+.venv_mpc310/
 build/
 develop-eggs/
 dist/
