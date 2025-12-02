@@ -35,7 +35,7 @@ top_dir = Path().absolute()
 
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 5
+CURR_TIME_USER = -1  # -1 for auto-detect based on inoc date
 SHOW_PLOT = True
 CONTROLLER_KEY = "Controller" # Should always be named "Controller"
 
@@ -156,14 +156,14 @@ input_messages = {}
 input_message_dict = {}
 # Iterate from Day 0 to the current day
 for curr_time in range(0, CURR_TIME_END + 1):
-    # -------------------------------------------------------------------------------------
-    # MAIN MPC LOOP ESTIMATES & OPTIMIZES EACH BIOREACTOR
-
     # Ingest data from Input topic
     bioreactor.curr_time = curr_time
     vector_key = f"{vessel}-{experiment_config['Lot ID']}-day{curr_time}"
     input_message = master_sheet[vector_key]
     input_message_dict[bioreactor.curr_time] = input_message
+    # -------------------------------------------------------------------------------------
+    # MAIN MPC CODE THAT ESTIMATES & OPTIMIZES EACH BIOREACTOR
+
     bioreactor.ingest_vectors(input_message_dict)
 
     # Estimate the current state

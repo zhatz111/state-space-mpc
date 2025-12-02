@@ -91,7 +91,7 @@ target/
 
 # exclude python notebooks from source control
 /notebooks/
-*.ipynb
+# *.ipynb
 
 # Mac OS-specific storage files
 .DS_Store
@@ -102,8 +102,6 @@ target/
 
 # Mypy cache
 .mypy_cache/
-*.ipynb
-*.ipynb
 
 # MISC files
 *.dxp
