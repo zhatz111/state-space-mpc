@@ -13,7 +13,6 @@ from datetime import datetime
 
 # 3rd Party Library Imports
 import numpy as np
-import pandas as pd
 from termcolor import colored
 from InquirerPy.resolver import prompt
 
