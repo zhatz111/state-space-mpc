@@ -1,0 +1,34 @@
+{
+    // --- Python Interpreter Settings ---
+    // Automatically finds the Python interpreter in a local .venv, venv, or env folder.
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    // This setting is for Windows paths (adjust the path components as needed, e.g., Scripts\\python.exe).
+    // The extension is smart enough to find the correct executable if you point to the folder.
+
+    // --- Language Server (Pylance) Settings ---
+    // Uses Pylance for intelligent code analysis.
+    "python.languageServer": "Pylance",
+    // If your main code is inside a 'src' directory, add it to extraPaths for smooth imports.
+    // "python.analysis.extraPaths": ["${workspaceFolder}/src"],
+
+    // --- Formatting and Linting Settings ---
+    // Enables the Black formatter and sets line length to 88 characters (a common standard).
+    "python.formatting.provider": "black",
+    "python.formatting.blackArgs": ["--line-length=88"],
+    // Ensures formatting on save.
+    "editor.formatOnSave": true,
+
+    // Enables linting with pylint (or "flake8", "mypy", etc.)
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+
+    // --- General Editor Settings ---
+    // Highlights matching tags and brackets, which is helpful for structure.
+    "editor.highlightMatchingBrackets": "all",
+    // Shows rulers at specific character columns (e.g., 88 characters to match Black's style).
+    "editor.rulers": [88],
+    "python.analysis.typeCheckingMode": "basic",
+    "docwriter.style": "Google",
+    "docwriter.progress.trackClasses": true,
+    "docwriter.progress.trackTypes": true
+}

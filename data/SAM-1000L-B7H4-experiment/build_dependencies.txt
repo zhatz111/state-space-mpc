@@ -1,0 +1,252 @@
+====================================
+Automation Cloud Build Dependencies
+====================================
+>>> import numpy as np, scipy
+>>> np.__config__.show()
+openblas64__info:
+    libraries = ['openblas64_', 'openblas64_']
+    library_dirs = ['/usr/local/lib']
+    language = c
+    define_macros = [('HAVE_CBLAS', None), ('BLAS_SYMBOL_SUFFIX', '64_'), ('HAVE_BLAS_ILP64', None)]
+    runtime_library_dirs = ['/usr/local/lib']
+blas_ilp64_opt_info:
+    libraries = ['openblas64_', 'openblas64_']
+    library_dirs = ['/usr/local/lib']
+    language = c
+    define_macros = [('HAVE_CBLAS', None), ('BLAS_SYMBOL_SUFFIX', '64_'), ('HAVE_BLAS_ILP64', None)]
+    runtime_library_dirs = ['/usr/local/lib']
+openblas64__lapack_info:
+    libraries = ['openblas64_', 'openblas64_']
+    library_dirs = ['/usr/local/lib']
+    language = c
+    define_macros = [('HAVE_CBLAS', None), ('BLAS_SYMBOL_SUFFIX', '64_'), ('HAVE_BLAS_ILP64', None), ('HAVE_LAPACKE', None)]
+    runtime_library_dirs = ['/usr/local/lib']
+lapack_ilp64_opt_info:
+    libraries = ['openblas64_', 'openblas64_']
+    library_dirs = ['/usr/local/lib']
+    language = c
+    define_macros = [('HAVE_CBLAS', None), ('BLAS_SYMBOL_SUFFIX', '64_'), ('HAVE_BLAS_ILP64', None), ('HAVE_LAPACKE', None)]
+    runtime_library_dirs = ['/usr/local/lib']
+Supported SIMD extensions in this NumPy install:
+    baseline = SSE,SSE2,SSE3
+    found = SSSE3,SSE41,POPCNT,SSE42,AVX,F16C,FMA3,AVX2
+    not found = AVX512F,AVX512CD,AVX512_KNL,AVX512_KNM,AVX512_SKX,AVX512_CLX,AVX512_CNL,AVX512_ICL
+
+>>> scipy.show_config()
+_, "scipy:", sciBuild Dependencies:
+  blas:
+    detection method: pkgconfig
+    found: true
+    include directory: /usr/local/include
+    lib directory: /usr/local/lib
+    name: openblas
+    openblas configuration: USE_64BITINT= DYNAMIC_ARCH=1 DYNAMIC_OLDER= NO_CBLAS=
+      NO_LAPACK= NO_LAPACKE= NO_AFFINITY=1 USE_OPENMP= HASWELL MAX_THREADS=2
+    pc file directory: /usr/local/lib/pkgconfig
+    version: 0.3.21.dev
+  lapack:
+    detection method: pkgconfig
+    found: true
+    include directory: /usr/local/include
+    lib directory: /usr/local/lib
+    name: openblas
+    openblas configuration: USE_64BITINT= DYNAMIC_ARCH=1 DYNAMIC_OLDER= NO_CBLAS=
+      NO_LAPACK= NO_LAPACKE= NO_AFFINITY=1 USE_OPENMP= HASWELL MAX_THREADS=2
+    pc file directory: /usr/local/lib/pkgconfig
+    version: 0.3.21.dev
+  pybind11:
+    detection method: config-tool
+    include directory: unknown
+    name: pybind11
+    version: 2.11.0
+Compilers:
+  c:
+    commands: cc
+    linker: ld.bfd
+    name: gcc
+    version: 10.2.1
+  c++:
+    commands: c++
+    linker: ld.bfd
+    name: gcc
+    version: 10.2.1
+  cython:
+    commands: cython
+    linker: cython
+    name: cython
+    version: 0.29.36
+  fortran:
+    commands: gfortran
+    linker: ld.bfd
+    name: gcc
+    version: 10.2.1
+  pythran:
+    include directory: ../../tmp/pip-build-env-c6c8ru56/overlay/lib/python3.10/site-packages/pythran
+    version: 0.14.0
+Machine Information:
+  build:
+    cpu: x86_64
+    endian: little
+    family: x86_64
+    system: linux
+  cross-compiled: true
+  host:
+    cpu: x86_64
+    endian: little
+    family: x86_64
+    system: linux
+Python Information:
+  path: /opt/python/cp310-cp310/bin/python
+  version: '3.10'
+
+>>> print("numpy:", np.__version__, "scipy:", scipy.__version__)
+numpy: 1.22.3 scipy: 1.11.4
+
+
+
+
+====================================
+Local Build Dependencies
+====================================
+>>> import numpy as np, scipy
+>>> np.__config__.show()
+Build Dependencies:
+  blas:
+    detection method: pkgconfig
+    found: true
+    include directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-f6dmj7nt/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas64/include
+    lib directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-f6dmj7nt/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas64/lib
+    name: scipy-openblas
+    openblas configuration: OpenBLAS 0.3.28  USE64BITINT DYNAMIC_ARCH NO_AFFINITY
+      Haswell MAX_THREADS=24
+    pc file directory: D:/a/numpy/numpy/.openblas
+    version: 0.3.28
+  lapack:
+    detection method: pkgconfig
+    found: true
+    include directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-f6dmj7nt/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas64/include
+    lib directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-f6dmj7nt/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas64/lib
+    name: scipy-openblas
+    openblas configuration: OpenBLAS 0.3.28  USE64BITINT DYNAMIC_ARCH NO_AFFINITY
+      Haswell MAX_THREADS=24
+    pc file directory: D:/a/numpy/numpy/.openblas
+    version: 0.3.28
+Compilers:
+  c:
+    commands: cl
+    linker: link
+    name: msvc
+    version: 19.29.30158
+  c++:
+    commands: cl
+    linker: link
+    name: msvc
+    version: 19.29.30158
+  cython:
+    commands: cython
+    linker: cython
+    name: cython
+    version: 3.0.12
+Machine Information:
+  build:
+    cpu: x86_64
+    endian: little
+    family: x86_64
+    system: windows
+  host:
+    cpu: x86_64
+    endian: little
+    family: x86_64
+    system: windows
+Python Information:
+  path: C:\Users\runneradmin\AppData\Local\Temp\build-env-1mz70xyg\Scripts\python.exe
+  version: '3.13'
+SIMD Extensions:
+  baseline:
+  - SSE
+  - SSE2
+  - SSE3
+  found:
+  - SSSE3
+  - SSE41
+  - POPCNT
+  - SSE42
+  - AVX
+  - F16C
+  - FMA3
+  - AVX2
+  - AVX512F
+  - AVX512CD
+  - AVX512_SKX
+  - AVX512_CLX
+  - AVX512_CNL
+  - AVX512_ICL
+
+>>> scipy.show_config()
+Build Dependencies:
+  blas:
+    detection method: pkgconfig
+    found: true
+    include directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-yfa1j2v9/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas32/include
+    lib directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-yfa1j2v9/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas32/lib
+    name: scipy-openblas
+    openblas configuration: OpenBLAS 0.3.28 DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=24
+    pc file directory: D:/a/scipy/scipy
+    version: 0.3.28
+  lapack:
+    detection method: pkgconfig
+    found: true
+    include directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-yfa1j2v9/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas32/include
+    lib directory: C:/Users/runneradmin/AppData/Local/Temp/cibw-run-yfa1j2v9/cp313-win_amd64/build/venv/Lib/site-packages/scipy_openblas32/lib
+    name: scipy-openblas
+    openblas configuration: OpenBLAS 0.3.28 DYNAMIC_ARCH NO_AFFINITY Haswell MAX_THREADS=24
+    pc file directory: D:/a/scipy/scipy
+    version: 0.3.28
+  pybind11:
+    detection method: config-tool
+    include directory: unknown
+    name: pybind11
+    version: 2.13.6
+Compilers:
+  c:
+    commands: cc
+    linker: ld.bfd
+    name: gcc
+    version: 10.3.0
+  c++:
+    commands: c++
+    linker: ld.bfd
+    name: gcc
+    version: 10.3.0
+  cython:
+    commands: cython
+    linker: cython
+    name: cython
+    version: 3.0.12
+  fortran:
+    commands: gfortran
+    linker: ld.bfd
+    name: gcc
+    version: 10.3.0
+  pythran:
+    include directory: C:\Users\runneradmin\AppData\Local\Temp\pip-build-env-vnvsvx_3\overlay\Lib\site-packages/pythran
+    version: 0.17.0
+Machine Information:
+  build:
+    cpu: x86_64
+    endian: little
+    family: x86_64
+    system: windows
+  cross-compiled: false
+  host:
+    cpu: x86_64
+    endian: little
+    family: x86_64
+    system: windows
+Python Information:
+  path: C:\Users\runneradmin\AppData\Local\Temp\cibw-run-yfa1j2v9\cp313-win_amd64\build\venv\Scripts\python.exe
+  version: '3.13'
+
+>>> print("numpy:", np.__version__, "scipy:", scipy.__version__)
+numpy: 2.2.4 scipy: 1.15.2
+
