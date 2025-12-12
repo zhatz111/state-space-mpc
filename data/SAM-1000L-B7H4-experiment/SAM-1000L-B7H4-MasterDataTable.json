@@ -30,7 +30,8 @@
         "titre":22.4,
         "hplc_titer":22.4,
         "raman_titer":-134.604269802,
-        "cedex_titer":81.55
+        "cedex_titer":81.55,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day1":{
         "time":1763828673632,
@@ -63,7 +64,8 @@
         "titre":38.1,
         "hplc_titer":38.1,
         "raman_titer":-27.77,
-        "cedex_titer":81.55
+        "cedex_titer":81.55,
+        "hplc_used": true
     },
     "FER027-57309120M00D00-day2":{
         "time":1763903652847,
@@ -96,7 +98,8 @@
         "titre":69.6,
         "hplc_titer":69.6,
         "raman_titer":-19.5915273534,
-        "cedex_titer":88.91
+        "cedex_titer":88.91,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day3":{
         "time":1763992509795,
@@ -129,7 +132,8 @@
         "titre":136.0,
         "hplc_titer":136.0,
         "raman_titer":-13.0444021697,
-        "cedex_titer":153.62
+        "cedex_titer":153.62,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day4":{
         "time":1764077494685,
@@ -162,7 +166,8 @@
         "titre":267.4,
         "hplc_titer":267.4,
         "raman_titer":145.8489240892,
-        "cedex_titer":294.48
+        "cedex_titer":294.48,
+        "hplc_used": true
     },
     "FER027-57309120M00D00-day5":{
         "time":1764164095952,
@@ -195,7 +200,8 @@
         "titre":472.0,
         "hplc_titer":472.0,
         "raman_titer":371.4794607635,
-        "cedex_titer":515.95
+        "cedex_titer":515.95,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day6":{
         "time":1764253292920,
@@ -228,7 +234,8 @@
         "titre":797.6,
         "hplc_titer":797.6,
         "raman_titer":671.2213134766,
-        "cedex_titer":852.0
+        "cedex_titer":852.0,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day7":{
         "time":1764338674734,
@@ -261,7 +268,8 @@
         "titre":1163.3,
         "hplc_titer":1163.3,
         "raman_titer":970.2648484636,
-        "cedex_titer":1218.22
+        "cedex_titer":1218.22,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day8":{
         "time":1764423561272,
@@ -294,7 +302,8 @@
         "titre":1551.0,
         "hplc_titer":1551.0,
         "raman_titer":1426.3326186378,
-        "cedex_titer":1724.34
+        "cedex_titer":1724.34,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day9":{
         "time":1764510884671,
@@ -327,7 +336,8 @@
         "titre":1983.9,
         "hplc_titer":1983.9,
         "raman_titer":1943.3983142211,
-        "cedex_titer":2212.43
+        "cedex_titer":2212.43,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day10":{
         "time":1764596573649,
@@ -360,7 +370,8 @@
         "titre":2332.9,
         "hplc_titer":2332.9,
         "raman_titer":2186.544849358,
-        "cedex_titer":2632.11
+        "cedex_titer":2632.11,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day11":{
         "time":1764683076569,
@@ -393,7 +404,8 @@
         "titre":2538.0,
         "hplc_titer":2538.0,
         "raman_titer":2385.0716347269,
-        "cedex_titer":2954.84
+        "cedex_titer":2954.84,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day12":{
         "time":1764770396904,
@@ -426,7 +438,8 @@
         "titre":2742.4,
         "hplc_titer":2742.4,
         "raman_titer":2526.3127707302,
-        "cedex_titer":null
+        "cedex_titer":3088.70,
+        "hplc_used": true
     },
     "FER027-57309120M00D00-day13":{
         "time":1764858527458,
@@ -457,9 +470,10 @@
         "pO2atTemperature":57.5,
         "Day":13,
         "titre":2893.5861067064,
-        "hplc_titer":null,
+        "hplc_titer":2798.8,
         "raman_titer":2893.5861067064,
-        "cedex_titer":null
+        "cedex_titer":3173.23,
+        "hplc_used": false
     },
     "FER027-57309120M00D00-day14":{
         "time":1764949046846,
@@ -490,8 +504,9 @@
         "pO2atTemperature":44.9,
         "Day":14,
         "titre":2925.5963557782,
-        "hplc_titer":null,
+        "hplc_titer":2931.4,
         "raman_titer":2925.5963557782,
-        "cedex_titer":null
+        "cedex_titer":3366.98,
+        "hplc_used": false
     }
 }
