@@ -32,12 +32,10 @@ top_dir = Path().absolute()
 # USER SPECIFIED DATA
 
 
-
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = -1  # -1 for auto-detect based on inoc date
+CURR_TIME_USER = 14  # -1 for auto-detect based on inoc date
 SHOW_PLOT = True
-CONTROLLER_KEY = "Controller" # Should always be named "Controller"
-
+CONTROLLER_KEY = "Controller"  # Should always be named "Controller"
 
 
 # -------------------------------------------------------------------------------------
@@ -93,10 +91,7 @@ controller_model = StateSpaceModel(
 # ITERATE FROM DAY 0 TO THE CURRENT DAY
 
 if "Inoc Date" in experiment_config and CURR_TIME_USER < 0:
-    date_delta = (
-        datetime.today().date()
-        - experiment_config["Inoc Date"]
-    )
+    date_delta = datetime.today().date() - experiment_config["Inoc Date"]
     CURR_TIME_END = np.min((experiment_config["Last Day"], date_delta.days))
 else:
     CURR_TIME_END = CURR_TIME_USER
@@ -235,7 +230,8 @@ filenames = [
 ]
 
 # If no file exist currently
-bioreactor.return_data(exec_date=True).to_csv(
+# Use long format for exporting to MPC topic for Mendix Vis
+bioreactor.return_data(exec_date=True, long_format=False).to_csv(
     csv_path_lv2_BR / filenames[0], index=False
 )
 

@@ -353,7 +353,7 @@ class Bioreactor:
 
             selected_col = (
                 self.process_model.state_data_labels
-                + self.process_model.input_data_labels # (YL: I don't know why but including the input in this line resulted in Day 0's T being changed from 36.6 back to 36.5 on Day 2)
+                + self.process_model.input_data_labels  # (YL: I don't know why but including the input in this line resulted in Day 0's T being changed from 36.6 back to 36.5 on Day 2)
                 + [self.volume_label]
             )
             if renamed_vector is not None:
@@ -393,12 +393,12 @@ class Bioreactor:
 
             for name in self.process_model.inputs:
                 if name in self.monotonic_inputs:
-                    
                     # Convert input data back to daily
                     # convert totalizer values up until the current time only
                     # future times are already daily from optimized inputs
                     total_input_data_curr_time = self.data.loc[
-                        : self.curr_time, f"{name.upper()}{self.process_model.input_suffix}"
+                        : self.curr_time,
+                        f"{name.upper()}{self.process_model.input_suffix}",
                     ]
                     daily_input_data_curr_time = np.diff(total_input_data_curr_time)
                     self.data.loc[
@@ -447,7 +447,7 @@ class Bioreactor:
             .mean()
         )
 
-    def return_data(self, exec_date: bool = False):
+    def return_data(self, exec_date: bool = False, long_format: bool = False):
         """
         The function `return_data` returns the dataset for a bioreactor, with
         accurate column names.
@@ -466,6 +466,15 @@ class Bioreactor:
                 )
             ]
             data = data[new_cols].copy(deep=True)
+
+        if long_format:
+            id_cols = ["Code_Execution_Date", "Bioreactor", "Day", "Date"]
+            data = data.melt(
+                id_vars=id_cols,
+                value_vars=[col for col in data.columns if col not in id_cols],
+                var_name="Variable",
+                value_name="Value",
+            )
 
         return data
 
