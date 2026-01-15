@@ -15,17 +15,13 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from InquirerPy.resolver import prompt
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 # Imports from within repository
 from data.make_dataset import ModelData
-from models.train_model import ModelTraining
 from mpc.simulations import ModelSimulations
 from data.functions import (
     json_to_dict,
-    dict_to_json,
     dict_toscaler,
-    scaler_todict,
 )
 
 # suppress warnings
@@ -76,9 +72,7 @@ def main():
     """
 
     scaler_name = model_config["Scaler"]
-    scaler_experiment = dict_toscaler(
-        model_config["scaler"], scaler_class=scaler_name
-    )
+    scaler_experiment = dict_toscaler(model_config["scaler"], scaler_class=scaler_name)
 
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
@@ -138,9 +132,11 @@ def main():
     save_folder.mkdir(parents=True, exist_ok=True)
 
     simulator.simulate(
-        file_save_path=Path(save_folder, f"{model_config["Asset"]}_simulation_{time}.csv"),
+        file_save_path=Path(
+            save_folder, f"{model_config['Asset']}_simulation_{time}.csv"
+        ),
         target_label=model_config["Target Plotting Label"],
-        ylim=9000,
+        # ylim=4000,
     )
 
 

@@ -353,7 +353,9 @@ class Bioreactor:
 
             selected_col = (
                 self.process_model.state_data_labels
-                + self.process_model.input_data_labels  # (YL: I don't know why but including the input in this line resulted in Day 0's T being changed from 36.6 back to 36.5 on Day 2)
+                # (YL: I don't know why but including the input in this line
+                # resulted in Day 0's T being changed from 36.6 back to 36.5 on Day 2)
+                + self.process_model.input_data_labels
                 + [self.volume_label]
             )
             if renamed_vector is not None:
@@ -366,6 +368,11 @@ class Bioreactor:
                     """Vector does not contain data, check that vector is not None or
                     column mapping is correct."""
                 )
+
+            vector_datetime = pd.to_datetime(
+                pd.Series(renamed_vector["Date"]), unit="ms", utc=True
+            ).dt.tz_convert("America/New_York")[0]
+            self.data.loc[insert_index, "Date"] = vector_datetime
 
             # Replace current day's data with non-NaN values in input
             self.data.loc[insert_index, renamed_vector[selected_col].dropna().index] = (
@@ -406,13 +413,15 @@ class Bioreactor:
                         f"{name.upper()}{self.process_model.input_suffix}",
                     ] = daily_input_data_curr_time
 
-                # else:
-                #     # Assign current day's reading of non-totalizer inputs to previous day's input--data
-                #     self.data.loc[:self.curr_time - 1,
-                #         f"{name.upper()}{self.process_model.input_suffix}",
-                #     ] = self.data.loc[1:self.curr_time,
-                #         f"{name.upper()}{self.process_model.input_suffix}",
-                #     ].values
+                else:
+                    # Assign current day's reading of non-totalizer inputs to previous day's input--data
+                    self.data.loc[
+                        : self.curr_time - 1,
+                        f"{name.upper()}{self.process_model.input_suffix}",
+                    ] = self.data.loc[
+                        1 : self.curr_time,
+                        f"{name.upper()}{self.process_model.input_suffix}",
+                    ].values
 
         # normalize variables outside of the loop to avoid negative values
         for key, var in self.controller_config["Input Variables"].items():
@@ -447,7 +456,12 @@ class Bioreactor:
             .mean()
         )
 
-    def return_data(self, exec_date: bool = False, long_format: bool = False):
+    def return_data(
+        self,
+        exec_date: bool = False,
+        long_format: bool = False,
+        add_constraints: bool = False,
+    ):
         """
         The function `return_data` returns the dataset for a bioreactor, with
         accurate column names.
@@ -467,8 +481,20 @@ class Bioreactor:
             ]
             data = data[new_cols].copy(deep=True)
 
+        if add_constraints:
+            for input_label in self.process_model.inputs:
+                label = f"{input_label}--CONSTRAINT"
+                control_data = {}
+                for key, value in self.controller_config[
+                    "Manipulated Variables"
+                ].items():
+                    if key.upper() == input_label.upper():
+                        control_data = value
+                constraint_data = control_data["Constraint"]
+                data[label] = [constraint_data] * len(data)
+
         if long_format:
-            id_cols = ["Code_Execution_Date", "Bioreactor", "Day", "Date"]
+            id_cols = ["Bioreactor", "Day", "Date"]
             data = data.melt(
                 id_vars=id_cols,
                 value_vars=[col for col in data.columns if col not in id_cols],
@@ -989,11 +1015,12 @@ class Controller:
             data_after_optim["Day"] >= self.curr_time,
             self.controller_model.state_pred_labels,
         ] = y_out_after_optim
-        data_after_optim.loc[:, self.mv_names] = mv_after_optim
+        # Ensure only locating data in control horizon in case of open loop
+        data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_after_optim
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset with new inputs
-        self.bioreactor.data.loc[:, self.mv_names] = mv_after_optim
+        self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names] = mv_after_optim
 
         # Update the dataset with new predictions
         self.bioreactor.data.loc[

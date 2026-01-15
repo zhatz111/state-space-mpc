@@ -1,0 +1,20 @@
+{
+    "initial_conditions": {
+        "IGG": [
+            22.4
+        ],
+        "VCC": [
+            0.59
+        ],
+        "VIABILITY": [
+            98.3
+        ],
+        "AMMONIUM": [
+            0.48
+        ],
+        "GLUTAMATE": [
+            2.79
+        ]
+    },
+    "ivcc_initial_condition": false
+}

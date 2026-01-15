@@ -114,8 +114,8 @@ Column Mapping: {
 
     # Online DCS Mapping
     "pH_setpoint": "PH_SETPOINT--INPUT_DATA",
-    "Temp_setpoint": "TEMPERATURE_SETPOINT--INPUT_DATA",
-    # "Temp_measured": "TEMPERATURE_SETPOINT--INPUT_DATA",
+    # "Temp_setpoint": "TEMPERATURE_SETPOINT--INPUT_DATA",
+    "Temp_measured": "TEMPERATURE_SETPOINT--INPUT_DATA",
     "DO_setpoint": "DO_SETPOINT--INPUT_DATA",
     "dissolved_oxygen": "DO--INPUT_DATA",
     "Online pH": "ONLINE_PH--INPUT_DATA",
@@ -628,9 +628,9 @@ Controller: {
   "Prediction Horizon": 20, #4
   "Control Horizon": 20, #4
   "Estimation Horizon": 2,
-  "Estimation Filter Weight on Data": 1.0, # 0.583,
-  "Offset Proportional Gain": -1.0, # Override individual gains if >= 0
-  "Offset Integral Gain": -1.0, # Override individual gains if >= 0
+  "Estimation Filter Weight on Data": 0.0, # 0.583,
+  "Offset Proportional Gain": 0.0, # Override individual gains if >= 0
+  "Offset Integral Gain": 0.0, # Override individual gains if >= 0
   "Overshoot Weight": 1.0,
   "Undershoot Weight": 1.0,
   "Trajectory Discount Weight": 0.5,

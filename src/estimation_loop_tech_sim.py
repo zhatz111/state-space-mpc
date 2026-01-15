@@ -33,7 +33,7 @@ top_dir = Path().absolute()
 
 
 # User specified current culture day: determined automatically if -1
-CURR_TIME_USER = 14  # -1 for auto-detect based on inoc date
+CURR_TIME_USER = -1  # -1 for auto-detect based on inoc date
 SHOW_PLOT = True
 CONTROLLER_KEY = "Controller"  # Should always be named "Controller"
 
@@ -177,7 +177,7 @@ for curr_time in range(0, CURR_TIME_END + 1):
 
     if curr_time < experiment_config["Last Day"]:
         controller.optimize(
-            open_loop=False, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
+            open_loop=True, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
         )
 
 # Retrieve and print current feed rate (mL/min) for the feed pump
@@ -231,7 +231,7 @@ filenames = [
 
 # If no file exist currently
 # Use long format for exporting to MPC topic for Mendix Vis
-bioreactor.return_data(exec_date=True, long_format=False).to_csv(
+bioreactor.return_data(exec_date=True, long_format=False, add_constraints=True).to_csv(
     csv_path_lv2_BR / filenames[0], index=False
 )
 

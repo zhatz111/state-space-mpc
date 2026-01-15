@@ -1,7 +1,7 @@
 """Class for setting up MPC simulations
-    Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
-    Created: 2025-08-07
-    Modified: 2025-08-08
+Created by Zach Hatzenbeller (zach.a.hatzenbeller@gsk.com)
+Created: 2025-08-07
+Modified: 2025-08-08
 """
 
 # Standard library imports
@@ -33,7 +33,7 @@ class ModelSimulations:
 
     def __init__(
         self,
-        simulation_data: pd.DataFrame, 
+        simulation_data: pd.DataFrame,
         a_matrix: np.ndarray,
         b_matrix: np.ndarray,
         states: list[str],
@@ -121,35 +121,43 @@ class ModelSimulations:
 
         # augmented matrices if using feed hidden state
         if self.hidden_state:
-            self.rho = rho                                      # feed effect decay rate
+            self.rho = rho  # feed effect decay rate
             if af_col.shape[0] == self.state_len:
                 self.af_col = np.array(af_col)
             else:
-                self.af_col = np.ones([self.state_len, 1])          # learnable hidden state
+                self.af_col = np.ones([self.state_len, 1])  # learnable hidden state
 
             if af_row.shape[0] == self.state_len:
                 self.af_row = np.array(af_row)
             else:
-                self.af_row = np.ones([self.state_len, 1])          # learnable hidden state
-            
+                self.af_row = np.ones([self.state_len, 1])  # learnable hidden state
+
             if bf_row.shape[0] == self.input_len:
                 self.bf_row = bf_row
             else:
                 self.bf_row = np.zeros([1, self.input_len])
                 self.bf_row[:, 1] = 1.0
 
-            self.augmented_a_matrix = np.zeros([self.state_len+1, self.state_len+1])
-            self.augmented_a_matrix[:self.state_len, :self.state_len] = self.a_matrix
-            self.augmented_a_matrix[:self.state_len, self.state_len] = self.af_col.flatten()
-            self.augmented_a_matrix[self.state_len, :self.state_len] = self.af_row.flatten()
+            self.augmented_a_matrix = np.zeros([self.state_len + 1, self.state_len + 1])
+            self.augmented_a_matrix[: self.state_len, : self.state_len] = self.a_matrix
+            self.augmented_a_matrix[: self.state_len, self.state_len] = (
+                self.af_col.flatten()
+            )
+            self.augmented_a_matrix[self.state_len, : self.state_len] = (
+                self.af_row.flatten()
+            )
             self.augmented_a_matrix[self.state_len, self.state_len] = self.rho
 
-            self.augmented_b_matrix = np.zeros([self.state_len+1, self.input_len])
-            self.augmented_b_matrix[:self.state_len, :] = self.b_matrix
-            self.augmented_b_matrix[self.state_len, :] = self.bf_row     # only feed (input index 0) affects feed-effect state (hidden state)
+            self.augmented_b_matrix = np.zeros([self.state_len + 1, self.input_len])
+            self.augmented_b_matrix[: self.state_len, :] = self.b_matrix
+            self.augmented_b_matrix[self.state_len, :] = (
+                self.bf_row
+            )  # only feed (input index 0) affects feed-effect state (hidden state)
 
-            self.c_matrix = np.hstack([np.identity(self.state_len), np.zeros([self.state_len, 1])])
-    
+            self.c_matrix = np.hstack(
+                [np.identity(self.state_len), np.zeros([self.state_len, 1])]
+            )
+
     def get_simulated_data(self, save_path: Path) -> Tuple[dict, pd.DataFrame]:
         """
         The `get_model_data_dict` function takes in a data aggregation parameter and returns two
@@ -173,7 +181,6 @@ class ModelSimulations:
 
         simulation_data_dict = {}
         for name, group in batch_grouped:
-
             if self.hidden_state:
                 x0_matrix = np.append(np.array(group.filter(self.states).iloc[0, :]), 0)
             else:
@@ -184,7 +191,10 @@ class ModelSimulations:
 
             if self.hidden_state:
                 bioreactor = signal.StateSpace(
-                    self.augmented_a_matrix, self.augmented_b_matrix, self.c_matrix, self.d_matrix
+                    self.augmented_a_matrix,
+                    self.augmented_b_matrix,
+                    self.c_matrix,
+                    self.d_matrix,
                 )
             else:
                 bioreactor = signal.StateSpace(
@@ -207,14 +217,16 @@ class ModelSimulations:
             group[self.states + self.inputs] = self.scaler.inverse_transform(
                 group.filter(items=self.states + self.inputs)
             )
-        
+
         df_sim = pd.concat(simulation_data_dict).reset_index()
         df_sim = df_sim.rename(columns={"level_0": "Batch", "level_1": "Day"})
         df_sim.to_csv(save_path)
 
         return simulation_data_dict, df_sim
 
-    def plot_simulation_data(self, simulation_dict: dict, target_label: str, ylim=None, random_plots=False):
+    def plot_simulation_data(
+        self, simulation_dict: dict, target_label: str, ylim=None, random_plots=False
+    ):
         """
         The function `plot_train_data` plots simulated and experimental data, as well as a parity plot
         comparing the two.
@@ -227,12 +239,15 @@ class ModelSimulations:
         specified, the y-axis limits will be automatically determined based on the data. If `ylim` is
         specified, the y-axis limits will be set to the specified values.
         """
-        cols = 4
+        dict_keys = list(simulation_dict.keys())
+        cols = min(4, len(dict_keys))
 
         if len(simulation_dict) > 15:
-            rows = math.floor(15 / cols)
+            rows_ = math.floor(15 / cols)
         else:
-            rows = math.floor(len(simulation_dict) / cols)
+            rows_ = math.floor(len(simulation_dict) / cols)
+
+        rows = max(rows_, 1)
 
         fig, axes = plt.subplots(
             rows,
@@ -242,7 +257,6 @@ class ModelSimulations:
         )
         fig.subplots_adjust(top=0.8)
 
-        dict_keys = list(simulation_dict.keys())
         random_nums = [
             random.randint(0, len(dict_keys)) for _, _ in enumerate(dict_keys)
         ]
@@ -263,8 +277,10 @@ class ModelSimulations:
             )
             if self.historic_data is not None:
                 ax_test.plot(
-                    self.historic_data.loc[self.historic_data["Batch"]==key, "Day"],
-                    self.historic_data.loc[self.historic_data["Batch"]==key, target_label],
+                    self.historic_data.loc[self.historic_data["Batch"] == key, "Day"],
+                    self.historic_data.loc[
+                        self.historic_data["Batch"] == key, target_label
+                    ],
                     "bo-",
                     label="Experimental Data",
                     markersize=3.5,
@@ -281,13 +297,11 @@ class ModelSimulations:
         fig.tight_layout()
         plt.show()
 
-
     def simulate(self, file_save_path, target_label, ylim=None, random_plots=False):
-
         simulation_dict, _ = self.get_simulated_data(save_path=file_save_path)
         self.plot_simulation_data(
             simulation_dict=simulation_dict,
             target_label=target_label,
             ylim=ylim,
-            random_plots=random_plots
+            random_plots=random_plots,
         )
