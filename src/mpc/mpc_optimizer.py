@@ -1016,11 +1016,15 @@ class Controller:
             self.controller_model.state_pred_labels,
         ] = y_out_after_optim
         # Ensure only locating data in control horizon in case of open loop
-        data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_after_optim
+        data_after_optim.loc[is_in_ctrl_horizon, self.mv_names] = mv_after_optim[
+            is_in_ctrl_horizon
+        ]
         self.data_after_optim_dict[self.curr_time] = data_after_optim.copy()
 
         # Update the dataset with new inputs
-        self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names] = mv_after_optim
+        self.bioreactor.data.loc[is_in_ctrl_horizon, self.mv_names] = mv_after_optim[
+            is_in_ctrl_horizon
+        ]
 
         # Update the dataset with new predictions
         self.bioreactor.data.loc[

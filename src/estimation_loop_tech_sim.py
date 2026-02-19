@@ -177,12 +177,12 @@ for curr_time in range(0, CURR_TIME_END + 1):
 
     if curr_time < experiment_config["Last Day"]:
         controller.optimize(
-            open_loop=True, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
+            open_loop=False, print_pred=PRINT_PRED, end_of_run=END_OF_RUN
         )
 
 # Retrieve and print current feed rate (mL/min) for the feed pump
 result = bioreactor.get_result()
-max_error = bioreactor.estimation_error()
+max_error = bioreactor.estimation_error(nrmse_only=True)
 
 print("")
 br_heading = f"{vessel} on Day {curr_time}:"
