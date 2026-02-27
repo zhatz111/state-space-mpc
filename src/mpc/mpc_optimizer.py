@@ -166,6 +166,12 @@ class Bioreactor:
             zero_arr = np.zeros((self.duration, len(cols)))
             zero_arr[:] = np.nan
             data = pd.DataFrame(data=zero_arr, columns=cols)
+            data["Code_Execution_Date"] = pd.to_datetime(
+                data["Code_Execution_Date"], unit="ms", utc=True
+            ).dt.tz_convert("America/New_York")
+            data["Date"] = pd.to_datetime(
+                data["Date"], unit="ms", utc=True
+            ).dt.tz_convert("America/New_York")
 
             # Initialize reference and nominal data
             for key in self.controller_config["Process Variables"]:
