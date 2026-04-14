@@ -1,0 +1,299 @@
+{
+    "Path Directory": "C:\\Users\\zah48132\\GSK\\Biopharm Model Predictive Control - Documents\\General\\data\\2025-07-21 B7H4 Model",
+    "Asset": "B7H4",
+    "Training Data Study": "AR25-050, AR25-051, AR25-068",
+    "Operator": "Zach Hatzenbeller",
+    "Github Link": "https://github.com/gsk-tech/state-space-model",
+    "IDBS Number": "EXXXXX",
+    "Modeling Data File Name": "AR25-050_051_068 Model Data",
+    "Modeling Data Folder Name": "2025-07-22 B7H4 SAM 1000L Model",
+    "A & B Matrices Folder Name": "Matrices",
+    "Testing Data Size": 0.2,
+    "Number Cross Val Splits": 2,
+    "Random Seed": 1,
+    "Window Length": 2,
+    "Target Plotting Label": "VCC",
+    "Training Iterations": 2,
+    "BasinHopping Temperature": 100,
+    "Process Time": 15,
+    "Scaler": "MinMaxScaler",
+    "Spline Points": 30,
+    "Partitions": {},
+    "Current Training Partition": 0,
+    "Instability Weights": {
+        "Eigenvalue": 100.0,
+        "B-matrix Authority": 10.0,
+        "B-matrix Condition": 10.0,
+        "Controllability": 920.0
+    },
+    "Training Batches": [
+        "AR25-050-001",
+        "AR25-050-003",
+        "AR25-050-005",
+        "AR25-050-008",
+        "AR25-050-009",
+        "AR25-050-011",
+        "AR25-050-013",
+        "AR25-050-014",
+        "AR25-050-018",
+        "AR25-050-019",
+        "AR25-050-020",
+        "AR25-050-023",
+        "AR25-050-024",
+        "AR25-051-003",
+        "AR25-051-005",
+        "AR25-051-006",
+        "AR25-051-007",
+        "AR25-051-009",
+        "AR25-051-011",
+        "AR25-051-013",
+        "AR25-051-014",
+        "AR25-051-015",
+        "AR25-051-016",
+        "AR25-051-017",
+        "AR25-051-020",
+        "AR25-051-021",
+        "AR25-051-022",
+        "AR25-051-024"
+    ],
+    "Testing Batches": [
+        "AR25-050-007",
+        "AR25-051-002",
+        "AR25-051-008",
+        "AR25-051-012",
+        "AR25-051-018",
+        "AR25-051-019",
+        "AR25-051-023"
+    ],
+    "Batches to Discard": [
+        "AR25-050-002",
+        "AR25-050-004",
+        "AR25-050-006",
+        "AR25-050-010",
+        "AR25-050-012",
+        "AR25-050-015",
+        "AR25-050-016",
+        "AR25-050-017",
+        "AR25-050-021",
+        "AR25-050-022",
+        "AR25-051-001",
+        "AR25-051-004",
+        "AR25-051-010"
+    ],
+    "Include Data Columns": [
+        "Batch",
+        "Day"
+    ],
+    "Model States": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Glutamate",
+        "Ammonium"
+    ],
+    "Data Smoothing List": [
+        "IGG",
+        "VCC",
+        "Viability",
+        "Glutamate",
+        "Ammonium"
+    ],
+    "Data Column Types": {
+        "IGG": "smooth",
+        "VCC": "smooth",
+        "Viability": "smooth",
+        "Glutamate": "smooth",
+        "Ammonium": "smooth",
+        "Normalized_Bolus_Feed": "bolus",
+        "Temperature_setpoint": "zoh",
+        "pH_setpoint": "zoh"
+    },
+    "Model Inputs": [
+        "Normalized_Bolus_Feed",
+        "Temperature_setpoint",
+        "pH_setpoint"
+    ],
+    "Process Variable Weights": [
+        30.0,
+        3.5,
+        3.5,
+        3.5,
+        3.5
+    ],
+    "scaler": {
+        "feature_range": [
+            0,
+            1
+        ],
+        "copy": true,
+        "clip": false,
+        "feature_names_in_": [
+            "IGG",
+            "VCC",
+            "Viability",
+            "Glutamate",
+            "Ammonium",
+            "Normalized_Bolus_Feed",
+            "Temperature_setpoint",
+            "pH_setpoint"
+        ],
+        "n_features_in_": 8,
+        "n_samples_seen_": 840,
+        "scale_": [
+            0.00026495309745320974,
+            0.059658256950600765,
+            0.04564810724413104,
+            0.0970873786407767,
+            0.08319467554076539,
+            15.43508764629299,
+            0.3333333333333333,
+            1.818181818181816
+        ],
+        "min_": [
+            -0.015238005462798243,
+            -0.020552269519481962,
+            -3.5559875543178086,
+            -0.06407766990291262,
+            -0.03910149750415973,
+            0.0,
+            -11.666666666666666,
+            -12.909090909090892
+        ],
+        "data_min_": [
+            57.51208651368663,
+            0.3445,
+            77.9,
+            0.66,
+            0.47,
+            0.0,
+            35.0,
+            7.1
+        ],
+        "data_max_": [
+            3831.765,
+            17.106639075367838,
+            99.80671334195505,
+            10.96,
+            12.490000000000002,
+            0.064787452,
+            38.0,
+            7.65
+        ],
+        "data_range_": [
+            3774.2529134863134,
+            16.762139075367838,
+            21.90671334195504,
+            10.3,
+            12.020000000000001,
+            0.064787452,
+            3.0,
+            0.5500000000000007
+        ]
+    },
+    "a_matrix": [
+        [
+            [
+                -0.10096160749773882,
+                0.16036279091749606,
+                -0.023637681706942058,
+                -0.00451675080596857,
+                0.12139141706944505
+            ],
+            [
+                -0.14160790023677788,
+                -0.29761387928139776,
+                0.010998069805371628,
+                0.14938420726409218,
+                0.3295610272323524
+            ],
+            [
+                0.037498955916480364,
+                -0.14989264746362108,
+                0.03105350567006842,
+                0.08738192128613934,
+                -0.12952382970568665
+            ],
+            [
+                0.05388104146876726,
+                0.07365148969859847,
+                0.1401367854036488,
+                -0.4997647503779332,
+                0.26891099780451205
+            ],
+            [
+                0.04359423762813069,
+                0.0017242444976772204,
+                0.05430647309219647,
+                0.14702319362048674,
+                -0.22734238515806302
+            ]
+        ]
+    ],
+    "b_matrix": [
+        [
+            [
+                -0.013520118086849863,
+                -0.03194889225193962,
+                0.011085534419961973
+            ],
+            [
+                0.06068890649534266,
+                0.0995552091990956,
+                0.08194506491780006
+            ],
+            [
+                0.032798271454178594,
+                0.016802524960237708,
+                -0.014254150146219969
+            ],
+            [
+                0.07109053271751091,
+                -0.0409944752321533,
+                0.0875251442436626
+            ],
+            [
+                0.08840368405034113,
+                -0.009201135784142707,
+                -0.09787607643199198
+            ]
+        ]
+    ],
+    "Iterations": [
+        33559
+    ],
+    "Model RMSE": [
+        28.68390743773717
+    ],
+    "States RMSE": [
+        {
+            "IGG": 231.14851354669133,
+            "VCC": 1.9035447770167269,
+            "Viability": 1.2652962083752097,
+            "Glutamate": 0.5966600944485069,
+            "Ammonium": 1.2570223274075858
+        }
+    ],
+    "Last Model Training": [
+        "2026/03/13 12:12:29"
+    ],
+    "Matrix Stability Penalties": [
+        {
+            "Eigenvalue": {
+                "Value": -0.028982863679722377,
+                "Penalty": 0.1717787553723491
+            },
+            "B-matrix Authority": {
+                "Value": 0.23467356829575103,
+                "Penalty": 0.5857245470651584
+            },
+            "B-matrix Condition": {
+                "Value": 1.619593358957787,
+                "Penalty": 0.9274057854674465
+            },
+            "Controllability SVD": {
+                "Value": 0.010068783918530324,
+                "Penalty": 0.0003972533744463729
+            }
+        }
+    ]
+}

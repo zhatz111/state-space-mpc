@@ -31,10 +31,7 @@ from data.functions import (
 warnings.filterwarnings("ignore")
 
 
-
 EVALUATION_TYPE = "evaluate"  # "train" or "evaluate"
-
-
 
 
 # Use this path for experiment folders in MPC teams site
@@ -69,23 +66,24 @@ for file in json_files:
     if "model" in file_.name:
         model_config = json_to_dict(file_)
 
+
 def main():
     """
     The main function reads data, preprocesses it, trains a model, and saves
     the model scaler and matrices.
     """
-    HIDDEN_STATE = model_config["Hidden State"]
+    PARTITION = model_config["Current Training Partition"]
+    partition_data = model_config["Partitions"]
 
     if model_config["Scaler"] == "MinMaxScaler":
         scaler_train = MinMaxScaler()
     else:
-        scaler_train = dict_toscaler(model_config["scaler"], scaler_class="MinMaxScaler")
+        scaler_train = dict_toscaler(
+            model_config["scaler"], scaler_class="MinMaxScaler"
+        )
 
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
-    af_col_matrix = np.array(model_config["af_col"])
-    af_row_matrix = np.array(model_config["af_row"])
-    bf_row_matrix = np.array(model_config["bf_row"])
 
     data = pd.read_csv(
         Path(PATH_DIRECTORY, f"{model_config['Modeling Data File Name']}.csv")
@@ -98,6 +96,7 @@ def main():
         discard=model_config["Batches to Discard"],
         states=model_config["Model States"],
         inputs=model_config["Model Inputs"],
+        column_types=model_config["Data Column Types"],
     )
 
     # Class method to clean up all the data
@@ -106,14 +105,17 @@ def main():
     # and finally feature scaling using the scaler of choice
     train_data, test_data, train_list, test_list = dataframe.clean(
         metadata_columns=model_config["Include Data Columns"],
-        smoothing_list=model_config["Data Smoothing List"],
+        # smoothing_list=model_config["Data Smoothing List"],
         test_size=model_config["Testing Data Size"],
         n_splits=model_config["Number Cross Val Splits"],
         random_state=model_config["Random Seed"],
         win_len=model_config["Window Length"],
+        n_points=model_config["Spline Points"],
+        bolus_tau=model_config.get("Bolus Decay Tau", 1.0),
     )
 
-    # dataframe.graph_smoothed_unsmoothed_data(model_config["Data Smoothing List"], test_label="IGG")
+    # dataframe.graph_train_data(test_label="IGG")
+    # dataframe.graph_smoothed_unsmoothed_data(test_label="IGG")
 
     model_config["scaler"] = scaler_todict(scaler=scaler_train)
 
@@ -128,17 +130,18 @@ def main():
         instability_weights=model_config["Instability Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
+        partitions_data=partition_data,
+        train_partition=PARTITION,
         algorithm="basinhopping",
-        hidden_state=HIDDEN_STATE,
-        rho=model_config["rho"],
-        af_col=af_col_matrix,
-        af_row=af_row_matrix,
-        bf_row=bf_row_matrix,
     )
     time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
-    new_directory = Path(PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}")
-    new_directory.mkdir(parents=True, exist_ok=True) # Creates parent directories if they don't exist
+    new_directory = Path(
+        PATH_DIRECTORY, f"{model_config['A & B Matrices Folder Name']}"
+    )
+    new_directory.mkdir(
+        parents=True, exist_ok=True
+    )  # Creates parent directories if they don't exist
 
     if EVALUATION_TYPE.lower() == "train":
         model_train_obj.train_test_model(
@@ -151,40 +154,56 @@ def main():
         )
     else:
         model_train_obj.plot_train_data(
-            test_label=model_config["Target Plotting Label"]
+            test_label=model_config["Target Plotting Label"], ylim=None
         )
 
         model_train_obj.plot_test_data(
-            test_label=model_config["Target Plotting Label"]
+            test_label=model_config["Target Plotting Label"], ylim=None
         )
 
     # Update the model config file
-    model_config["Hidden State"] = HIDDEN_STATE
-    model_config["a_matrix"] = model_train_obj.a_matrix.tolist()
-    model_config["b_matrix"] = model_train_obj.b_matrix.tolist()
+    if not partition_data:
+        model_config["a_matrix"][0] = model_train_obj.a_matrix.tolist()
+        model_config["b_matrix"][0] = model_train_obj.b_matrix.tolist()
+        model_config["Iterations"][0] += model_train_obj.iters
+    else:
+        # Joint training updates all partition matrices simultaneously
+        n_p = partition_data["num_partitions"]
+        for i in range(n_p):
+            model_config["a_matrix"][i] = model_train_obj.a_matrices[i].tolist()
+            model_config["b_matrix"][i] = model_train_obj.b_matrices[i].tolist()
+            model_config["Iterations"][i] += model_train_obj.iters
 
-    if HIDDEN_STATE:
-        model_config["af_col"] = model_train_obj.af_col.tolist()
-        model_config["af_row"] = model_train_obj.af_row.tolist()
-        model_config["bf_row"] = model_train_obj.bf_row.tolist()
-        model_config["rho"] = model_train_obj.rho
-
-    model_config["Iterations"] += model_train_obj.iters
     model_config["Training Batches"] = train_list
     model_config["Testing Batches"] = test_list
 
     if model_train_obj.model_error != 0:
-        model_config["Model RMSE"] = model_train_obj.lowest_model_error
-        model_config["States RMSE"] = model_train_obj.lowest_model_error_dict
-        model_config["Last Model Training"] = time
-        model_config["Matrix Stability Penalties"] = model_train_obj.stability_error_dict
+        if not partition_data:
+            model_config["Model RMSE"][0] = model_train_obj.lowest_model_error
+            model_config["States RMSE"][0] = model_train_obj.lowest_model_error_dict
+            model_config["Last Model Training"][0] = time
+            model_config["Matrix Stability Penalties"][0] = (
+                model_train_obj.stability_error_dict
+            )
+        else:
+            # RMSE is computed over the full batch; store the same result in every
+            # partition slot so the JSON stays consistent with its list structure
+            n_p = partition_data["num_partitions"]
+            for i in range(n_p):
+                model_config["Model RMSE"][i] = model_train_obj.lowest_model_error
+                model_config["States RMSE"][i] = model_train_obj.lowest_model_error_dict
+                model_config["Last Model Training"][i] = time
+                model_config["Matrix Stability Penalties"][i] = (
+                    model_train_obj.stability_error_dict
+                )
 
     # Export updated data back to JSON file
     save_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     dict_to_json(json_files[0], model_config)
-    dict_to_json(new_directory / f"{Path(json_files[0]).stem}-{save_time}.json", model_config)
-
+    dict_to_json(
+        new_directory / f"{Path(json_files[0]).stem}-{save_time}.json", model_config
+    )
 
 
 if __name__ == "__main__":

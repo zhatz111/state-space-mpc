@@ -24,6 +24,45 @@ from models.ssm import StateSpaceModel
 ScalerType = Union[MinMaxScaler, StandardScaler]
 
 
+def compute_bolus_input(
+    t_eval: np.ndarray,
+    bolus_events: list,
+    tau: float,
+) -> np.ndarray:
+    """
+    Reconstruct the exponentially-decayed bolus input signal for a given time
+    array. Call this in production/MPC to match the input representation used
+    during model training (the same tau must be used in both cases).
+
+    Parameters
+    ----------
+    t_eval : np.ndarray, shape (N,)
+        Time points at which to evaluate the bolus signal (batch days).
+    bolus_events : list of (float, float)
+        Each tuple is (t_bolus, magnitude) — day the bolus was added and the
+        normalized bolus amount (same units as training data, e.g. L/L).
+        Multiple events superpose correctly.
+    tau : float
+        Exponential decay time constant in days. Must match the value used
+        during model training (stored as "Bolus Decay Tau" in the model JSON).
+
+    Returns
+    -------
+    np.ndarray, shape (N,)
+        Bolus input values at each time point in t_eval.
+
+    Example
+    -------
+    >>> t = np.linspace(0, 15, 30)
+    >>> u_bolus = compute_bolus_input(t, [(4.0, 0.05), (8.0, 0.05)], tau=1.0)
+    """
+    result = np.zeros(len(t_eval))
+    for t_b, v in bolus_events:
+        mask = t_eval >= t_b
+        result[mask] += v * np.exp(-tau * (t_eval[mask] - t_b))
+    return result
+
+
 def daily_to_cumulative(
     model: StateSpaceModel, input_variables: list, u_matrix_daily: np.ndarray
 ):
@@ -47,10 +86,10 @@ def daily_to_cumulative(
     """
     u_matrix_cumulative = np.copy(u_matrix_daily)
     for var in input_variables:
-      cumulative_loc = np.where(np.isin(model.inputs, var))[0]
-      u_matrix_cumulative[:, cumulative_loc] = np.append(
-          0, np.cumsum(u_matrix_cumulative[:-1, cumulative_loc])
-      ).reshape([-1, 1])
+        cumulative_loc = np.where(np.isin(model.inputs, var))[0]
+        u_matrix_cumulative[:, cumulative_loc] = np.append(
+            0, np.cumsum(u_matrix_cumulative[:-1, cumulative_loc])
+        ).reshape([-1, 1])
     return u_matrix_cumulative
 
 
@@ -259,7 +298,9 @@ def dict_to_json(json_file_path: Union[str, Path], data: dict):
     file.close()
 
 
-def read_config(path_directory: Union[str, Path], export_folder: str = "data", export=False):
+def read_config(
+    path_directory: Union[str, Path], export_folder: str = "data", export=False
+):
     """
     The `read_config` function reads a YAML file containing experiment configuration data and
     returns the parsed configuration.

@@ -14,16 +14,21 @@ from typing import Union
 
 # The code is importing various libraries that are used in the code:
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 from sklearn.model_selection import GroupShuffleSplit
+from scipy.interpolate import interp1d, PchipInterpolator
+from scipy.signal import savgol_filter
+
 
 # The `ModelData` class provides methods for data cleaning, preprocessing, and visualization for a
 # state space model.
 class ModelData:
-    """_summary_
-    """
+    """_summary_"""
+
     random.seed(10)
+
     def __init__(
         self,
         raw_data: pd.DataFrame,
@@ -31,13 +36,14 @@ class ModelData:
         scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
         states: list,
         inputs: list,
+        column_types: dict,
         discard: list = [],
     ) -> None:
         """
         The function initializes an object with various attributes including raw data, a group
         identifier, a scaler object, a list of columns to discard, a list of states, and a list of
         inputs.
-        
+
         Args:
           raw_data (pd.DataFrame): A pandas DataFrame containing the raw data.
           group (str): The "group" parameter is a string that represents the group or category that the
@@ -63,6 +69,7 @@ class ModelData:
         self.discard = discard
         self.states = states
         self.inputs = inputs
+        self.column_types = column_types
 
     def interpolation(self) -> pd.DataFrame:
         """
@@ -74,20 +81,21 @@ class ModelData:
         """
         rows_to_drop_mask = self.df[self.group].isin(self.discard)
         df_filtered = self.df[~rows_to_drop_mask]
-        grouped = df_filtered.groupby(self.group, group_keys=False, as_index=False)
-        df_interpolate = grouped.apply(
-            lambda group: group.interpolate(method="linear", limit_direction="forward")
-        )
+        numeric_cols = df_filtered.select_dtypes(include=[np.number]).columns.tolist()
+        df_interpolate = df_filtered.copy()
+        # Interpolate within each group for the selected numeric columns
+        for col in numeric_cols:
+            df_interpolate[col] = df_interpolate.groupby(self.group)[col].transform(
+                lambda x: x.interpolate(method="linear")
+            )
         return df_interpolate
 
-    def moving_average_smoother(
-        self, smoothing_list: list, win_len=2
-    ) -> pd.DataFrame:
+    def moving_average_smoother(self, smoothing_list: list, win_len=2) -> pd.DataFrame:
         """
         The `moving_average_smoother` function takes a list of columns to smooth and a window length,
         and applies a moving average smoothing technique to the specified columns within each group in a
         DataFrame.
-        
+
         Args:
           smoothing_list (list): The `smoothing_list` parameter is a list of column names that you want
         to apply the moving average smoothing to. These columns should be present in the
@@ -96,7 +104,7 @@ class ModelData:
         window length for calculating the rolling mean. It determines the number of consecutive values
         to consider when calculating the average. The default value is 2, which means it will calculate
         the average of each value with its adjacent. Defaults to 2
-        
+
         Returns:
           a pandas DataFrame that contains the smoothed values of the specified columns in the input
         DataFrame.
@@ -114,11 +122,11 @@ class ModelData:
 
             for col in smoothing_list:
                 # Calculate the rolling mean for the specified column within the group
-                group_smoothed[col] = group_data[col].rolling(
-                    window=win_len,
-                    min_periods=1,
-                    center=True
-                    ).mean()
+                group_smoothed[col] = (
+                    group_data[col]
+                    .rolling(window=win_len, min_periods=1, center=True)
+                    .mean()
+                )
 
                 # Keep the first and last values in the column unchanged
                 group_smoothed[col].iloc[0] = group_data[col].iloc[0]
@@ -127,18 +135,114 @@ class ModelData:
             smoothed_df = pd.concat([smoothed_df, group_smoothed])
         return smoothed_df
 
+    def spline_upsample(
+        self,
+        n_points: int = 100,
+        bolus_tau: float = 1.0,
+    ) -> pd.DataFrame:
+        """
+        Upsample batch time series with signal-type-aware interpolation.
+
+        Args:
+            upsample_cols (list): Columns to smooth with splines.
+            n_points (int): Output points per batch.
+            smoothing (float): Smoothing factor for UnivariateSpline.
+            col_types (dict): Override interpolation per column.
+                "zoh"    — zero-order hold (setpoints, step signals)
+                "bolus"  — impulse events (feeds, additions)
+                "linear" — linear interpolation
+                "smooth" — smoothing spline (default for upsample_cols)
+                Columns not in upsample_cols or col_types get linear interp.
+
+        Returns:
+            pd.DataFrame with upsampled data per batch.
+        """
+
+        df_interpolated = self.interpolation()
+        grouped = df_interpolated.groupby("Batch")
+
+        upsample_cols = list(self.column_types.keys())
+
+        for col in upsample_cols:
+            if col not in df_interpolated.columns:
+                raise ValueError(f"Column '{col}' does not exist in the dataframe.")
+
+        all_batches = []
+
+        for batch_name, group_data in grouped:
+            group_data = group_data.reset_index(drop=True)
+            t_original = np.array(group_data["Day"].values, dtype=float)
+            t_fine = np.linspace(t_original[0], t_original[-1], n_points)
+
+            upsampled = pd.DataFrame(
+                {
+                    "Batch": batch_name,
+                    "Day": t_fine,
+                }
+            )
+
+            for col in upsample_cols:
+                values = group_data[col].values.astype(float)
+                signal_type = self.column_types.get(
+                    col, "smooth" if col in upsample_cols else "linear"
+                )
+
+                if signal_type == "smooth":
+                    # Step 1: Smooth in-place with Savitzky-Golay (preserves endpoints naturally)
+                    window = min(len(values) // 2 * 2 - 1, 7)  # must be odd, cap at 7
+                    window = max(window, 3)  # minimum window of 3
+                    poly = min(3, window - 1)  # poly order < window
+
+                    values_smoothed = savgol_filter(
+                        values, window_length=window, polyorder=poly
+                    )
+
+                    # Hard-pin endpoints (savgol can still drift slightly at edges)
+                    values_smoothed[0] = values[0]
+                    values_smoothed[-1] = values[-1]
+
+                    # Step 2: PCHIP upsample — monotonicity-preserving, no overshoot
+                    pchip = PchipInterpolator(t_original, values_smoothed)
+                    upsampled[col] = pchip(t_fine)
+
+                elif signal_type == "zoh":
+                    zoh = interp1d(t_original, values, kind="previous")
+                    upsampled[col] = zoh(t_fine)
+
+                elif signal_type == "bolus":
+                    result = np.zeros(len(t_fine))
+                    for t_b, v in zip(t_original, values):
+                        if v > 0:
+                            mask = t_fine >= t_b
+                            result[mask] += v * np.exp(-bolus_tau * (t_fine[mask] - t_b))
+                    upsampled[col] = result
+
+                elif signal_type == "linear":
+                    upsampled[col] = np.interp(t_fine, t_original, values)
+
+                else:
+                    raise ValueError(
+                        f"Unknown signal type '{signal_type}' for column '{col}'"
+                    )
+
+            all_batches.append(upsampled)
+
+        return pd.concat(all_batches).reset_index(drop=True)
+
     def train_test_split(
         self,
-        smoothing_list: list,
+        # smoothing_list: list,
         test_size=0.20,
         n_splits=2,
         random_state=1,
         win_len=2,
+        n_points=100,
+        bolus_tau: float = 1.0,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         The function `train_test_split` takes in a list of smoothing values, test size, number of
         splits, random state, and window length, and returns a tuple of two pandas DataFrames.
-        
+
         Args:
           smoothing_list (list): The `smoothing_list` parameter is a list that contains the values used
         for smoothing the data. It is used in the process of splitting the data into training and
@@ -157,7 +261,8 @@ class ModelData:
         list of values used for smoothing the data. The `smoothing_list` is applied to the data using a
         sliding window. Defaults to 2
         """
-        df_smoothed = self.moving_average_smoother(smoothing_list, win_len)
+        # df_smoothed = self.moving_average_smoother(smoothing_list, win_len)
+        df_smoothed = self.spline_upsample(n_points=n_points, bolus_tau=bolus_tau)
         splitter = GroupShuffleSplit(
             test_size=test_size, n_splits=n_splits, random_state=random_state
         )
@@ -202,7 +307,7 @@ class ModelData:
     def scaler_tojson(self, save_path: Union[str, Path]):
         """
         The function `scaler_tojson` takes a scaler object and saves its attributes to a JSON file.
-        
+
         Args:
           scaler: The `scaler` parameter is an instance of a scaler object. It could be any scaler object
         from a machine learning library, such as `StandardScaler` from scikit-learn. The scaler object is
@@ -226,17 +331,19 @@ class ModelData:
     def clean(
         self,
         metadata_columns,
-        smoothing_list,
+        # smoothing_list,
         test_size=0.20,
         n_splits=2,
         random_state=1,
         win_len=2,
+        n_points=100,
+        bolus_tau: float = 1.0,
     ):
         """
         The `clean` function takes in several parameters, including `metadata_columns`,
         `smoothing_list`, `test_size`, `n_splits`, `random_state`, and `win_len`, and performs some
         cleaning operations on the data.
-        
+
         Args:
           metadata_columns: A list of columns to include in the cleaning process. Only the columns
         specified in this list will be considered for cleaning.
@@ -257,11 +364,13 @@ class ModelData:
         smoothing window length for each column in the dataset. Defaults to 2
         """
         train, test = self.train_test_split(
-            smoothing_list=smoothing_list,
+            # smoothing_list=smoothing_list,
             test_size=test_size,
             n_splits=n_splits,
             random_state=random_state,
             win_len=win_len,
+            n_points=n_points,
+            bolus_tau=bolus_tau,
         )
         train = self.feature_scaling(
             data=train,
@@ -281,7 +390,7 @@ class ModelData:
             list(test["Batch"].unique()),
         )
 
-    def graph_train_data(self, smoothing_list, test_label, ylim=None):
+    def graph_train_data(self, test_label, ylim=None):
         """
         The function `graph_train_data` plots the training data grouped by batches in a grid layout.
 
@@ -296,8 +405,8 @@ class ModelData:
         specify the minimum and maximum values for the y-axis. If `ylim` is not provided, the y-axis
         limits will be automatically determined based on the data.
         """
-        train_data = self.moving_average_smoother(smoothing_list)
-        smoothed_grouped = train_data.groupby("Batch")
+        data = self.spline_upsample(n_points=100)
+        smoothed_grouped = data.groupby("Batch")
         cols = 4
         if smoothed_grouped.ngroups > 15:
             rows = math.floor(15 / cols)
@@ -328,7 +437,7 @@ class ModelData:
         plt.legend(loc="best")
         plt.show()
 
-    def graph_smoothed_unsmoothed_data(self, smoothing_list, test_label, ylim=None):
+    def graph_smoothed_unsmoothed_data(self, test_label, ylim=None):
         """
         The function `graph_train_data` plots the training data grouped by batches in a grid layout.
 
@@ -343,7 +452,7 @@ class ModelData:
         specify the minimum and maximum values for the y-axis. If `ylim` is not provided, the y-axis
         limits will be automatically determined based on the data.
         """
-        smoothed_data = self.moving_average_smoother(smoothing_list)
+        smoothed_data = self.spline_upsample(n_points=100)
         smoothed_grouped = smoothed_data.groupby("Batch")
         unsmoothed_data = self.interpolation()
         unsmoothed_grouped = unsmoothed_data.groupby("Batch")
@@ -351,7 +460,11 @@ class ModelData:
         if smoothed_grouped.ngroups > 15:
             rows = math.floor(15 / cols)
         else:
-            rows = math.floor(smoothed_grouped.ngroups / cols) if math.floor(smoothed_grouped.ngroups / cols) != 0 else 1
+            rows = (
+                math.floor(smoothed_grouped.ngroups / cols)
+                if math.floor(smoothed_grouped.ngroups / cols) != 0
+                else 1
+            )
         fig, axes = plt.subplots(
             rows, cols, figsize=(10, 10), squeeze=False, sharex=True, sharey=True
         )
@@ -373,7 +486,8 @@ class ModelData:
             ax_test.plot(
                 unsmoothed_dict[key]["Day"],
                 unsmoothed_dict[key][test_label],
-                "ro-",
+                "ro",
+                linestyle=None,
                 label="Unsmoothed Data",
                 markersize=3.5,
             )

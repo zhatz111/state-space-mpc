@@ -10,9 +10,9 @@ import math
 import random
 import warnings
 from typing import Union
-from datetime import datetime
 from pathlib import Path
 from itertools import chain
+from models.time_varying_ss import TimeVaryingStateSpace, simulate_tv_continuous, simulate_tv_zoh
 
 # Imports from 3rd party libraries
 import numpy as np
@@ -20,11 +20,8 @@ import pandas as pd
 from scipy import signal
 from scipy import optimize
 import matplotlib.pyplot as plt
-from scipy.optimize import NonlinearConstraint
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score, root_mean_squared_error
-from scipy.linalg import solve_discrete_lyapunov as solve_lyap_dt
-from scipy.linalg import solve_continuous_lyapunov as solve_lyap_ct
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 
 warnings.filterwarnings("ignore")
@@ -48,12 +45,9 @@ class ModelTraining:
         instability_weights: dict,
         num_days: int,
         scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
+        partitions_data: dict = {},
+        train_partition: int = 0,
         algorithm: str = "basinhopping",
-        hidden_state: bool = False,
-        rho: float = 0.5,
-        af_col: np.ndarray = np.array([]),
-        af_row: np.ndarray = np.array([]),
-        bf_row: np.ndarray = np.array([]),
     ):
         """
         The function is an initializer for a class that takes in various parameters and initializes them
@@ -96,7 +90,50 @@ class ModelTraining:
         self.input_len = len(inputs)
         self.total = self.state_len + self.input_len
         self.algorithm = algorithm
-        self.hidden_state = hidden_state
+
+        # normal matrices for training and testing
+        self.a_matrix = a_matrix
+        self.b_matrix = b_matrix
+        self.c_matrix = np.identity(self.state_len)
+        self.d_matrix = np.zeros([self.state_len, self.input_len])
+
+        # Code to deal with Partitions when training multiple models
+        if not partitions_data:
+            self.partitions = False
+        else:
+            self.partitions = True
+
+        if self.partitions:
+            self.partitions_data = partitions_data
+            self.train_partition = train_partition
+
+            self.full_train = self.train_data.copy()
+            self.full_test = self.test_data.copy()
+
+            self.a_matrices = self.a_matrix
+            self.b_matrices = self.b_matrix
+
+            self.a_matrix = self.a_matrix[self.train_partition]
+            self.b_matrix = self.b_matrix[self.train_partition]
+
+            part_start_idx = self.partitions_data["start_idx"][self.train_partition]
+            part_end_idx = self.partitions_data["end_idx"][self.train_partition]
+            # self.min_group_len = self.train_data.groupby("Batch").size().min()
+            # self.max_group_len = self.train_data.groupby("Batch").size().max()
+
+            if self.partitions_data["num_partitions"] > 1:
+                self.train_data = (
+                    train_data.groupby("Batch", group_keys=True)
+                    .apply(lambda g: g.iloc[part_start_idx:part_end_idx])
+                    .reset_index(drop=False)
+                    .drop("level_1", axis=1)
+                )
+                self.test_data = (
+                    test_data.groupby("Batch", group_keys=True)
+                    .apply(lambda g: g.iloc[part_start_idx:part_end_idx])
+                    .reset_index(drop=False)
+                    .drop("level_1", axis=1)
+                )
 
         # store training error data
         self.iters = 0
@@ -109,12 +146,6 @@ class ModelTraining:
         self.true_model_error_dict = {}
         self.best_result = np.array([])
         self.stability_error_dict = {}
-
-        # normal matrices for training and testing
-        self.a_matrix = a_matrix
-        self.b_matrix = b_matrix
-        self.c_matrix = np.identity(self.state_len)
-        self.d_matrix = np.zeros([self.state_len, self.input_len])
 
         # Check to make sure matrices are correct dimensions, if not create a random matrix of values
         if (self.a_matrix.shape[0] != self.state_len) or (
@@ -132,45 +163,6 @@ class ModelTraining:
                 f"Wrong size B-Matrix ({self.b_matrix.shape[0]}x{self.b_matrix.shape[1]}) should be, {self.state_len}x{self.input_len}"
             )
             self.b_matrix = np.resize(self.b_matrix, (self.state_len, self.input_len))
-
-        # augmented matrices if using feed hidden state
-        if self.hidden_state:
-            self.rho = rho  # feed effect decay rate
-            if af_col.shape[0] == self.state_len:
-                self.af_col = np.array(af_col)
-            else:
-                self.af_col = np.ones([self.state_len, 1])  # learnable hidden state
-
-            if af_row.shape[0] == self.state_len:
-                self.af_row = np.array(af_row)
-            else:
-                self.af_row = np.ones([self.state_len, 1])  # learnable hidden state
-
-            if bf_row.shape[0] == self.input_len:
-                self.bf_row = bf_row
-            else:
-                self.bf_row = np.zeros([1, self.input_len])
-                self.bf_row[:, 1] = 1.0
-
-            self.augmented_a_matrix = np.zeros([self.state_len + 1, self.state_len + 1])
-            self.augmented_a_matrix[: self.state_len, : self.state_len] = self.a_matrix
-            self.augmented_a_matrix[: self.state_len, self.state_len] = (
-                self.af_col.flatten()
-            )
-            self.augmented_a_matrix[self.state_len, : self.state_len] = (
-                self.af_row.flatten()
-            )
-            self.augmented_a_matrix[self.state_len, self.state_len] = self.rho
-
-            self.augmented_b_matrix = np.zeros([self.state_len + 1, self.input_len])
-            self.augmented_b_matrix[: self.state_len, :] = self.b_matrix
-            self.augmented_b_matrix[self.state_len, :] = (
-                self.bf_row
-            )  # only feed (input index 0) affects feed-effect state (hidden state)
-
-            self.c_matrix = np.hstack(
-                [np.identity(self.state_len), np.zeros([self.state_len, 1])]
-            )
 
     def first_pass_training(self):
         """
@@ -221,30 +213,31 @@ class ModelTraining:
         10
         """
         if first_train:
-            self.a_matrix = np.random.random([self.state_len, self.state_len])
-            self.b_matrix = np.random.random([self.state_len, self.input_len])
+            if self.partitions:
+                n_p = self.partitions_data["num_partitions"]
+                self.a_matrices = np.random.random((n_p, self.state_len, self.state_len))
+                self.b_matrices = np.random.random((n_p, self.state_len, self.input_len))
+                self.a_matrix = self.a_matrices[self.train_partition]
+                self.b_matrix = self.b_matrices[self.train_partition]
+            else:
+                self.a_matrix = np.random.random([self.state_len, self.state_len])
+                self.b_matrix = np.random.random([self.state_len, self.input_len])
             self.c_matrix = np.identity(self.state_len)
             self.d_matrix = np.zeros([self.state_len, self.input_len])
 
-        if self.hidden_state:
-            a_sim = self.augmented_a_matrix.reshape(-1, 1)
-            b_sim = self.augmented_b_matrix.reshape(-1, 1)
-            combined_mat = np.vstack([a_sim, b_sim]).flatten()
+        if self.partitions:
+            # Build one flat vector: [A0_flat, B0_flat, A1_flat, B1_flat, ...]
+            parts = []
+            for i in range(self.partitions_data["num_partitions"]):
+                parts.append(self.a_matrices[i].reshape(-1))
+                parts.append(self.b_matrices[i].reshape(-1))
+            combined_mat = np.concatenate(parts)
         else:
             a_sim = self.a_matrix.reshape(-1, 1)
             b_sim = self.b_matrix.reshape(-1, 1)
             combined_mat = np.vstack([a_sim, b_sim]).flatten()
 
-        if self.hidden_state:
-            bounds_ = [(-1, 1)] * len(combined_mat)
-            bounds_[len(a_sim) - 1] = (0, 1)
-        else:
-            bounds_ = [(-10, 10)] * len(combined_mat)
-
-        # build nonlinear constraint object
-        # stab_con = NonlinearConstraint(
-        #     lambda p: self.stability_constraint(p, self.a_matrix.shape[0]), -np.inf, 0.0
-        # )  # upper bound (enforces <= 0)
+        bounds_ = [(-1, 1)] * len(combined_mat)
 
         if self.algorithm == "minimize":
             optimize.minimize(
@@ -299,25 +292,27 @@ class ModelTraining:
             f"{'Standard Model Error:':<{label_width}}{self.lowest_model_error:>{value_width}.5f}"
         )
 
-        # opt_matrix = res.x
         opt_matrix = self.best_result
 
-        if self.hidden_state:
-            # This returns the matrix in the correct shape for use later on in the class
-            self.augmented_a_matrix = opt_matrix[: ((self.state_len + 1) ** 2)].reshape(
-                self.state_len + 1, self.state_len + 1
-            )
-            self.augmented_b_matrix = opt_matrix[((self.state_len + 1) ** 2) :].reshape(
-                self.state_len + 1, self.input_len
-            )
-            self.a_matrix = self.augmented_a_matrix[: self.state_len, : self.state_len]
-            self.b_matrix = self.augmented_b_matrix[: self.state_len, :]
-            self.rho = self.augmented_a_matrix[self.state_len, self.state_len]
-            self.af_col = self.augmented_a_matrix[: self.state_len, self.state_len]
-            self.af_row = self.augmented_a_matrix[self.state_len, : self.state_len]
-            self.bf_row = self.augmented_b_matrix[self.state_len, :]
+        if self.partitions:
+            # Unpack all partition matrices from the flat best-result vector
+            n_p = self.partitions_data["num_partitions"]
+            a_size = self.state_len ** 2
+            b_size = self.state_len * self.input_len
+            ab_size = a_size + b_size
+            for i in range(n_p):
+                offset = i * ab_size
+                self.a_matrices[i] = opt_matrix[offset : offset + a_size].reshape(
+                    self.state_len, self.state_len
+                )
+                self.b_matrices[i] = opt_matrix[offset + a_size : offset + ab_size].reshape(
+                    self.state_len, self.input_len
+                )
+            # Keep a_matrix / b_matrix pointing at the current partition for
+            # backwards-compatible access (e.g. generate_model.py single-partition save)
+            self.a_matrix = self.a_matrices[self.train_partition]
+            self.b_matrix = self.b_matrices[self.train_partition]
         else:
-            # This returns the matrix in the correct shape for use later on in the class
             self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(
                 self.state_len, self.state_len
             )
@@ -344,45 +339,104 @@ class ModelTraining:
         and simulated values of the system.
         """
         iter_counter = 0
-        train_grouped = self.train_data.groupby("Batch")
         y_sim_all = np.zeros([self.num_days, self.state_len])
         y_actual_all = np.zeros([self.num_days, self.state_len])
 
-        if self.hidden_state:
-            a_matrix = x0[: ((self.state_len + 1) ** 2)].reshape(
-                self.state_len + 1, self.state_len + 1
+        if self.partitions:
+            # Decode ALL partition matrices from the flat x0 vector.
+            # Layout: [A0_flat, B0_flat, A1_flat, B1_flat, ..., A(n-1)_flat, B(n-1)_flat]
+            n_p = self.partitions_data["num_partitions"]
+            a_size = self.state_len ** 2
+            b_size = self.state_len * self.input_len
+            ab_size = a_size + b_size
+            a_matrices_cur = np.zeros((n_p, self.state_len, self.state_len))
+            b_matrices_cur = np.zeros((n_p, self.state_len, self.input_len))
+            for i in range(n_p):
+                offset = i * ab_size
+                a_matrices_cur[i] = x0[offset : offset + a_size].reshape(
+                    self.state_len, self.state_len
+                )
+                b_matrices_cur[i] = x0[offset + a_size : offset + ab_size].reshape(
+                    self.state_len, self.input_len
+                )
+
+            tv_model = TimeVaryingStateSpace(
+                np.array(self.partitions_data["time_partitions"]),
+                a_matrices_cur,
+                b_matrices_cur,
             )
-            b_matrix = x0[((self.state_len + 1) ** 2) :].reshape(
-                self.state_len + 1, self.input_len
-            )
+
+            # Simulate each full batch continuously — this matches evaluation exactly
+            for _, group in self.full_train.groupby("Batch"):
+                objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
+                objfunc_u = np.array(group.filter(self.inputs))
+                objfunc_y = np.array(group.filter(self.states))
+                time = np.array(group["Day"])
+
+                objfunc_yout, _ = simulate_tv_zoh(
+                    model=tv_model,
+                    x0=objfunc_x0,
+                    u_array=objfunc_u,
+                    time_array=time,
+                    C=self.c_matrix,
+                )
+
+                if iter_counter == 0:
+                    y_sim_all = np.array(objfunc_yout, dtype=np.float64)
+                    y_actual_all = np.array(objfunc_y, dtype=np.float64)
+                else:
+                    y_sim_all = np.vstack([y_sim_all, objfunc_yout])
+                    y_actual_all = np.vstack([y_actual_all, objfunc_y])
+                iter_counter += 1
+
+            # Aggregate stability penalty across all partition matrices.
+            # Values are averaged so the reported numbers stay in the same range
+            # as the single-partition case; penalties are summed.
+            penalty = 0.0
+            penalty_values = {
+                "eigenvalue": {"Value": 0.0, "Penalty": 0.0},
+                "b_norm": {"Value": 0.0, "Penalty": 0.0},
+                "b_cond": {"Value": 0.0, "Penalty": 0.0},
+                "control_svd": {"Value": 0.0, "Penalty": 0.0},
+            }
+            for i in range(n_p):
+                p_i, pv_i = self.matrix_stability_cost(
+                    a_matrix=a_matrices_cur[i],
+                    b_matrix=b_matrices_cur[i],
+                    weights=self.instability_weights,
+                )
+                penalty += p_i
+                for key in penalty_values:
+                    penalty_values[key]["Value"] += pv_i[key]["Value"] / n_p
+                    penalty_values[key]["Penalty"] += pv_i[key]["Penalty"]
+
         else:
             a_matrix = x0[: (self.state_len**2)].reshape(self.state_len, self.state_len)
             b_matrix = x0[(self.state_len**2) :].reshape(self.state_len, self.input_len)
 
-        for _, group in train_grouped:
-            if self.hidden_state:
-                objfunc_x0 = np.append(
-                    np.array(group.filter(self.states).iloc[0, :]), 0
-                )
-            else:
+            for _, group in self.train_data.groupby("Batch"):
                 objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
 
-            objfunc_u = np.array(group.filter(self.inputs))
-            objfunc_y = np.array(group.filter(self.states))
-            time = np.arange(0, len(objfunc_u), 1)
+                objfunc_u = np.array(group.filter(self.inputs))
+                objfunc_y = np.array(group.filter(self.states))
+                time = np.array(group["Day"])
 
-            state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
-            _, objfunc_yout, _ = signal.lsim(
-                state, objfunc_u, time, objfunc_x0, interp=False
+                state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
+                _, objfunc_yout, _ = signal.lsim(
+                    state, objfunc_u, time, objfunc_x0, interp=False
+                )
+
+                if iter_counter == 0:
+                    y_sim_all = np.array(objfunc_yout, dtype=np.float64)
+                    y_actual_all = np.array(objfunc_y, dtype=np.float64)
+                else:
+                    y_sim_all = np.vstack([y_sim_all, objfunc_yout])
+                    y_actual_all = np.vstack([y_actual_all, objfunc_y])
+                iter_counter += 1
+
+            penalty, penalty_values = self.matrix_stability_cost(
+                a_matrix=a_matrix, b_matrix=b_matrix, weights=self.instability_weights
             )
-
-            if iter_counter == 0:
-                y_sim_all = np.array(objfunc_yout, dtype=np.float64)
-                y_actual_all = np.array(objfunc_y, dtype=np.float64)
-            else:
-                y_sim_all = np.vstack([y_sim_all, objfunc_yout])
-                y_actual_all = np.vstack([y_actual_all, objfunc_y])
-            iter_counter += 1
 
         cost_list = []
         for count, state in enumerate(self.states):
@@ -391,20 +445,22 @@ class ModelTraining:
             negative_cost = sum(y_sim_all[:, count] < 0) * 0
             cost_list.append(feature_cost + feature_cost * negative_cost)
 
-        penalty, penalty_values = self.matrix_stability_cost(
-            a_matrix=a_matrix, b_matrix=b_matrix, weights=self.instability_weights
-        )
-
         wghtd_cost = sum(np.array(cost_list) * np.array(self.pv_wghts)) + penalty
         unwghtd_cost = sum(np.array(cost_list))
 
         rmse_sim_scaled = np.hstack(
-            (np.array(y_sim_all), np.zeros((y_sim_all.shape[0], self.input_len), dtype=float))
+            (
+                np.array(y_sim_all),
+                np.zeros((y_sim_all.shape[0], self.input_len), dtype=float),
+            )
         )
         rmse_sim_unscaled = np.array(self.scaler.inverse_transform(rmse_sim_scaled))
 
         rmse_real_scaled = np.hstack(
-            (np.array(y_actual_all), np.zeros((y_actual_all.shape[0], self.input_len), dtype=float))
+            (
+                np.array(y_actual_all),
+                np.zeros((y_actual_all.shape[0], self.input_len), dtype=float),
+            )
         )
         rmse_real_unscaled = np.array(self.scaler.inverse_transform(rmse_real_scaled))
         rmse_diff = (
@@ -498,11 +554,20 @@ class ModelTraining:
         are the batch names and the values
         """
         if data_agg == "train":
-            data = self.train_data.copy()
+            if self.partitions:
+                data = self.full_train.copy()
+            else:
+                data = self.train_data.copy()
         elif data_agg == "test":
-            data = self.test_data.copy()
+            if self.partitions:
+                data = self.full_test.copy()
+            else:
+                data = self.test_data.copy()
         else:
-            data = pd.concat([self.train_data, self.test_data], ignore_index=True)
+            if self.partitions:
+                data = pd.concat([self.full_train, self.full_test], ignore_index=True)
+            else:
+                data = pd.concat([self.train_data, self.test_data], ignore_index=True)
 
         columns = self.states + self.inputs
         batch_grouped = data.groupby("Batch")
@@ -510,29 +575,34 @@ class ModelTraining:
         simulation_data_dict = {}
         train_test_data_dict = {}
         for name, group in batch_grouped:
-            if self.hidden_state:
-                x0_matrix = np.append(np.array(group.filter(self.states).iloc[0, :]), 0)
-            else:
-                x0_matrix = np.array(group.filter(self.states).iloc[0, :])
+            x0_matrix = np.array(group.filter(self.states).iloc[0, :])
 
             u_matrix = np.array(group.filter(self.inputs))
-            time = np.arange(0, len(u_matrix), 1)
+            # time = np.arange(0, len(u_matrix), 1)
+            time = np.array(group["Day"])
 
-            if self.hidden_state:
-                bioreactor = signal.StateSpace(
-                    self.augmented_a_matrix,
-                    self.augmented_b_matrix,
-                    self.c_matrix,
-                    self.d_matrix,
+            if self.partitions:
+                bioreactor_tvp = TimeVaryingStateSpace(
+                    np.array(self.partitions_data["time_partitions"]),
+                    self.a_matrices,
+                    self.b_matrices,
+                )
+                y_out, _ = simulate_tv_continuous(
+                    model=bioreactor_tvp,
+                    u_array=u_matrix,
+                    time_array=time,
+                    x0=x0_matrix,
+                    C=self.c_matrix,
+                    method="RK45",
                 )
             else:
                 bioreactor = signal.StateSpace(
                     self.a_matrix, self.b_matrix, self.c_matrix, self.d_matrix
                 )
+                _, y_out, _ = signal.lsim(
+                    system=bioreactor, U=u_matrix, T=time, X0=x0_matrix, interp=False
+                )
 
-            _, y_out, _ = signal.lsim(
-                system=bioreactor, U=u_matrix, T=time, X0=x0_matrix, interp=False
-            )
             simulation_data = pd.DataFrame(
                 data=np.array(
                     self.scaler.inverse_transform(np.hstack((y_out, u_matrix)))
@@ -549,7 +619,7 @@ class ModelTraining:
 
         return simulation_data_dict, train_test_data_dict
 
-    def plot_test_data(self, test_label: str, ylim=True):
+    def plot_test_data(self, test_label: str, ylim: int | None = None):
         """
         The function `plot_test_data` plots simulated and experimental data for a given test label.
 
@@ -602,7 +672,7 @@ class ModelTraining:
                 markersize=3.5,
             )
             ax_test.set_title(key, size="medium", weight="bold")
-            if ylim:
+            if ylim is None:
                 if min_value > 200:
                     ax_test.set_ylim(
                         min_value - (min_value * 0.2),
@@ -610,8 +680,8 @@ class ModelTraining:
                     )
                 else:
                     ax_test.set_ylim(0, max_value + (max_value * 0.2))
-            # if ylim is not None:
-            #     ax_test.set_ylim(0, ylim)
+            if ylim is not None:
+                ax_test.set_ylim(0, ylim)
         fig.suptitle("Testing Data Set", size="x-large", weight="bold", y=0.98)
         fig.supxlabel("Day", size="x-large", weight="bold")
         fig.supylabel(f"{test_label}", size="x-large", weight="bold")
@@ -619,7 +689,9 @@ class ModelTraining:
         plt.legend(loc="best")
         plt.show()
 
-    def plot_train_data(self, test_label: str, ylim=True, random_plots=False):
+    def plot_train_data(
+        self, test_label: str, ylim: int | None = None, random_plots=False
+    ):
         """
         The function `plot_train_data` plots simulated and experimental data, as well as a parity plot
         comparing the two.
@@ -697,7 +769,7 @@ class ModelTraining:
             )
             ax_test.set_title(key, size="medium", weight="bold")
             ax_test.grid()
-            if ylim:
+            if ylim is None:
                 if min_value > 200:
                     ax_test.set_ylim(
                         min_value - (min_value * 0.2),
@@ -705,8 +777,8 @@ class ModelTraining:
                     )
                 else:
                     ax_test.set_ylim(0, max_value + (max_value * 0.2))
-            # if ylim is not None:
-            #     ax_test.set_ylim(0, ylim)
+            if ylim is not None:
+                ax_test.set_ylim(0, ylim)
 
         axes[rows - 1][cols - 1].legend()
         fig.suptitle("Training Data Set", size="x-large", weight="bold", y=0.98)
@@ -728,7 +800,7 @@ class ModelTraining:
             )
             ax_test.set_title(key, size="medium", weight="bold")
             ax_test.axline((0, 0), slope=1, color="black")
-            if ylim:
+            if ylim is None:
                 if min_value > 200:
                     ax_test.set_ylim(
                         min_value - (min_value * 0.2),
@@ -736,9 +808,8 @@ class ModelTraining:
                     )
                 else:
                     ax_test.set_ylim(0, max_value + (max_value * 0.2))
-            # if ylim is not None:
-            #     ax_test.set_ylim(0, ylim)
-            #     ax_test.set_xlim(0, ylim)
+            if ylim is not None:
+                ax_test.set_ylim(0, ylim)
 
         plt.legend()
         fig2.supxlabel("Measurement", size="x-large", weight="bold")
@@ -819,7 +890,7 @@ class ModelTraining:
             for state in self.states:
                 y_true = np.array(train_test_dict[batch][state], dtype=np.float64)
                 y_pred = np.array(simulation_dict[batch][state], dtype=np.float64)
-                corr = (np.corrcoef(np.vstack([y_pred, y_true]))) ** 2
+                corr = np.array(np.corrcoef(np.vstack([y_pred, y_true])) ** 2)
                 state_corr.append(corr[0, 1])
             corr_dict[batch] = state_corr
 
@@ -1051,3 +1122,24 @@ class ModelTraining:
             "b_cond": {"Value": b_cond, "Penalty": cond_pen},
             "control_svd": {"Value": control_s_min, "Penalty": control_pen},
         }
+
+    def TVP_SS_evaluation(self, model: TimeVaryingStateSpace):
+        pass
+
+        # for _, group in train_grouped:
+        #     objfunc_x0 = np.array(group.filter(self.states).iloc[0, :])
+        #     objfunc_u = np.array(group.filter(self.inputs))
+        #     objfunc_y = np.array(group.filter(self.states))
+        #     time = np.array(group["batch_time"])
+
+        #     objfunc_yout, _ = simulate_tv_continuous(
+        #         model, objfunc_x0, objfunc_u, time, self.c_matrix, self.d_matrix
+        #     )
+
+        #     if iter_counter == 0:
+        #         y_sim_all = np.array(objfunc_yout, dtype=np.float64)
+        #         y_actual_all = np.array(objfunc_y, dtype=np.float64)
+        #     else:
+        #         y_sim_all = np.vstack([y_sim_all, objfunc_yout])
+        #         y_actual_all = np.vstack([y_actual_all, objfunc_y])
+        #     iter_counter += 1
