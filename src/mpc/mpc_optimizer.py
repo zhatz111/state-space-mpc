@@ -601,8 +601,8 @@ class Bioreactor:
         # Filter future inputs
         u_matrix_daily = u_matrix_daily[self.data["Day"] >= curr_time, :]
 
-        # Get time array
-        ts = np.arange(u_matrix_daily.shape[0])
+        # Time array in batch days so time-varying partition boundaries resolve correctly
+        ts = np.arange(u_matrix_daily.shape[0]) + curr_time
 
         # Solve
         x_out, y_out = self.process_model.ssm_lsim(
@@ -1128,10 +1128,9 @@ class Controller:
         #     u_matrix_daily=u_matrix_daily,
         # )
 
-        # Time array
-        ts = np.arange(
-            u_matrix_daily[self.bioreactor.data["Day"] >= self.curr_time, :].shape[0]
-        )
+        # Time array in batch days so time-varying partition boundaries resolve correctly
+        n_steps = u_matrix_daily[self.bioreactor.data["Day"] >= self.curr_time, :].shape[0]
+        ts = np.arange(n_steps) + self.curr_time
 
         # Simulate the modified output
         _, y_out = self.controller_model.ssm_lsim(
@@ -1169,7 +1168,7 @@ class Controller:
         )[0]
         return (
             self.ctrl_obj_func(
-                ts + self.curr_time,
+                ts,  # already in batch days
                 y_out[:, pv_loc],
                 u_matrix_daily[:, mv_loc],
                 e,

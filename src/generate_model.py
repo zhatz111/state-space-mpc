@@ -72,7 +72,6 @@ def main():
     The main function reads data, preprocesses it, trains a model, and saves
     the model scaler and matrices.
     """
-    PARTITION = model_config["Current Training Partition"]
     partition_data = model_config["Partitions"]
 
     if model_config["Scaler"] == "MinMaxScaler":
@@ -84,6 +83,22 @@ def main():
 
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
+
+    # If num_partitions changed, preserve existing matrices and randomly init any new ones
+    if partition_data:
+        n_p = partition_data["num_partitions"]
+        n_states = len(model_config["Model States"])
+        n_inputs = len(model_config["Model Inputs"])
+        if a_matrix.shape[0] != n_p:
+            new_a = np.random.uniform(-0.5, 0.5, (n_p, n_states, n_states))
+            new_b = np.random.uniform(-0.5, 0.5, (n_p, n_states, n_inputs))
+            n_keep = min(a_matrix.shape[0], n_p)
+            new_a[:n_keep] = a_matrix[:n_keep]
+            new_b[:n_keep] = b_matrix[:n_keep]
+            a_matrix, b_matrix = new_a, new_b
+            print(
+                f"num_partitions changed to {n_p}. Preserved {n_keep} existing matrices; new partitions randomly initialized."
+            )
 
     data = pd.read_csv(
         Path(PATH_DIRECTORY, f"{model_config['Modeling Data File Name']}.csv")
@@ -131,7 +146,6 @@ def main():
         num_days=model_config["Process Time"],
         scaler=scaler_train,
         partitions_data=partition_data,
-        train_partition=PARTITION,
         algorithm="basinhopping",
     )
     time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -163,39 +177,28 @@ def main():
 
     # Update the model config file
     if not partition_data:
-        model_config["a_matrix"][0] = model_train_obj.a_matrix.tolist()
-        model_config["b_matrix"][0] = model_train_obj.b_matrix.tolist()
-        model_config["Iterations"][0] += model_train_obj.iters
+        model_config["a_matrix"] = [model_train_obj.a_matrix.tolist()]
+        model_config["b_matrix"] = [model_train_obj.b_matrix.tolist()]
     else:
-        # Joint training updates all partition matrices simultaneously
         n_p = partition_data["num_partitions"]
-        for i in range(n_p):
-            model_config["a_matrix"][i] = model_train_obj.a_matrices[i].tolist()
-            model_config["b_matrix"][i] = model_train_obj.b_matrices[i].tolist()
-            model_config["Iterations"][i] += model_train_obj.iters
+        model_config["a_matrix"] = [
+            model_train_obj.a_matrices[i].tolist() for i in range(n_p)
+        ]
+        model_config["b_matrix"] = [
+            model_train_obj.b_matrices[i].tolist() for i in range(n_p)
+        ]
 
+    model_config["Iterations"] += model_train_obj.iters
     model_config["Training Batches"] = train_list
     model_config["Testing Batches"] = test_list
 
     if model_train_obj.model_error != 0:
-        if not partition_data:
-            model_config["Model RMSE"][0] = model_train_obj.lowest_model_error
-            model_config["States RMSE"][0] = model_train_obj.lowest_model_error_dict
-            model_config["Last Model Training"][0] = time
-            model_config["Matrix Stability Penalties"][0] = (
-                model_train_obj.stability_error_dict
-            )
-        else:
-            # RMSE is computed over the full batch; store the same result in every
-            # partition slot so the JSON stays consistent with its list structure
-            n_p = partition_data["num_partitions"]
-            for i in range(n_p):
-                model_config["Model RMSE"][i] = model_train_obj.lowest_model_error
-                model_config["States RMSE"][i] = model_train_obj.lowest_model_error_dict
-                model_config["Last Model Training"][i] = time
-                model_config["Matrix Stability Penalties"][i] = (
-                    model_train_obj.stability_error_dict
-                )
+        model_config["Model RMSE"] = model_train_obj.lowest_model_error
+        model_config["States RMSE"] = model_train_obj.lowest_model_error_dict
+        model_config["Last Model Training"] = time
+        model_config["Matrix Stability Penalties"] = (
+            model_train_obj.stability_error_dict
+        )
 
     # Export updated data back to JSON file
     save_time = datetime.now().strftime("%Y%m%d_%H%M%S")

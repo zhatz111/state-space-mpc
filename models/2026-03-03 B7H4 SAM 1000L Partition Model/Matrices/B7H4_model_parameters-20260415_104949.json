@@ -27,13 +27,13 @@
         "B-matrix Condition": 10.0,
         "Controllability": 920.0
     },
-    "Process Variable Weights": {
-        "IGG": 100.0,
-        "VCC": 3.0,
-        "Viability": 3.0,
-        "Glutamate": 3.0,
-        "Ammonium": 3.0
-    },
+    "Process Variable Weights": [
+        100.0,
+        3.0,
+        3.0,
+        3.0,
+        3.0
+    ],
     "Training Batches": [
         "AR25-050-001",
         "AR25-050-003",

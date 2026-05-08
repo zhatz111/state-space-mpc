@@ -46,7 +46,6 @@ class ModelTraining:
         num_days: int,
         scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
         partitions_data: dict = {},
-        train_partition: int = 0,
         algorithm: str = "basinhopping",
     ):
         """
@@ -84,7 +83,10 @@ class ModelTraining:
         self.inputs = inputs
         self.num_days = num_days
         self.scaler = scaler
-        self.pv_wghts = pv_wghts
+        if isinstance(pv_wghts, dict):
+            self.pv_wghts = [pv_wghts[s] for s in self.states]
+        else:
+            self.pv_wghts = list(pv_wghts)
         self.instability_weights = instability_weights
         self.state_len = len(states)
         self.input_len = len(inputs)
@@ -105,7 +107,6 @@ class ModelTraining:
 
         if self.partitions:
             self.partitions_data = partitions_data
-            self.train_partition = train_partition
 
             self.full_train = self.train_data.copy()
             self.full_test = self.test_data.copy()
@@ -113,27 +114,8 @@ class ModelTraining:
             self.a_matrices = self.a_matrix
             self.b_matrices = self.b_matrix
 
-            self.a_matrix = self.a_matrix[self.train_partition]
-            self.b_matrix = self.b_matrix[self.train_partition]
-
-            part_start_idx = self.partitions_data["start_idx"][self.train_partition]
-            part_end_idx = self.partitions_data["end_idx"][self.train_partition]
-            # self.min_group_len = self.train_data.groupby("Batch").size().min()
-            # self.max_group_len = self.train_data.groupby("Batch").size().max()
-
-            if self.partitions_data["num_partitions"] > 1:
-                self.train_data = (
-                    train_data.groupby("Batch", group_keys=True)
-                    .apply(lambda g: g.iloc[part_start_idx:part_end_idx])
-                    .reset_index(drop=False)
-                    .drop("level_1", axis=1)
-                )
-                self.test_data = (
-                    test_data.groupby("Batch", group_keys=True)
-                    .apply(lambda g: g.iloc[part_start_idx:part_end_idx])
-                    .reset_index(drop=False)
-                    .drop("level_1", axis=1)
-                )
+            self.a_matrix = self.a_matrices[0]
+            self.b_matrix = self.b_matrices[0]
 
         # store training error data
         self.iters = 0
@@ -217,8 +199,8 @@ class ModelTraining:
                 n_p = self.partitions_data["num_partitions"]
                 self.a_matrices = np.random.random((n_p, self.state_len, self.state_len))
                 self.b_matrices = np.random.random((n_p, self.state_len, self.input_len))
-                self.a_matrix = self.a_matrices[self.train_partition]
-                self.b_matrix = self.b_matrices[self.train_partition]
+                self.a_matrix = self.a_matrices[0]
+                self.b_matrix = self.b_matrices[0]
             else:
                 self.a_matrix = np.random.random([self.state_len, self.state_len])
                 self.b_matrix = np.random.random([self.state_len, self.input_len])
@@ -308,10 +290,8 @@ class ModelTraining:
                 self.b_matrices[i] = opt_matrix[offset + a_size : offset + ab_size].reshape(
                     self.state_len, self.input_len
                 )
-            # Keep a_matrix / b_matrix pointing at the current partition for
-            # backwards-compatible access (e.g. generate_model.py single-partition save)
-            self.a_matrix = self.a_matrices[self.train_partition]
-            self.b_matrix = self.b_matrices[self.train_partition]
+            self.a_matrix = self.a_matrices[0]
+            self.b_matrix = self.b_matrices[0]
         else:
             self.a_matrix = opt_matrix[: (self.state_len**2)].reshape(
                 self.state_len, self.state_len
