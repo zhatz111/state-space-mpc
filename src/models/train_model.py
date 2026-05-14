@@ -575,6 +575,16 @@ class ModelTraining:
             # time = np.arange(0, len(u_matrix), 1)
             time = np.array(group["Day"])
 
+            # lsim requires equally spaced time steps; resample if raw data is irregular
+            dt = np.diff(time)
+            if len(dt) > 0 and not np.allclose(dt, dt[0]):
+                t_equal = np.linspace(time[0], time[-1], len(time))
+                u_matrix = np.column_stack([
+                    np.interp(t_equal, time, u_matrix[:, i])
+                    for i in range(u_matrix.shape[1])
+                ])
+                time = t_equal
+
             if self.partitions:
                 bioreactor_tvp = TimeVaryingStateSpace(
                     np.array(self.partitions_data["time_partitions"]),

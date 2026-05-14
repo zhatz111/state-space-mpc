@@ -31,7 +31,7 @@ from data.functions import (
 warnings.filterwarnings("ignore")
 
 
-EVALUATION_TYPE = "train"  # "train" or "evaluate"
+EVALUATION_TYPE = "evaluate"  # "train" or "evaluate"
 
 
 # Use this path for experiment folders in MPC teams site
@@ -84,7 +84,9 @@ def main():
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
 
-    is_partitioned = bool(partition_data and partition_data.get("num_partitions", 0) > 0)
+    is_partitioned = bool(
+        partition_data and partition_data.get("num_partitions", 0) > 0
+    )
 
     if is_partitioned:
         # If num_partitions changed, preserve existing matrices and randomly init any new ones
