@@ -144,9 +144,12 @@ class ModelData:
         Upsample batch time series with signal-type-aware interpolation.
 
         Args:
-            upsample_cols (list): Columns to smooth with splines.
-            n_points (int): Output points per batch.
-            smoothing (float): Smoothing factor for UnivariateSpline.
+            n_points (int | None): Output points per batch. Pass None to skip
+                upsampling entirely and return the raw interpolated data as-is
+                (old training method).
+            bolus_tau (float | None): Exponential decay constant for "bolus"
+                columns. Pass None to fall back to linear interpolation for
+                bolus columns (old training method, no decay applied).
             col_types (dict): Override interpolation per column.
                 "zoh"    — zero-order hold (setpoints, step signals)
                 "bolus"  — impulse events (feeds, additions)
@@ -157,6 +160,14 @@ class ModelData:
         Returns:
             pd.DataFrame with upsampled data per batch.
         """
+
+        if n_points is None:
+            df = self.interpolation()
+            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            df[numeric_cols] = df.groupby(self.group)[numeric_cols].transform(
+                lambda x: x.ffill().bfill()
+            )
+            return df
 
         df_interpolated = self.interpolation()
         grouped = df_interpolated.groupby("Batch")
@@ -210,12 +221,15 @@ class ModelData:
                     upsampled[col] = zoh(t_fine)
 
                 elif signal_type == "bolus":
-                    result = np.zeros(len(t_fine))
-                    for t_b, v in zip(t_original, values):
-                        if v > 0:
-                            mask = t_fine >= t_b
-                            result[mask] += v * np.exp(-bolus_tau * (t_fine[mask] - t_b))
-                    upsampled[col] = result
+                    if bolus_tau is None:
+                        upsampled[col] = np.interp(t_fine, t_original, values)
+                    else:
+                        result = np.zeros(len(t_fine))
+                        for t_b, v in zip(t_original, values):
+                            if v > 0:
+                                mask = t_fine >= t_b
+                                result[mask] += v * np.exp(-bolus_tau * (t_fine[mask] - t_b))
+                        upsampled[col] = result
 
                 elif signal_type == "linear":
                     upsampled[col] = np.interp(t_fine, t_original, values)

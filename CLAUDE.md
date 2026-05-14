@@ -80,12 +80,15 @@ state-space-model/
 
 1. **Raw data**: CSV with columns mapped by YAML config → `ModelData`
 2. **Preprocessing** (`ModelData.clean()`):
-   - Interpolate missing values within each batch
-   - Upsample to `n_points` per batch using signal-type-aware splines:
+   - Interpolate missing values within each batch (linear interpolation between known values;
+     ffill+bfill handles any leading/trailing NaN at batch edges)
+   - If `Spline Points` is non-null: upsample to `n_points` per batch using signal-type-aware splines:
      - `"smooth"`: Savitzky-Golay filter + PCHIP
      - `"zoh"`: zero-order hold (setpoints)
-     - `"bolus"`: exponential decay — `v · exp(-τ · (t − t_bolus))` (see below)
+     - `"bolus"`: exponential decay — `v · exp(-τ · (t − t_bolus))` if `Bolus Decay Tau` is non-null,
+       else linear interpolation
      - `"linear"`: linear interpolation
+   - If `Spline Points` is `null`: skip upsampling entirely — raw interpolated data is used as-is
    - `GroupShuffleSplit` by batch → train/test split
    - `MinMaxScaler` fit on training data, applied to both sets
 3. **Output**: scaled DataFrames with columns `[Batch, Day, *states, *inputs]`
@@ -227,9 +230,61 @@ This is **dynamic**: works with any `num_partitions` value in the JSON config.
 | `Current Training Partition` | Index into `a_matrix`/`b_matrix` list to train |
 | `Process Variable Weights` | Loss weights per state (e.g., IGG weight=30, others=3.5) |
 | `Instability Weights` | Penalty weights: `Eigenvalue`, `B-matrix Authority`, `B-matrix Condition`, `Controllability` |
-| `Spline Points` | How many upsampled time points per batch (e.g., 30) |
-| `Bolus Decay Tau` | Exponential decay time constant (days) for bolus feed input (default 1.0) |
+| `Spline Points` | How many upsampled time points per batch (e.g., 30). Set to `null` to skip upsampling entirely |
+| `Bolus Decay Tau` | Exponential decay τ (days) for bolus feed input. Set to `null` to use linear interpolation instead |
 | `BasinHopping Temperature` | Exploration parameter for global optimizer |
+
+### Reverting to the old (no-processing) training method
+
+Set both of the following in the model JSON:
+
+```json
+"Spline Points": null,
+"Bolus Decay Tau": null
+```
+
+| `Spline Points` | `Bolus Decay Tau` | Behavior |
+|---|---|---|
+| `null` | `null` | Raw interpolated data, no upsampling — old training method |
+| `14` | `null` | Upsampled to 14 pts/batch, bolus uses linear interp (no decay) |
+| `14` | `1.0` | Full processing — upsampled + exponential bolus decay |
+| `null` | `1.0` | Raw data (bolus_tau is ignored since there is no upsampling) |
+
+---
+
+## Bug Fixes (2026-05-14)
+
+### `num_partitions: 0` partition detection
+
+A non-empty Python dict (e.g. `{"num_partitions": 0, "time_partitions": []}`) evaluates as
+truthy, so the original `if partition_data:` check incorrectly entered the partitioned code path
+for models with `num_partitions: 0`. This caused `generate_model.py` to build a `(0, n, n)`
+zero-length matrix array, and `ModelTraining.__init__` then crashed with
+`IndexError: index 0 is out of bounds` when accessing `self.a_matrices[0]`.
+
+**Fix**: replaced all three `if partition_data:` / `if not partition_data:` guards in
+`generate_model.py` with:
+
+```python
+is_partitioned = bool(partition_data and partition_data.get("num_partitions", 0) > 0)
+```
+
+`ModelTraining` now receives `partitions_data=None` (not the raw dict) when the model is
+non-partitioned, and its default changed from `{}` to `None`. For non-partitioned models, the
+stored `a_matrix` (which may be 3-D from a prior partitioned training run) is automatically
+squeezed to `(n_states, n_states)` by extracting `a_matrix[0]`.
+
+### `signal.lsim` equally-spaced time requirement
+
+`scipy.signal.lsim` requires equally spaced time steps. The upsampled path guaranteed this
+via `np.linspace`. When `Spline Points: null` is set and raw measurement data is passed through,
+real bioreactor sampling days are typically irregular (e.g. days 0, 1, 3, 5, 7, 10, 14).
+
+**Fix**: in `objective_func` (non-partitioned path in `train_model.py`), after extracting
+`time = np.array(group["Day"])`, the code checks `np.allclose(np.diff(time), np.diff(time)[0])`.
+If the spacing is irregular, `u`, `y`, and `time` are all resampled to a `np.linspace` grid of
+the same number of points before calling `lsim`. The partitioned path (`simulate_tv_zoh`) does
+not have this requirement and is unaffected.
 
 ---
 

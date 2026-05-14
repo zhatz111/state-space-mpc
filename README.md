@@ -75,9 +75,11 @@ state-space-model/
 
 ## Data flow
 
-1. **Raw CSV** → `ModelData` (interpolation, spline upsampling at `Spline Points` resolution, train/test split, MinMaxScaler fit on training set).
-2. **Upsampled scaled data** → `ModelTraining` → basin-hopping → optimized A/B matrices.
+1. **Raw CSV** → `ModelData` (interpolation, optional spline upsampling at `Spline Points` resolution, train/test split, MinMaxScaler fit on training set).
+2. **Scaled data** → `ModelTraining` → basin-hopping → optimized A/B matrices.
 3. **JSON** updated with new matrices, RMSE, and a timestamped backup written to `Matrices/`.
+
+Set `"Spline Points": null` and `"Bolus Decay Tau": null` in the model JSON to skip all upsampling and bolus decay processing and train directly on raw interpolated data.
 
 ### Signal-type-aware upsampling
 
@@ -145,7 +147,8 @@ select model folder (InquirerPy)
 | `Process Variable Weights` | Dict keyed by state name: `{"IGG": 100.0, "VCC": 3.0, …}` |
 | `Instability Weights` | Dict: `Eigenvalue`, `B-matrix Authority`, `B-matrix Condition`, `Controllability` |
 | `Bolus Decay Tau` | Exponential decay time constant τ in days (default 1.0) |
-| `Spline Points` | Upsampled points per batch during training |
+| `Spline Points` | Upsampled points per batch during training. Set to `null` to skip upsampling |
+| `Bolus Decay Tau` | Exponential decay τ (days) for bolus input. Set to `null` to use linear interp |
 | `BasinHopping Temperature` | Global optimizer exploration parameter |
 
 ---
@@ -219,6 +222,11 @@ uv run python generate_model.py
 ---
 
 ## Changelog
+
+### 2026-05-14
+- **Null training mode**: `Spline Points: null` and `Bolus Decay Tau: null` in model JSON now skip upsampling and bolus decay respectively, reverting to raw interpolated data for training. Useful for comparing model accuracy against the pre-processing baseline. Leading/trailing NaN at batch edges are handled with ffill+bfill so the scaler does not fail on raw data.
+- **Bug fix — partition detection**: `{"num_partitions": 0}` is a truthy Python dict, causing the partitioned code path to run for time-invariant models and crash with `IndexError`. Fixed by checking `partition_data.get("num_partitions", 0) > 0` in `generate_model.py`. Non-partitioned models now correctly extract a 2-D `(n_states, n_states)` matrix even if the JSON stores a 3-D array from a prior partitioned training run.
+- **Bug fix — lsim equally spaced time**: `scipy.signal.lsim` requires uniform time steps. When training on raw data (irregular measurement intervals), the objective function now resamples `u`, `y`, and `time` to a `np.linspace` grid of equal length before calling `lsim`.
 
 ### 2026-05-08
 - `Process Variable Weights` in model JSON and training code changed from an ordered list to a named dict (`{"IGG": 100.0, "VCC": 3.0, …}`) for readability and to prevent silent ordering bugs.

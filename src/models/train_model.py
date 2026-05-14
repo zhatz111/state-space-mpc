@@ -45,7 +45,7 @@ class ModelTraining:
         instability_weights: dict,
         num_days: int,
         scaler: Union[MinMaxScaler, StandardScaler, RobustScaler],
-        partitions_data: dict = {},
+        partitions_data: dict = None,
         algorithm: str = "basinhopping",
     ):
         """
@@ -400,6 +400,20 @@ class ModelTraining:
                 objfunc_u = np.array(group.filter(self.inputs))
                 objfunc_y = np.array(group.filter(self.states))
                 time = np.array(group["Day"])
+
+                # lsim requires equally spaced time steps; resample if raw data is irregular
+                dt = np.diff(time)
+                if len(dt) > 0 and not np.allclose(dt, dt[0]):
+                    t_equal = np.linspace(time[0], time[-1], len(time))
+                    objfunc_u = np.column_stack([
+                        np.interp(t_equal, time, objfunc_u[:, i])
+                        for i in range(objfunc_u.shape[1])
+                    ])
+                    objfunc_y = np.column_stack([
+                        np.interp(t_equal, time, objfunc_y[:, i])
+                        for i in range(objfunc_y.shape[1])
+                    ])
+                    time = t_equal
 
                 state = signal.StateSpace(a_matrix, b_matrix, self.c_matrix, self.d_matrix)
                 _, objfunc_yout, _ = signal.lsim(

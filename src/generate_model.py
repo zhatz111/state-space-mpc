@@ -31,7 +31,7 @@ from data.functions import (
 warnings.filterwarnings("ignore")
 
 
-EVALUATION_TYPE = "evaluate"  # "train" or "evaluate"
+EVALUATION_TYPE = "train"  # "train" or "evaluate"
 
 
 # Use this path for experiment folders in MPC teams site
@@ -84,8 +84,10 @@ def main():
     a_matrix = np.array(model_config["a_matrix"])
     b_matrix = np.array(model_config["b_matrix"])
 
-    # If num_partitions changed, preserve existing matrices and randomly init any new ones
-    if partition_data:
+    is_partitioned = bool(partition_data and partition_data.get("num_partitions", 0) > 0)
+
+    if is_partitioned:
+        # If num_partitions changed, preserve existing matrices and randomly init any new ones
         n_p = partition_data["num_partitions"]
         n_states = len(model_config["Model States"])
         n_inputs = len(model_config["Model Inputs"])
@@ -99,6 +101,12 @@ def main():
             print(
                 f"num_partitions changed to {n_p}. Preserved {n_keep} existing matrices; new partitions randomly initialized."
             )
+    else:
+        # Non-partitioned: JSON may store a_matrix as [[5x5], ...] — extract first matrix
+        if a_matrix.ndim == 3:
+            a_matrix = a_matrix[0]
+        if b_matrix.ndim == 3:
+            b_matrix = b_matrix[0]
 
     data = pd.read_csv(
         Path(PATH_DIRECTORY, f"{model_config['Modeling Data File Name']}.csv")
@@ -126,7 +134,7 @@ def main():
         random_state=model_config["Random Seed"],
         win_len=model_config["Window Length"],
         n_points=model_config["Spline Points"],
-        bolus_tau=model_config.get("Bolus Decay Tau", 1.0),
+        bolus_tau=model_config.get("Bolus Decay Tau"),
     )
 
     # dataframe.graph_train_data(test_label="IGG")
@@ -145,7 +153,7 @@ def main():
         instability_weights=model_config["Instability Weights"],
         num_days=model_config["Process Time"],
         scaler=scaler_train,
-        partitions_data=partition_data,
+        partitions_data=partition_data if is_partitioned else None,
         algorithm="basinhopping",
     )
     time = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
@@ -176,7 +184,7 @@ def main():
         )
 
     # Update the model config file
-    if not partition_data:
+    if not is_partitioned:
         model_config["a_matrix"] = [model_train_obj.a_matrix.tolist()]
         model_config["b_matrix"] = [model_train_obj.b_matrix.tolist()]
     else:
